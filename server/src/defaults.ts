@@ -62,7 +62,9 @@ export function defaultData(): DashboardData {
         { id: "b1", name: "주거비", amount: 0 },
         { id: "b2", name: "생활비", amount: 0 },
         { id: "b3", name: "기타", amount: 0 }
-      ]
+      ],
+      pensionAnnualContribution: 900,
+      pensionTaxCreditRate: 16.5
     }
   };
 }

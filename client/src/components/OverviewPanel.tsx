@@ -2,12 +2,14 @@ import { useState } from "react";
 import type { AssetRow, BudgetData, HistoryEntry, LoanInput, StrategyData } from "../types";
 import { computeCurrentReturn, computeHousingLiquid, computeLoanEquity, computeTotals, fmtWon } from "../utils";
 import BudgetBreakdown from "./BudgetBreakdown";
+import MoneyInput from "./MoneyInput";
 
 interface Props {
   rows: AssetRow[];
   strategy: StrategyData;
   onStrategyChange: (strategy: StrategyData) => void;
   budget: BudgetData;
+  onBudgetChange: (budget: BudgetData) => void;
   loan: LoanInput;
   history: HistoryEntry[];
 }
@@ -33,7 +35,7 @@ function daysUntil(dateStr: string): number | null {
   return Math.ceil((target.getTime() - today.getTime()) / 86400000);
 }
 
-export default function OverviewPanel({ rows, strategy, onStrategyChange, budget, loan, history }: Props) {
+export default function OverviewPanel({ rows, strategy, onStrategyChange, budget, onBudgetChange, loan, history }: Props) {
   const t = computeTotals(rows);
   const dday = daysUntil(strategy.isaDutyEndDate);
   const currentReturn = computeCurrentReturn(rows, history);
@@ -48,7 +50,29 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
   const equityNeeded = computeLoanEquity(loan);
   const housingProgress = equityNeeded > 0 ? Math.min(100, Math.round((housingLiquid / equityNeeded) * 100)) : 0;
   const housingRemaining = equityNeeded - housingLiquid;
-  const yearsToGoal = housingRemaining > 0 && savings > 0 ? housingRemaining / (savings * 12) : null;
+
+  const { pensionAnnualContribution, pensionTaxCreditRate } = budget;
+  const pensionMonthly = pensionAnnualContribution / 12;
+  const taxRefundMonthly = (pensionAnnualContribution * (pensionTaxCreditRate || 0)) / 100 / 12;
+  const houseMonthlyNoPension = savings;
+  const houseMonthlyWithPension = savings - pensionMonthly + taxRefundMonthly;
+
+  const yearsToGoalNoPension =
+    housingRemaining > 0 && houseMonthlyNoPension > 0 ? housingRemaining / (houseMonthlyNoPension * 12) : null;
+  const yearsToGoalWithPension =
+    housingRemaining > 0 && houseMonthlyWithPension > 0 ? housingRemaining / (houseMonthlyWithPension * 12) : null;
+  const yearsToGoal = pensionAnnualContribution > 0 ? yearsToGoalWithPension : yearsToGoalNoPension;
+  const pensionDelayYears =
+    yearsToGoalWithPension !== null && yearsToGoalNoPension !== null
+      ? yearsToGoalWithPension - yearsToGoalNoPension
+      : null;
+
+  function setPensionContribution(v: number) {
+    onBudgetChange({ ...budget, pensionAnnualContribution: v });
+  }
+  function setPensionTaxCreditRate(v: number) {
+    onBudgetChange({ ...budget, pensionTaxCreditRate: v });
+  }
 
   function saveSummary() {
     const lines = draft.split("\n").map((l) => l.trim()).filter(Boolean);
@@ -173,12 +197,60 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
           {housingRemaining > 0 && yearsToGoal !== null && (
             <>
               {" "}
-              지금 월 저축액({fmtWon(savings)}원)을 그대로 유지하면 약{" "}
+              연금 납입 계획을 반영하면 약{" "}
               <strong style={{ color: "var(--ink)" }}>{formatYearsMonths(yearsToGoal)}</strong> 후 달성할 수 있어.
             </>
           )}
           {housingRemaining > 0 && yearsToGoal === null && " 월급·예산 탭에서 저축 가능액을 입력하면 예상 달성 시기도 볼 수 있어."}
         </p>
+
+        <div
+          style={{
+            marginTop: 14,
+            paddingTop: 14,
+            borderTop: "1px solid var(--line)",
+          }}
+        >
+          <div className="field-row">
+            <div className="field">
+              <label>연금저축·IRP 연간 납입액 (원)</label>
+              <MoneyInput value={pensionAnnualContribution} onChange={setPensionContribution} />
+            </div>
+            <div className="field">
+              <label>세액공제율 (%)</label>
+              <select
+                value={pensionTaxCreditRate}
+                onChange={(e) => setPensionTaxCreditRate(parseFloat(e.target.value))}
+              >
+                <option value={16.5}>16.5% (총급여 5,500만원 이하)</option>
+                <option value={13.2}>13.2% (총급여 5,500만원 초과)</option>
+              </select>
+            </div>
+          </div>
+
+          {housingRemaining > 0 && (
+            <p className="note" style={{ marginTop: 10 }}>
+              {yearsToGoalNoPension !== null && (
+                <>
+                  연금 납입 없이 전액 집 마련에 모으면 약{" "}
+                  <strong style={{ color: "var(--ink)" }}>{formatYearsMonths(yearsToGoalNoPension)}</strong> 후 달성.
+                </>
+              )}
+              {pensionAnnualContribution > 0 && yearsToGoalWithPension !== null && (
+                <>
+                  {" "}
+                  세액공제 환급금({fmtWon(pensionAnnualContribution * (pensionTaxCreditRate || 0) / 100)}원/년)을
+                  재투자해도 연금 {fmtWon(pensionAnnualContribution)}원/년을 납입하면 약{" "}
+                  <strong style={{ color: "var(--ink)" }}>{formatYearsMonths(yearsToGoalWithPension)}</strong> 후 달성이라,{" "}
+                  {pensionDelayYears !== null && pensionDelayYears > 0 && (
+                    <strong style={{ color: "var(--risk)" }}>{formatYearsMonths(pensionDelayYears)} 더 늦게</strong>
+                  )}
+                  {pensionDelayYears !== null && pensionDelayYears <= 0 && "달성 시기 차이는 거의 없어"} 도달해.
+                </>
+              )}
+            </p>
+          )}
+        </div>
       </div>
 
       <h2 className="section-title">

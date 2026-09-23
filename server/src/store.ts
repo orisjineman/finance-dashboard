@@ -22,7 +22,12 @@ export async function readData(): Promise<DashboardData> {
   const raw = await fs.readFile(DATA_FILE, "utf-8");
   const parsed = JSON.parse(raw) as Partial<DashboardData>;
   // Backfill fields introduced after this file was first created.
-  const merged: DashboardData = { ...defaultData(), ...parsed };
+  const defaults = defaultData();
+  const merged: DashboardData = {
+    ...defaults,
+    ...parsed,
+    budget: { ...defaults.budget, ...(parsed.budget ?? {}) },
+  };
   return merged;
 }
 

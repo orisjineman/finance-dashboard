@@ -201,6 +201,7 @@ export default function App() {
             strategy={data.strategy}
             onStrategyChange={updateStrategy}
             budget={data.budget}
+            onBudgetChange={updateBudget}
             loan={data.loan}
             history={data.history}
           />

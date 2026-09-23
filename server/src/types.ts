@@ -86,6 +86,8 @@ export interface BudgetData {
   monthlyNetIncome: number; // 만원, 월 실수령액
   annualRaisePct: number; // %, 예상 연간 월급 상승률
   expenseCategories: BudgetCategory[];
+  pensionAnnualContribution: number; // 만원, 연금저축+IRP 연간 납입 계획액
+  pensionTaxCreditRate: number; // %, 세액공제율 (13.2 또는 16.5)
 }
 
 export interface DashboardData {

@@ -86,6 +86,8 @@ export interface BudgetData {
   monthlyNetIncome: number; // 만원
   annualRaisePct: number; // %
   expenseCategories: BudgetCategory[];
+  pensionAnnualContribution: number; // 만원, 연금저축+IRP 연간 납입 계획액
+  pensionTaxCreditRate: number; // %, 세액공제율 (13.2 또는 16.5)
 }
 
 export interface DashboardData {

@@ -1,0 +1,22 @@
+# 개인 재무 데이터 및 초기 전달 자료 (절대 커밋하지 않음)
+/data/
+/reference/
+/handoff.md
+
+# dependencies
+node_modules/
+
+# build output
+client/dist/
+server/dist/
+
+# logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+
+# editor
+.vscode/
+.idea/

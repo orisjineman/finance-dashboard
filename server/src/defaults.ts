@@ -1,0 +1,57 @@
+import type { DashboardData } from "./types.js";
+
+export function defaultData(): DashboardData {
+  return {
+    rows: [
+      { id: "r1", name: "ISA · 위험자산(S&P500)", category: "risk", amount: 0 },
+      { id: "r2", name: "ISA · 안전자산(채권·금·달러)", category: "safe", amount: 0 },
+      { id: "r3", name: "CMA · 내 집 계약금(사다리)", category: "cash", amount: 0 },
+      { id: "r4", name: "연금저축펀드", category: "risk", amount: 0 },
+      { id: "r5", name: "IRP", category: "safe", amount: 0 },
+      { id: "r6", name: "주택청약종합저축", category: "cash", amount: 0 },
+      { id: "r7", name: "기타 현금성 자산", category: "cash", amount: 0 }
+    ],
+    simulation: {
+      annualContribution: 0,
+      years: 10,
+      riskRate: 8,
+      safeRate: 3.2,
+      contributionRiskRatio: 50
+    },
+    loan: {
+      price: 0,
+      ltvPct: 70,
+      ratePct: 4.2,
+      termYears: 30
+    },
+    checklist: [
+      { id: "c1", text: "매달: 정기 적립 항목 납입하기", done: false },
+      { id: "c2", text: "안전자산 만기 도래 시 재투자 (만기는 항상 의무기간 이전으로)", done: false },
+      { id: "c3", text: "연말: 연금저축·IRP 등 세액공제 납입 한도 확인", done: false },
+      { id: "c4", text: "목표 시점이 가까워지면 → 위험자산 비중 축소 시작", done: false },
+      { id: "c5", text: "만기 사다리 재구성 실행", done: false },
+      { id: "c6", text: "청약저축 등 제도 변경 여부 검토", done: false },
+      { id: "c7", text: "연말정산 시 세액공제 한도 실제 채웠는지 확인", done: false }
+    ],
+    strategy: {
+      isaDutyEndDate: "",
+      overviewSummary: ["여기에 나만의 요약 메모를 적어보세요 (개요 편집에서 수정 가능)"],
+      isaPortfolio: {
+        riskPct: 50,
+        safePct: 50,
+        riskProduct: "예: S&P500 ETF로 통일, 매년 적립식 매수",
+        safeProduct: "예: 국고채·은행채 + 금 ETF + 단기국채 ETF",
+        dutyNote: "의무가입기간과 적립 계획을 여기에 적어보세요"
+      },
+      cmaLadder: {
+        rungs: [],
+        note: ""
+      },
+      glidePath: [
+        { id: "g1", horizon: "5년 이상", riskPct: "50%" },
+        { id: "g2", horizon: "2~3년", riskPct: "35~40%" },
+        { id: "g3", horizon: "1년 이내", riskPct: "10~20%" }
+      ]
+    }
+  };
+}

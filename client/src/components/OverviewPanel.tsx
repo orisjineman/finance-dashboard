@@ -11,6 +11,18 @@ interface Props {
   loan: LoanInput;
 }
 
+function formatYearsMonths(years: number): string {
+  let y = Math.floor(years);
+  let m = Math.round((years - y) * 12);
+  if (m === 12) {
+    m = 0;
+    y += 1;
+  }
+  if (y === 0) return `${m}개월`;
+  if (m === 0) return `${y}년`;
+  return `${y}년 ${m}개월`;
+}
+
 function daysUntil(dateStr: string): number | null {
   if (!dateStr) return null;
   const target = new Date(`${dateStr}T00:00:00`);
@@ -34,6 +46,7 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
   const equityNeeded = computeLoanEquity(loan);
   const housingProgress = equityNeeded > 0 ? Math.min(100, Math.round((housingLiquid / equityNeeded) * 100)) : 0;
   const housingRemaining = equityNeeded - housingLiquid;
+  const yearsToGoal = housingRemaining > 0 && savings > 0 ? housingRemaining / (savings * 12) : null;
 
   function saveSummary() {
     const lines = draft.split("\n").map((l) => l.trim()).filter(Boolean);
@@ -142,6 +155,14 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
           {housingRemaining > 0
             ? `연금저축·IRP를 뺀 가용자산 기준으로 ${fmtWon(housingRemaining)}원을 더 모아야 해 (달성률 ${housingProgress}%).`
             : "가용자산이 필요 자기자금을 이미 넘었어."}
+          {housingRemaining > 0 && yearsToGoal !== null && (
+            <>
+              {" "}
+              지금 월 저축액({fmtWon(savings)}원)을 그대로 유지하면 약{" "}
+              <strong style={{ color: "var(--ink)" }}>{formatYearsMonths(yearsToGoal)}</strong> 후 달성할 수 있어.
+            </>
+          )}
+          {housingRemaining > 0 && yearsToGoal === null && " 월급·예산 탭에서 저축 가능액을 입력하면 예상 달성 시기도 볼 수 있어."}
         </p>
       </div>
 

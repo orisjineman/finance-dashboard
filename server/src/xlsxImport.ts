@@ -1,9 +1,10 @@
 import * as XLSX from "xlsx";
 import type { AssetCategory, AssetRow } from "./types.js";
 
-const NAME_HEADERS = ["항목", "계좌", "이름", "종목", "구분", "계좌/항목"];
+const ITEM_HEADERS = ["종목명", "종목", "항목", "이름"];
+const ACCOUNT_HEADERS = ["계좌종류", "계좌", "금융사"];
 const AMOUNT_HEADERS = ["잔액", "금액", "평가금액", "잔고", "만원", "amount", "평가액"];
-const CATEGORY_HEADERS = ["분류", "카테고리", "위험/안전", "위험\\안전"];
+const CATEGORY_HEADERS = ["분류", "카테고리", "자산유형", "위험/안전", "위험\\안전"];
 
 export interface ImportPreviewRow extends AssetRow {
   sheet: string;
@@ -26,8 +27,16 @@ function findColumn(header: string[], candidates: string[]): number {
   return -1;
 }
 
-function classifyCategory(nameCell: string, categoryCell: string | null): AssetCategory {
-  const text = `${categoryCell ?? ""} ${nameCell}`.toLowerCase();
+function findAllColumns(header: string[], candidates: string[]): number[] {
+  const found: number[] = [];
+  header.forEach((h, i) => {
+    if (candidates.some((c) => h.includes(c.toLowerCase()))) found.push(i);
+  });
+  return found;
+}
+
+function classifyCategory(itemCell: string, accountCell: string, categoryCell: string | null): AssetCategory {
+  const text = `${categoryCell ?? ""} ${accountCell} ${itemCell}`.toLowerCase();
   if (text.includes("위험") || text.includes("risk") || text.includes("s&p") || text.includes("주식") || text.includes("펀드")) {
     return "risk";
   }
@@ -67,19 +76,21 @@ export function parseWorkbook(buffer: Buffer): ImportPreview {
     if (grid.length === 0) continue;
 
     let headerRowIdx = -1;
-    let nameCol = -1;
+    let itemCol = -1;
     let amountCol = -1;
     let categoryCol = -1;
+    let accountCols: number[] = [];
 
     for (let r = 0; r < Math.min(grid.length, 5); r++) {
       const header = (grid[r] as unknown[]).map(normalizeHeader);
-      const nc = findColumn(header, NAME_HEADERS);
+      const ic = findColumn(header, ITEM_HEADERS);
       const ac = findColumn(header, AMOUNT_HEADERS);
-      if (nc !== -1 && ac !== -1) {
+      if (ic !== -1 && ac !== -1) {
         headerRowIdx = r;
-        nameCol = nc;
+        itemCol = ic;
         amountCol = ac;
         categoryCol = findColumn(header, CATEGORY_HEADERS);
+        accountCols = findAllColumns(header, ACCOUNT_HEADERS);
         break;
       }
     }
@@ -89,15 +100,20 @@ export function parseWorkbook(buffer: Buffer): ImportPreview {
 
     for (let r = headerRowIdx + 1; r < grid.length; r++) {
       const row = grid[r] as unknown[];
-      const name = row[nameCol];
+      const item = row[itemCol];
       const amount = parseAmount(row[amountCol]);
-      if (!name || amount === null) continue;
-      const nameStr = String(name).trim();
+      if (!item || amount === null) continue;
+      const itemStr = String(item).trim();
+      const accountStr = accountCols
+        .map((c) => String(row[c] ?? "").trim())
+        .filter(Boolean)
+        .join(" ");
       const categoryCell = categoryCol !== -1 ? String(row[categoryCol] ?? "").trim() : null;
       rows.push({
         id: `import-${sheetName}-${r}`,
-        name: nameStr,
-        category: classifyCategory(nameStr, categoryCell),
+        account: accountStr,
+        item: itemStr,
+        category: classifyCategory(itemStr, accountStr, categoryCell),
         amount,
         sheet: sheetName
       });

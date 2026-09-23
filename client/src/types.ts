@@ -2,7 +2,8 @@ export type AssetCategory = "risk" | "safe" | "cash";
 
 export interface AssetRow {
   id: string;
-  name: string;
+  account: string;
+  item: string;
   category: AssetCategory;
   amount: number; // 만원
 }
@@ -60,12 +61,26 @@ export interface StrategyData {
   glidePath: GlidePathRow[];
 }
 
+export interface HistoryEntry {
+  id: string;
+  date: string;
+  newContribution: number;
+  cumulativePrincipal: number;
+  totalValue: number;
+  riskValue: number;
+  safeValue: number;
+  cashValue: number;
+  profit: number;
+  returnRate: number;
+}
+
 export interface DashboardData {
   rows: AssetRow[];
   simulation: SimulationAssumptions;
   loan: LoanInput;
   checklist: ChecklistItem[];
   strategy: StrategyData;
+  history: HistoryEntry[];
 }
 
 export interface ImportPreviewRow extends AssetRow {

@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PID_FILE="$DIR/.finance-dashboard.pid"
+LOG_FILE="$DIR/.finance-dashboard.log"
+PORT=4300
+
+is_running() {
+  [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null
+}
+
+start() {
+  if is_running; then
+    echo "이미 실행 중이야 (PID $(cat "$PID_FILE")). http://localhost:$PORT"
+    return 0
+  fi
+  echo "빌드 중..."
+  (cd "$DIR" && npm run build)
+  echo "서버 시작 중..."
+  nohup node "$DIR/server/dist/index.js" > "$LOG_FILE" 2>&1 &
+  local pid=$!
+  echo "$pid" > "$PID_FILE"
+  sleep 1
+  if ! kill -0 "$pid" 2>/dev/null; then
+    echo "서버 시작 실패. 로그 확인: $LOG_FILE"
+    rm -f "$PID_FILE"
+    exit 1
+  fi
+  echo "재무 대시보드 실행됨: http://localhost:$PORT (PID $pid)"
+}
+
+stop() {
+  if is_running; then
+    kill "$(cat "$PID_FILE")"
+    rm -f "$PID_FILE"
+    echo "재무 대시보드 종료됨."
+  else
+    echo "실행 중인 프로세스를 찾지 못했어."
+    rm -f "$PID_FILE" 2>/dev/null || true
+  fi
+}
+
+status() {
+  if is_running; then
+    echo "실행 중 (PID $(cat "$PID_FILE")). http://localhost:$PORT"
+  else
+    echo "실행 중이 아님."
+  fi
+}
+
+case "${1:-}" in
+  start) start ;;
+  stop) stop ;;
+  restart) stop; start ;;
+  status) status ;;
+  *)
+    echo "사용법: finance-dashboard {start|stop|restart|status}"
+    exit 1
+    ;;
+esac

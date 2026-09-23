@@ -1,5 +1,6 @@
 import type { GlidePathRow, LadderRung, StrategyData } from "../types";
-import { fmt, newId } from "../utils";
+import { fmtWon, newId } from "../utils";
+import MoneyInput from "./MoneyInput";
 
 interface Props {
   strategy: StrategyData;
@@ -119,7 +120,7 @@ export default function IsaPanel({ strategy, onChange }: Props) {
       </div>
 
       <h2 className="section-title">
-        <span className="num">02</span> 만기 사다리 (합계 {fmt(ladderTotal)}만원)
+        <span className="num">02</span> 만기 사다리 (합계 {fmtWon(ladderTotal)}원)
       </h2>
       <div className="card">
         <div className="ladder">
@@ -131,12 +132,8 @@ export default function IsaPanel({ strategy, onChange }: Props) {
                   <input type="text" value={r.when} onChange={(e) => updateRung(i, { when: e.target.value })} />
                 </div>
                 <div className="field" style={{ marginBottom: 0 }}>
-                  <label>금액(만원)</label>
-                  <input
-                    type="number"
-                    value={r.amount}
-                    onChange={(e) => updateRung(i, { amount: parseFloat(e.target.value) || 0 })}
-                  />
+                  <label>금액(원)</label>
+                  <MoneyInput value={r.amount} onChange={(v) => updateRung(i, { amount: v })} />
                 </div>
                 <button className="btn ghost" style={{ padding: "9px 10px", fontSize: 12 }} onClick={() => removeRung(i)}>
                   삭제

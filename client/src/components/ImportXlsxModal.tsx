@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import type { AssetCategory, ImportPreview, ImportPreviewRow } from "../types";
 import { importXlsx } from "../api";
-import { fmt } from "../utils";
+import { fmtWon } from "../utils";
 
 interface Props {
   onClose: () => void;
@@ -73,9 +73,10 @@ export default function ImportXlsxModal({ onClose, onImport }: Props) {
               <thead>
                 <tr>
                   <th></th>
+                  <th>계좌</th>
                   <th>항목</th>
                   <th>분류</th>
-                  <th style={{ textAlign: "right" }}>금액(만원)</th>
+                  <th style={{ textAlign: "right" }}>금액(원)</th>
                 </tr>
               </thead>
               <tbody>
@@ -88,11 +89,12 @@ export default function ImportXlsxModal({ onClose, onImport }: Props) {
                         onChange={(e) => setSelected((s) => ({ ...s, [r.id]: e.target.checked }))}
                       />
                     </td>
-                    <td>{r.name}</td>
+                    <td>{r.account}</td>
+                    <td>{r.item}</td>
                     <td>
                       <span className={`tag ${r.category}`}>{catLabel[r.category]}</span>
                     </td>
-                    <td className="num">{fmt(r.amount)}</td>
+                    <td className="num">{fmtWon(r.amount)}</td>
                   </tr>
                 ))}
               </tbody>

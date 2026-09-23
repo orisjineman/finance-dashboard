@@ -14,6 +14,9 @@ server/dist/
 *.log
 npm-debug.log*
 
+# finance-dashboard CLI runtime state
+.finance-dashboard.pid
+
 # OS
 .DS_Store
 

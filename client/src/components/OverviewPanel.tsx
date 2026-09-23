@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { AssetRow, StrategyData } from "../types";
-import { computeTotals, fmt } from "../utils";
+import { computeTotals, fmtWon } from "../utils";
 
 interface Props {
   rows: AssetRow[];
@@ -38,8 +38,8 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange }: Prop
         <div className="stat">
           <div className="label">전체 자산 합계</div>
           <div className="value">
-            {fmt(t.total)}
-            <small> 만원</small>
+            {fmtWon(t.total)}
+            <small> 원</small>
           </div>
         </div>
         <div className="stat">
@@ -74,11 +74,11 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange }: Prop
           <div className="legend">
             <div className="row">
               <span className="swatch" style={{ background: "var(--risk)" }} />
-              위험자산 {fmt(t.risk)}만 ({t.riskPct}%)
+              위험자산 {fmtWon(t.risk)}원 ({t.riskPct}%)
             </div>
             <div className="row">
               <span className="swatch" style={{ background: "var(--safe)" }} />
-              안전자산 {fmt(t.safe)}만 ({t.safePct}%)
+              안전자산 {fmtWon(t.safe)}원 ({t.safePct}%)
             </div>
           </div>
         </div>

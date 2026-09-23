@@ -2,6 +2,7 @@ import type {
   AssetRow,
   ChecklistItem,
   DashboardData,
+  HistoryEntry,
   ImportPreview,
   LoanInput,
   SimulationAssumptions,
@@ -41,6 +42,10 @@ export function saveChecklist(items: ChecklistItem[]): Promise<ChecklistItem[]> 
 
 export function saveStrategy(strategy: StrategyData): Promise<StrategyData> {
   return request<StrategyData>("/api/strategy", { method: "PUT", body: JSON.stringify(strategy) });
+}
+
+export function saveHistory(history: HistoryEntry[]): Promise<HistoryEntry[]> {
+  return request<HistoryEntry[]>("/api/history", { method: "PUT", body: JSON.stringify(history) });
 }
 
 export async function importXlsx(file: File): Promise<ImportPreview> {

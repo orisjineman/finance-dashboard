@@ -29,6 +29,23 @@ export function fmt(n: number | undefined | null): string {
   return Math.round(n || 0).toLocaleString("ko-KR");
 }
 
+// 만원 단위 금액을 원 단위 콤마 문자열로 변환 (예: 3.7 -> "37,000")
+export function fmtWon(manwon: number | undefined | null): string {
+  return Math.round((manwon || 0) * 10000).toLocaleString("ko-KR");
+}
+
+// 원 단위 콤마 문자열/숫자 문자열을 만원 단위 숫자로 변환 (예: "37,000" -> 3.7)
+export function parseWonToManwon(text: string): number {
+  const digits = text.replace(/[^0-9-]/g, "");
+  if (!digits || digits === "-") return 0;
+  return parseInt(digits, 10) / 10000;
+}
+
+// 만원 단위 금액을 차트 라벨용 "억" 단위 축약 문자열로 변환 (예: 23808.6 -> "2.4억")
+export function fmtEok(manwon: number | undefined | null): string {
+  return `${Math.round(((manwon || 0) / 10000) * 10) / 10}억`;
+}
+
 export function newId(prefix: string): string {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 }

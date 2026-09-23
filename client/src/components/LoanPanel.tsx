@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import type { LoanInput } from "../types";
-import { fmt } from "../utils";
+import { fmtWon } from "../utils";
+import MoneyInput from "./MoneyInput";
 
 interface Props {
   loan: LoanInput;
@@ -36,8 +37,8 @@ export default function LoanPanel({ loan, onChange }: Props) {
       <div className="card">
         <div className="field-row">
           <div className="field">
-            <label>목표 집값 (만원)</label>
-            <input type="number" value={loan.price} onChange={(e) => set("price", parseFloat(e.target.value) || 0)} />
+            <label>목표 집값 (원)</label>
+            <MoneyInput value={loan.price} onChange={(v) => set("price", v)} />
           </div>
           <div className="field">
             <label>LTV (%)</label>
@@ -67,15 +68,15 @@ export default function LoanPanel({ loan, onChange }: Props) {
       <div className="card">
         <div className="result-line">
           <span className="k">대출 한도 (LTV 기준)</span>
-          <span className="v">{fmt(result.limit)}만원</span>
+          <span className="v">{fmtWon(result.limit)}원</span>
         </div>
         <div className="result-line">
           <span className="k">필요 자기자금</span>
-          <span className="v">{fmt(result.equity)}만원</span>
+          <span className="v">{fmtWon(result.equity)}원</span>
         </div>
         <div className="result-line total">
           <span className="k">월 상환액 (원리금균등)</span>
-          <span className="v">{fmt(result.monthly)}만원/월</span>
+          <span className="v">{fmtWon(result.monthly)}원/월</span>
         </div>
         <p className="note">LTV는 지역·규제·소득에 따라 실제 한도가 달라질 수 있어. DSR(총부채원리금상환비율) 규제로 한도가 더 줄어들 수도 있으니 실제 대출 전엔 은행 상담이 꼭 필요해.</p>
       </div>

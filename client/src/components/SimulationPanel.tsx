@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import type { AssetRow, SimulationAssumptions } from "../types";
-import { computeTotals, fmt } from "../utils";
+import { computeTotals, fmtEok, fmtWon } from "../utils";
+import MoneyInput from "./MoneyInput";
 
 interface Props {
   rows: AssetRow[];
@@ -55,17 +56,13 @@ export default function SimulationPanel({ rows, sim, onChange }: Props) {
       </h2>
       <div className="card">
         <div className="field">
-          <label>현재 총자산 (만원, 자동)</label>
-          <input type="number" value={t.total} readOnly />
+          <label>현재 총자산 (원, 자동)</label>
+          <MoneyInput value={t.total} readOnly />
         </div>
         <div className="field-row">
           <div className="field">
-            <label>연간 신규 적립액 (만원)</label>
-            <input
-              type="number"
-              value={sim.annualContribution}
-              onChange={(e) => set("annualContribution", parseFloat(e.target.value) || 0)}
-            />
+            <label>연간 신규 적립액 (원)</label>
+            <MoneyInput value={sim.annualContribution} onChange={(v) => set("annualContribution", v)} />
           </div>
           <div className="field">
             <label>시뮬레이션 기간 (년)</label>
@@ -109,7 +106,7 @@ export default function SimulationPanel({ rows, sim, onChange }: Props) {
         <div className="bars">
           {barRows.map((r) => (
             <div className="bar-col" key={r.year}>
-              <div className="bar-value">{Math.round((r.total / 1000) * 10) / 10}천</div>
+              <div className="bar-value">{fmtEok(r.total)}</div>
               <div className="bar" style={{ height: `${Math.max(4, Math.round((r.total / maxVal) * 140))}px` }} />
               <div className="bar-label">{r.year}y</div>
             </div>
@@ -127,8 +124,8 @@ export default function SimulationPanel({ rows, sim, onChange }: Props) {
             {results.map((r) => (
               <tr key={r.year}>
                 <td>{r.year}년차</td>
-                <td className="num">{fmt(r.total)}만</td>
-                <td className="num">{fmt(r.profit)}만</td>
+                <td className="num">{fmtWon(r.total)}원</td>
+                <td className="num">{fmtWon(r.profit)}원</td>
               </tr>
             ))}
           </tbody>

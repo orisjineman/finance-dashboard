@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { AssetRow, ChecklistItem, DashboardData, LoanInput, SimulationAssumptions, StrategyData } from "./types";
-import { fetchData, saveChecklist, saveLoan, saveRows, saveSimulation, saveStrategy } from "./api";
+import type { AssetRow, ChecklistItem, DashboardData, HistoryEntry, LoanInput, SimulationAssumptions, StrategyData } from "./types";
+import { fetchData, saveChecklist, saveHistory, saveLoan, saveRows, saveSimulation, saveStrategy } from "./api";
 import { debounce } from "./utils";
 import OverviewPanel from "./components/OverviewPanel";
 import SnapshotPanel from "./components/SnapshotPanel";
@@ -90,6 +90,14 @@ export default function App() {
       }, 400),
     []
   );
+  const debouncedSaveHistory = useMemo(
+    () =>
+      debounce((history: HistoryEntry[]) => {
+        setSaving(true);
+        saveHistory(history).finally(() => setSaving(false));
+      }, 400),
+    []
+  );
 
   const dataRef = useRef(data);
   dataRef.current = data;
@@ -118,6 +126,11 @@ export default function App() {
     if (!dataRef.current) return;
     setData({ ...dataRef.current, strategy });
     debouncedSaveStrategy(strategy);
+  }
+  function updateHistory(history: HistoryEntry[]) {
+    if (!dataRef.current) return;
+    setData({ ...dataRef.current, history });
+    debouncedSaveHistory(history);
   }
 
   if (error) {
@@ -170,7 +183,9 @@ export default function App() {
         {tab === "overview" && (
           <OverviewPanel rows={data.rows} strategy={data.strategy} onStrategyChange={updateStrategy} />
         )}
-        {tab === "snapshot" && <SnapshotPanel rows={data.rows} onChange={updateRows} />}
+        {tab === "snapshot" && (
+          <SnapshotPanel rows={data.rows} onChange={updateRows} history={data.history} onHistoryChange={updateHistory} />
+        )}
         {tab === "sim" && <SimulationPanel rows={data.rows} sim={data.simulation} onChange={updateSim} />}
         {tab === "isa" && <IsaPanel strategy={data.strategy} onChange={updateStrategy} />}
         {tab === "loan" && <LoanPanel loan={data.loan} onChange={updateLoan} />}

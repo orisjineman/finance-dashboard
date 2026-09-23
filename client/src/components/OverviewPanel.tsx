@@ -1,6 +1,6 @@
 import { useState } from "react";
-import type { AssetRow, BudgetData, LoanInput, StrategyData } from "../types";
-import { computeHousingLiquid, computeLoanEquity, computeTotals, fmtWon } from "../utils";
+import type { AssetRow, BudgetData, HistoryEntry, LoanInput, StrategyData } from "../types";
+import { computeCurrentReturn, computeHousingLiquid, computeLoanEquity, computeTotals, fmtWon } from "../utils";
 import BudgetBreakdown from "./BudgetBreakdown";
 
 interface Props {
@@ -9,6 +9,7 @@ interface Props {
   onStrategyChange: (strategy: StrategyData) => void;
   budget: BudgetData;
   loan: LoanInput;
+  history: HistoryEntry[];
 }
 
 function formatYearsMonths(years: number): string {
@@ -32,9 +33,10 @@ function daysUntil(dateStr: string): number | null {
   return Math.ceil((target.getTime() - today.getTime()) / 86400000);
 }
 
-export default function OverviewPanel({ rows, strategy, onStrategyChange, budget, loan }: Props) {
+export default function OverviewPanel({ rows, strategy, onStrategyChange, budget, loan, history }: Props) {
   const t = computeTotals(rows);
   const dday = daysUntil(strategy.isaDutyEndDate);
+  const currentReturn = computeCurrentReturn(rows, history);
   const [editingSummary, setEditingSummary] = useState(false);
   const [draft, setDraft] = useState(strategy.overviewSummary.join("\n"));
 
@@ -85,7 +87,20 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
             3~5<small>년</small>
           </div>
         </div>
+        <div className="stat">
+          <div className="label">투자원금 대비 수익률</div>
+          <div
+            className="value"
+            style={currentReturn ? { color: currentReturn.profit >= 0 ? "var(--safe)" : "var(--risk)" } : undefined}
+          >
+            {currentReturn ? `${(currentReturn.returnRate * 100).toFixed(1)}` : "-"}
+            {currentReturn && <small>%</small>}
+          </div>
+        </div>
       </div>
+      {!currentReturn && (
+        <p className="note">투자원금 대비 수익률은 자산 스냅샷 탭의 히스토리에서 첫 기록을 추가하면 계산돼.</p>
+      )}
 
       <h2 className="section-title">
         <span className="num">02</span> 위험 / 안전 비중

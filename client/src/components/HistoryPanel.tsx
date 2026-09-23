@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { AssetRow, HistoryEntry } from "../types";
-import { computeTotals, fmtEok, fmtWon, newId } from "../utils";
+import { computeCurrentReturn, computeTotals, fmtEok, fmtWon, newId } from "../utils";
 import MoneyInput from "./MoneyInput";
 
 interface Props {
@@ -24,6 +24,7 @@ export default function HistoryPanel({ rows, history, onChange }: Props) {
 
   const t = computeTotals(rows);
   const sorted = [...history].sort((a, b) => a.date.localeCompare(b.date));
+  const current = computeCurrentReturn(rows, history);
 
   function addEntry() {
     const prev = sorted[sorted.length - 1];
@@ -56,7 +57,36 @@ export default function HistoryPanel({ rows, history, onChange }: Props) {
   return (
     <>
       <h2 className="section-title">
-        <span className="num">02</span> 히스토리
+        <span className="num">02</span> 지금 투자원금 대비 수익률
+      </h2>
+      <div className="card">
+        {current ? (
+          <>
+            <div className="result-line">
+              <span className="k">누적 투자원금 (최근 기록 기준)</span>
+              <span className="v">{fmtWon(current.principal)}원</span>
+            </div>
+            <div className="result-line">
+              <span className="k">지금 평가금액</span>
+              <span className="v">{fmtWon(current.currentTotal)}원</span>
+            </div>
+            <div className="result-line total">
+              <span className="k">수익 / 수익률</span>
+              <span className="v" style={{ color: current.profit >= 0 ? "var(--safe)" : "var(--risk)" }}>
+                {fmtWon(current.profit)}원 ({pct(current.returnRate)})
+              </span>
+            </div>
+            <p className="note">
+              아래 히스토리에 새 기록을 추가할 때마다 투자원금이 갱신돼. 자산 스냅샷 잔액을 바꾸면 이 수익률도 실시간으로 따라 움직여.
+            </p>
+          </>
+        ) : (
+          <p className="note">아직 기록된 투자원금이 없어. 아래에서 첫 기록을 추가하면(신규 납입액 = 지금까지 실제로 넣은 돈 전체) 수익률이 계산돼.</p>
+        )}
+      </div>
+
+      <h2 className="section-title">
+        <span className="num">03</span> 히스토리
       </h2>
       <div className="card">
         <div className="field-row" style={{ alignItems: "end" }}>

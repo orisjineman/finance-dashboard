@@ -1,4 +1,4 @@
-import type { AssetRow, LoanInput } from "./types";
+import type { AssetRow, HistoryEntry, LoanInput } from "./types";
 
 export interface Totals {
   risk: number;
@@ -34,6 +34,29 @@ export function computeHousingLiquid(rows: AssetRow[]): number {
 export function computeLoanEquity(loan: LoanInput): number {
   const ltv = (loan.ltvPct || 0) / 100;
   return loan.price * (1 - ltv);
+}
+
+export interface CurrentReturn {
+  principal: number; // 만원, 히스토리에 기록된 최신 누적 납입원금
+  currentTotal: number; // 만원, 지금 자산 스냅샷 합계 (실시간)
+  profit: number; // 만원
+  returnRate: number; // 비율(0~1)
+}
+
+// 히스토리에 기록된 가장 최근 누적 납입원금과 "지금" 자산 스냅샷 합계를 비교한 수익률.
+// 히스토리 기록이 없거나 원금이 0이면 계산할 수 없어 null을 반환.
+export function computeCurrentReturn(rows: AssetRow[], history: HistoryEntry[]): CurrentReturn | null {
+  if (history.length === 0) return null;
+  const latest = [...history].sort((a, b) => a.date.localeCompare(b.date))[history.length - 1];
+  if (!latest || latest.cumulativePrincipal <= 0) return null;
+  const currentTotal = computeTotals(rows).total;
+  const profit = currentTotal - latest.cumulativePrincipal;
+  return {
+    principal: latest.cumulativePrincipal,
+    currentTotal,
+    profit,
+    returnRate: profit / latest.cumulativePrincipal,
+  };
 }
 
 export function fmt(n: number | undefined | null): string {

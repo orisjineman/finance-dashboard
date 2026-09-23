@@ -202,6 +202,7 @@ export default function App() {
             onStrategyChange={updateStrategy}
             budget={data.budget}
             loan={data.loan}
+            history={data.history}
           />
         )}
         {tab === "snapshot" && (

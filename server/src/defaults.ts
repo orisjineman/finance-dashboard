@@ -3,20 +3,21 @@ import type { DashboardData } from "./types.js";
 export function defaultData(): DashboardData {
   return {
     rows: [
-      { id: "r1", account: "ISA", item: "위험자산(S&P500)", category: "risk", amount: 0 },
-      { id: "r2", account: "ISA", item: "안전자산(채권·금·달러)", category: "safe", amount: 0 },
-      { id: "r3", account: "CMA", item: "내 집 계약금(사다리)", category: "cash", amount: 0 },
-      { id: "r4", account: "연금저축펀드", item: "펀드", category: "risk", amount: 0 },
-      { id: "r5", account: "IRP", item: "펀드", category: "safe", amount: 0 },
-      { id: "r6", account: "주택청약종합저축", item: "예금", category: "cash", amount: 0 },
-      { id: "r7", account: "기타", item: "현금성 자산", category: "cash", amount: 0 }
+      { id: "r1", account: "ISA", item: "위험자산(S&P500)", category: "risk", amount: 0, housingEligible: true },
+      { id: "r2", account: "ISA", item: "안전자산(채권·금·달러)", category: "safe", amount: 0, housingEligible: true },
+      { id: "r3", account: "CMA", item: "내 집 계약금(사다리)", category: "cash", amount: 0, housingEligible: true },
+      { id: "r4", account: "연금저축펀드", item: "펀드", category: "risk", amount: 0, housingEligible: false },
+      { id: "r5", account: "IRP", item: "펀드", category: "safe", amount: 0, housingEligible: false },
+      { id: "r6", account: "주택청약종합저축", item: "예금", category: "cash", amount: 0, housingEligible: true },
+      { id: "r7", account: "기타", item: "현금성 자산", category: "cash", amount: 0, housingEligible: true }
     ],
     simulation: {
       annualContribution: 0,
       years: 10,
       riskRate: 8,
       safeRate: 3.2,
-      contributionRiskRatio: 50
+      contributionRiskRatio: 50,
+      applySalaryRaise: false
     },
     loan: {
       price: 0,
@@ -53,6 +54,15 @@ export function defaultData(): DashboardData {
         { id: "g3", horizon: "1년 이내", riskPct: "10~20%" }
       ]
     },
-    history: []
+    history: [],
+    budget: {
+      monthlyNetIncome: 0,
+      annualRaisePct: 0,
+      expenseCategories: [
+        { id: "b1", name: "주거비", amount: 0 },
+        { id: "b2", name: "생활비", amount: 0 },
+        { id: "b3", name: "기타", amount: 0 }
+      ]
+    }
   };
 }

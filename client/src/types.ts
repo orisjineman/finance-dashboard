@@ -6,6 +6,7 @@ export interface AssetRow {
   item: string;
   category: AssetCategory;
   amount: number; // 만원
+  housingEligible: boolean; // false면 집 마련 가용자산 계산에서 제외 (연금저축·IRP 등)
 }
 
 export interface SimulationAssumptions {
@@ -14,6 +15,7 @@ export interface SimulationAssumptions {
   riskRate: number; // %
   safeRate: number; // %
   contributionRiskRatio: number; // %
+  applySalaryRaise: boolean; // 매년 적립액에 연봉 상승률을 복리로 반영할지
 }
 
 export interface LoanInput {
@@ -74,6 +76,18 @@ export interface HistoryEntry {
   returnRate: number;
 }
 
+export interface BudgetCategory {
+  id: string;
+  name: string;
+  amount: number; // 만원
+}
+
+export interface BudgetData {
+  monthlyNetIncome: number; // 만원
+  annualRaisePct: number; // %
+  expenseCategories: BudgetCategory[];
+}
+
 export interface DashboardData {
   rows: AssetRow[];
   simulation: SimulationAssumptions;
@@ -81,6 +95,7 @@ export interface DashboardData {
   checklist: ChecklistItem[];
   strategy: StrategyData;
   history: HistoryEntry[];
+  budget: BudgetData;
 }
 
 export interface ImportPreviewRow extends AssetRow {

@@ -109,12 +109,14 @@ export function parseWorkbook(buffer: Buffer): ImportPreview {
         .filter(Boolean)
         .join(" ");
       const categoryCell = categoryCol !== -1 ? String(row[categoryCol] ?? "").trim() : null;
+      const isRetirementAccount = accountStr.includes("IRP") || accountStr.includes("연금");
       rows.push({
         id: `import-${sheetName}-${r}`,
         account: accountStr,
         item: itemStr,
         category: classifyCategory(itemStr, accountStr, categoryCell),
         amount,
+        housingEligible: !isRetirementAccount,
         sheet: sheetName
       });
     }

@@ -1,4 +1,4 @@
-import type { AssetRow } from "./types";
+import type { AssetRow, LoanInput } from "./types";
 
 export interface Totals {
   risk: number;
@@ -23,6 +23,17 @@ export function computeTotals(rows: AssetRow[]): Totals {
   const riskPct = investBase > 0 ? Math.round((risk / investBase) * 100) : 0;
   const safePct = investBase > 0 ? 100 - riskPct : 0;
   return { risk, safe, cash, total: risk + safe + cash, investBase, riskPct, safePct };
+}
+
+// 집 마련 자금으로 쓸 수 있는 가용자산 합계 (연금저축·IRP 등 housingEligible=false 항목 제외)
+export function computeHousingLiquid(rows: AssetRow[]): number {
+  return rows.filter((r) => r.housingEligible).reduce((sum, r) => sum + r.amount, 0);
+}
+
+// 대출 계산기와 동일한 공식으로 필요 자기자금(집값 - LTV 대출한도)을 계산
+export function computeLoanEquity(loan: LoanInput): number {
+  const ltv = (loan.ltvPct || 0) / 100;
+  return loan.price * (1 - ltv);
 }
 
 export function fmt(n: number | undefined | null): string {

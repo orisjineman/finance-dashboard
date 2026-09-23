@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import type { GlidePathRow, LadderRung, StrategyData } from "../types";
 import { fmtWon, newId } from "../utils";
 import MoneyInput from "./MoneyInput";
@@ -6,6 +7,19 @@ interface Props {
   strategy: StrategyData;
   onChange: (strategy: StrategyData) => void;
 }
+
+const textareaStyle: CSSProperties = {
+  width: "100%",
+  border: "1px solid var(--line)",
+  borderRadius: 8,
+  padding: "8px 10px",
+  background: "var(--paper)",
+  color: "var(--ink)",
+  fontFamily: "inherit",
+  fontSize: 13.5,
+  resize: "vertical",
+  lineHeight: 1.6,
+};
 
 export default function IsaPanel({ strategy, onChange }: Props) {
   const { isaPortfolio, cmaLadder, glidePath, isaDutyEndDate } = strategy;
@@ -111,10 +125,11 @@ export default function IsaPanel({ strategy, onChange }: Props) {
         </div>
         <div className="field" style={{ marginBottom: 0 }}>
           <label>메모</label>
-          <input
-            type="text"
+          <textarea
+            rows={3}
             value={isaPortfolio.dutyNote}
             onChange={(e) => setPortfolio({ dutyNote: e.target.value })}
+            style={textareaStyle}
           />
         </div>
       </div>
@@ -139,21 +154,12 @@ export default function IsaPanel({ strategy, onChange }: Props) {
                   삭제
                 </button>
               </div>
-              <input
-                type="text"
+              <textarea
+                rows={2}
                 value={r.why}
                 onChange={(e) => updateRung(i, { why: e.target.value })}
                 placeholder="이 구간을 이렇게 나눈 이유"
-                style={{
-                  width: "100%",
-                  border: "1px solid var(--line)",
-                  borderRadius: 8,
-                  padding: "8px 10px",
-                  background: "var(--paper)",
-                  color: "var(--ink)",
-                  fontFamily: "inherit",
-                  fontSize: 13,
-                }}
+                style={textareaStyle}
               />
             </div>
           ))}
@@ -163,7 +169,7 @@ export default function IsaPanel({ strategy, onChange }: Props) {
         </button>
         <div className="field" style={{ marginTop: 14, marginBottom: 0 }}>
           <label>메모</label>
-          <input type="text" value={cmaLadder.note} onChange={(e) => setCmaNote(e.target.value)} />
+          <textarea rows={3} value={cmaLadder.note} onChange={(e) => setCmaNote(e.target.value)} style={textareaStyle} />
         </div>
       </div>
 

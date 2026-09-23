@@ -7,39 +7,44 @@ interface Props {
   rows: AssetRow[];
   sim: SimulationAssumptions;
   onChange: (sim: SimulationAssumptions) => void;
+  annualRaisePct: number;
 }
 
 interface YearResult {
   year: number;
+  contribution: number;
   total: number;
   profit: number;
 }
 
-function runSimulation(base: number, riskPct0: number, sim: SimulationAssumptions): YearResult[] {
+function runSimulation(base: number, riskPct0: number, sim: SimulationAssumptions, raisePct: number): YearResult[] {
   const years = Math.max(1, Math.min(40, sim.years || 10));
   const riskRate = (sim.riskRate || 0) / 100;
   const safeRate = (sim.safeRate || 0) / 100;
   const contribRiskRatio = (sim.contributionRiskRatio || 0) / 100;
+  const raise = sim.applySalaryRaise ? (raisePct || 0) / 100 : 0;
 
   let riskBal = base * riskPct0;
   let safeBal = base * (1 - riskPct0);
+  let principal = base;
   const out: YearResult[] = [];
   for (let y = 1; y <= years; y++) {
-    riskBal += sim.annualContribution * contribRiskRatio;
-    safeBal += sim.annualContribution * (1 - contribRiskRatio);
+    const contribution = sim.annualContribution * Math.pow(1 + raise, y - 1);
+    riskBal += contribution * contribRiskRatio;
+    safeBal += contribution * (1 - contribRiskRatio);
     riskBal *= 1 + riskRate;
     safeBal *= 1 + safeRate;
+    principal += contribution;
     const total = riskBal + safeBal;
-    const principal = base + sim.annualContribution * y;
-    out.push({ year: y, total, profit: total - principal });
+    out.push({ year: y, contribution, total, profit: total - principal });
   }
   return out;
 }
 
-export default function SimulationPanel({ rows, sim, onChange }: Props) {
+export default function SimulationPanel({ rows, sim, onChange, annualRaisePct }: Props) {
   const t = computeTotals(rows);
   const riskPct0 = t.investBase > 0 ? t.risk / t.investBase : 0.5;
-  const results = useMemo(() => runSimulation(t.total, riskPct0, sim), [t.total, riskPct0, sim]);
+  const results = useMemo(() => runSimulation(t.total, riskPct0, sim, annualRaisePct), [t.total, riskPct0, sim, annualRaisePct]);
 
   const maxVal = Math.max(...results.map((r) => r.total), 1);
   const showEvery = sim.years > 12 ? Math.ceil(sim.years / 12) : 1;
@@ -68,6 +73,18 @@ export default function SimulationPanel({ rows, sim, onChange }: Props) {
             <label>시뮬레이션 기간 (년)</label>
             <input type="number" value={sim.years} onChange={(e) => set("years", parseInt(e.target.value) || 1)} />
           </div>
+        </div>
+        <div className="field" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <input
+            type="checkbox"
+            id="apply-raise"
+            checked={sim.applySalaryRaise}
+            onChange={(e) => set("applySalaryRaise", e.target.checked)}
+            style={{ width: 16, height: 16 }}
+          />
+          <label htmlFor="apply-raise" style={{ marginBottom: 0 }}>
+            매년 적립액에 연봉 상승률 반영 (월급·예산 탭 기준 {annualRaisePct}%)
+          </label>
         </div>
         <div className="field-row">
           <div className="field">
@@ -116,6 +133,7 @@ export default function SimulationPanel({ rows, sim, onChange }: Props) {
           <thead>
             <tr>
               <th>연차</th>
+              {sim.applySalaryRaise && <th className="num">연간 적립액</th>}
               <th className="num">연말 예상 자산</th>
               <th className="num">누적 수익</th>
             </tr>
@@ -124,6 +142,7 @@ export default function SimulationPanel({ rows, sim, onChange }: Props) {
             {results.map((r) => (
               <tr key={r.year}>
                 <td>{r.year}년차</td>
+                {sim.applySalaryRaise && <td className="num">{fmtWon(r.contribution)}원</td>}
                 <td className="num">{fmtWon(r.total)}원</td>
                 <td className="num">{fmtWon(r.profit)}원</td>
               </tr>

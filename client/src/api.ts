@@ -1,5 +1,6 @@
 import type {
   AssetRow,
+  BudgetData,
   ChecklistItem,
   DashboardData,
   HistoryEntry,
@@ -46,6 +47,10 @@ export function saveStrategy(strategy: StrategyData): Promise<StrategyData> {
 
 export function saveHistory(history: HistoryEntry[]): Promise<HistoryEntry[]> {
   return request<HistoryEntry[]>("/api/history", { method: "PUT", body: JSON.stringify(history) });
+}
+
+export function saveBudget(budget: BudgetData): Promise<BudgetData> {
+  return request<BudgetData>("/api/budget", { method: "PUT", body: JSON.stringify(budget) });
 }
 
 export async function importXlsx(file: File): Promise<ImportPreview> {

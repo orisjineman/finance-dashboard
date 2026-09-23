@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { AssetRow, ChecklistItem, DashboardData, HistoryEntry, LoanInput, SimulationAssumptions, StrategyData } from "./types";
-import { fetchData, saveChecklist, saveHistory, saveLoan, saveRows, saveSimulation, saveStrategy } from "./api";
+import type { AssetRow, BudgetData, ChecklistItem, DashboardData, HistoryEntry, LoanInput, SimulationAssumptions, StrategyData } from "./types";
+import { fetchData, saveBudget, saveChecklist, saveHistory, saveLoan, saveRows, saveSimulation, saveStrategy } from "./api";
 import { debounce } from "./utils";
 import OverviewPanel from "./components/OverviewPanel";
 import SnapshotPanel from "./components/SnapshotPanel";
+import BudgetPanel from "./components/BudgetPanel";
 import SimulationPanel from "./components/SimulationPanel";
 import IsaPanel from "./components/IsaPanel";
 import LoanPanel from "./components/LoanPanel";
@@ -12,6 +13,7 @@ import ChecklistPanel from "./components/ChecklistPanel";
 const TABS = [
   { key: "overview", label: "개요" },
   { key: "snapshot", label: "자산 스냅샷" },
+  { key: "budget", label: "월급·예산" },
   { key: "sim", label: "연도별 시뮬레이션" },
   { key: "isa", label: "ISA·CMA 전략" },
   { key: "loan", label: "대출 계산기" },
@@ -98,6 +100,14 @@ export default function App() {
       }, 400),
     []
   );
+  const debouncedSaveBudget = useMemo(
+    () =>
+      debounce((budget: BudgetData) => {
+        setSaving(true);
+        saveBudget(budget).finally(() => setSaving(false));
+      }, 400),
+    []
+  );
 
   const dataRef = useRef(data);
   dataRef.current = data;
@@ -131,6 +141,11 @@ export default function App() {
     if (!dataRef.current) return;
     setData({ ...dataRef.current, history });
     debouncedSaveHistory(history);
+  }
+  function updateBudget(budget: BudgetData) {
+    if (!dataRef.current) return;
+    setData({ ...dataRef.current, budget });
+    debouncedSaveBudget(budget);
   }
 
   if (error) {
@@ -181,14 +196,23 @@ export default function App() {
 
       <main>
         {tab === "overview" && (
-          <OverviewPanel rows={data.rows} strategy={data.strategy} onStrategyChange={updateStrategy} />
+          <OverviewPanel
+            rows={data.rows}
+            strategy={data.strategy}
+            onStrategyChange={updateStrategy}
+            budget={data.budget}
+            loan={data.loan}
+          />
         )}
         {tab === "snapshot" && (
           <SnapshotPanel rows={data.rows} onChange={updateRows} history={data.history} onHistoryChange={updateHistory} />
         )}
-        {tab === "sim" && <SimulationPanel rows={data.rows} sim={data.simulation} onChange={updateSim} />}
+        {tab === "budget" && <BudgetPanel budget={data.budget} onChange={updateBudget} />}
+        {tab === "sim" && (
+          <SimulationPanel rows={data.rows} sim={data.simulation} onChange={updateSim} annualRaisePct={data.budget.annualRaisePct} />
+        )}
         {tab === "isa" && <IsaPanel strategy={data.strategy} onChange={updateStrategy} />}
-        {tab === "loan" && <LoanPanel loan={data.loan} onChange={updateLoan} />}
+        {tab === "loan" && <LoanPanel rows={data.rows} loan={data.loan} onChange={updateLoan} />}
         {tab === "checklist" && <ChecklistPanel items={data.checklist} onChange={updateChecklist} />}
       </main>
 

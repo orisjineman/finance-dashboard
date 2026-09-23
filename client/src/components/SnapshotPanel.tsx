@@ -14,11 +14,15 @@ interface Props {
 
 const catLabel: Record<AssetCategory, string> = { risk: "위험", safe: "안전", cash: "현금성" };
 
+type SortKey = "account" | "item" | "category" | "amount";
+
 export default function SnapshotPanel({ rows, onChange, history, onHistoryChange }: Props) {
   const [showImport, setShowImport] = useState(false);
   const [accountFilter, setAccountFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<AssetCategory | "">("");
   const [itemSearch, setItemSearch] = useState("");
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
   const accounts = useMemo(() => Array.from(new Set(rows.map((r) => r.account).filter(Boolean))).sort(), [rows]);
 
@@ -34,9 +38,36 @@ export default function SnapshotPanel({ rows, onChange, history, onHistoryChange
       );
   }, [rows, accountFilter, categoryFilter, itemSearch]);
 
+  const sorted = useMemo(() => {
+    if (!sortKey) return filtered;
+    const dir = sortDir === "asc" ? 1 : -1;
+    return [...filtered].sort((a, b) => {
+      const av = sortKey === "category" ? catLabel[a.r.category] : a.r[sortKey];
+      const bv = sortKey === "category" ? catLabel[b.r.category] : b.r[sortKey];
+      if (typeof av === "string" && typeof bv === "string") {
+        return av.localeCompare(bv) * dir;
+      }
+      return ((av as number) - (bv as number)) * dir;
+    });
+  }, [filtered, sortKey, sortDir]);
+
   const filteredTotal = filtered.reduce((sum, { r }) => sum + r.amount, 0);
   const grandTotal = rows.reduce((sum, r) => sum + r.amount, 0);
   const filtersActive = accountFilter !== "" || categoryFilter !== "" || itemSearch.trim() !== "";
+
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  }
+
+  function sortIndicator(key: SortKey) {
+    if (sortKey !== key) return "";
+    return sortDir === "asc" ? " ▲" : " ▼";
+  }
 
   function updateRow(i: number, patch: Partial<AssetRow>) {
     const next = rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r));
@@ -48,7 +79,7 @@ export default function SnapshotPanel({ rows, onChange, history, onHistoryChange
   }
 
   function addRow() {
-    onChange([...rows, { id: newId("row"), account: "", item: "새 항목", category: "cash", amount: 0 }]);
+    onChange([...rows, { id: newId("row"), account: "", item: "새 항목", category: "cash", amount: 0, housingEligible: true }]);
   }
 
   function handleImport(imported: ImportPreviewRow[]) {
@@ -58,6 +89,7 @@ export default function SnapshotPanel({ rows, onChange, history, onHistoryChange
       item: r.item,
       category: r.category,
       amount: r.amount,
+      housingEligible: r.housingEligible,
     }));
     onChange([...rows, ...added]);
     setShowImport(false);
@@ -101,15 +133,24 @@ export default function SnapshotPanel({ rows, onChange, history, onHistoryChange
         <table className="grid" style={{ marginTop: 16 }}>
           <thead>
             <tr>
-              <th>계좌</th>
-              <th>항목</th>
-              <th>분류</th>
-              <th style={{ textAlign: "right" }}>잔액(원)</th>
+              <th style={{ cursor: "pointer" }} onClick={() => toggleSort("account")}>
+                계좌{sortIndicator("account")}
+              </th>
+              <th style={{ cursor: "pointer" }} onClick={() => toggleSort("item")}>
+                항목{sortIndicator("item")}
+              </th>
+              <th style={{ cursor: "pointer" }} onClick={() => toggleSort("category")}>
+                분류{sortIndicator("category")}
+              </th>
+              <th style={{ textAlign: "right", cursor: "pointer" }} onClick={() => toggleSort("amount")}>
+                잔액(원){sortIndicator("amount")}
+              </th>
+              <th title="집 마련 자금 가용자산 계산에 포함할지">집자금</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
-            {filtered.map(({ r, i }) => (
+            {sorted.map(({ r, i }) => (
               <tr key={r.id}>
                 <td>
                   <input
@@ -139,6 +180,14 @@ export default function SnapshotPanel({ rows, onChange, history, onHistoryChange
                 <td className="num">
                   <MoneyInput value={r.amount} onChange={(v) => updateRow(i, { amount: v })} />
                 </td>
+                <td style={{ textAlign: "center" }}>
+                  <input
+                    type="checkbox"
+                    checked={r.housingEligible}
+                    onChange={(e) => updateRow(i, { housingEligible: e.target.checked })}
+                    title="집 마련 가용자산에 포함"
+                  />
+                </td>
                 <td>
                   <button
                     className="btn ghost"
@@ -151,9 +200,9 @@ export default function SnapshotPanel({ rows, onChange, history, onHistoryChange
                 </td>
               </tr>
             ))}
-            {filtered.length === 0 && (
+            {sorted.length === 0 && (
               <tr>
-                <td colSpan={5} style={{ textAlign: "center", color: "var(--ink-soft)" }}>
+                <td colSpan={6} style={{ textAlign: "center", color: "var(--ink-soft)" }}>
                   조건에 맞는 항목이 없어.
                 </td>
               </tr>
@@ -168,6 +217,7 @@ export default function SnapshotPanel({ rows, onChange, history, onHistoryChange
                 {fmtWon(filteredTotal)}
               </td>
               <td></td>
+              <td></td>
             </tr>
           </tfoot>
         </table>
@@ -176,7 +226,10 @@ export default function SnapshotPanel({ rows, onChange, history, onHistoryChange
             필터 적용 중 · 전체 합계는 {fmtWon(grandTotal)}원이야.
           </p>
         )}
-        <p className="note">잔액은 원 단위로 입력해(1원 단위까지 정확하게). 위험/안전 비중과 총자산은 자동으로 계산돼. 필요하면 행을 추가해서 종목을 더 쪼갤 수 있어.</p>
+        <p className="note">
+          잔액은 원 단위로 입력해(1원 단위까지 정확하게). 위험/안전 비중과 총자산은 자동으로 계산돼. "집자금" 체크를 해제하면 연금저축·IRP처럼 집
+          마련에는 못 쓰는 자산을 가용자산 계산에서 뺄 수 있어. 표 머리글을 클릭하면 정렬돼.
+        </p>
         <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
           <button className="btn ghost" onClick={addRow}>
             + 행 추가

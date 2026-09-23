@@ -5,7 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { readData, writeData } from "./store.js";
 import { parseWorkbook } from "./xlsxImport.js";
-import type { AssetRow, ChecklistItem, HistoryEntry, LoanInput, SimulationAssumptions, StrategyData } from "./types.js";
+import type { AssetRow, BudgetData, ChecklistItem, HistoryEntry, LoanInput, SimulationAssumptions, StrategyData } from "./types.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.API_PORT ? Number(process.env.API_PORT) : 4300;
@@ -67,6 +67,14 @@ app.put("/api/history", async (req, res) => {
   data.history = history;
   await writeData(data);
   res.json(data.history);
+});
+
+app.put("/api/budget", async (req, res) => {
+  const budget = req.body as BudgetData;
+  const data = await readData();
+  data.budget = budget;
+  await writeData(data);
+  res.json(data.budget);
 });
 
 app.post("/api/import-xlsx", upload.single("file"), async (req, res) => {

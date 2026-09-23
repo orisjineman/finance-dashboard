@@ -1,11 +1,14 @@
 import { useState } from "react";
-import type { AssetRow, StrategyData } from "../types";
-import { computeTotals, fmtWon } from "../utils";
+import type { AssetRow, BudgetData, LoanInput, StrategyData } from "../types";
+import { computeHousingLiquid, computeLoanEquity, computeTotals, fmtWon } from "../utils";
+import BudgetBreakdown from "./BudgetBreakdown";
 
 interface Props {
   rows: AssetRow[];
   strategy: StrategyData;
   onStrategyChange: (strategy: StrategyData) => void;
+  budget: BudgetData;
+  loan: LoanInput;
 }
 
 function daysUntil(dateStr: string): number | null {
@@ -17,11 +20,20 @@ function daysUntil(dateStr: string): number | null {
   return Math.ceil((target.getTime() - today.getTime()) / 86400000);
 }
 
-export default function OverviewPanel({ rows, strategy, onStrategyChange }: Props) {
+export default function OverviewPanel({ rows, strategy, onStrategyChange, budget, loan }: Props) {
   const t = computeTotals(rows);
   const dday = daysUntil(strategy.isaDutyEndDate);
   const [editingSummary, setEditingSummary] = useState(false);
   const [draft, setDraft] = useState(strategy.overviewSummary.join("\n"));
+
+  const totalBudget = budget.expenseCategories.reduce((sum, c) => sum + c.amount, 0);
+  const savings = budget.monthlyNetIncome - totalBudget;
+  const savingsRate = budget.monthlyNetIncome > 0 ? (savings / budget.monthlyNetIncome) * 100 : 0;
+
+  const housingLiquid = computeHousingLiquid(rows);
+  const equityNeeded = computeLoanEquity(loan);
+  const housingProgress = equityNeeded > 0 ? Math.min(100, Math.round((housingLiquid / equityNeeded) * 100)) : 0;
+  const housingRemaining = equityNeeded - housingLiquid;
 
   function saveSummary() {
     const lines = draft.split("\n").map((l) => l.trim()).filter(Boolean);
@@ -86,7 +98,55 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange }: Prop
       </div>
 
       <h2 className="section-title">
-        <span className="num">03</span> 요약
+        <span className="num">03</span> 이번 달 월급·예산
+      </h2>
+      <div className="card">
+        <div className="stat-grid" style={{ marginBottom: 14 }}>
+          <div className="stat">
+            <div className="label">월 실수령액</div>
+            <div className="value">
+              {fmtWon(budget.monthlyNetIncome)}
+              <small> 원</small>
+            </div>
+          </div>
+          <div className="stat">
+            <div className="label">저축 가능액 ({savingsRate.toFixed(0)}%)</div>
+            <div className="value" style={{ color: savings >= 0 ? "var(--safe)" : "var(--risk)" }}>
+              {fmtWon(savings)}
+              <small> 원</small>
+            </div>
+          </div>
+        </div>
+        <BudgetBreakdown categories={budget.expenseCategories} savings={Math.max(savings, 0)} />
+        <p className="note">월급·예산 탭에서 실수령액, 상승률, 생활비·주거비 항목을 편집할 수 있어.</p>
+      </div>
+
+      <h2 className="section-title">
+        <span className="num">04</span> 집 마련 자금
+      </h2>
+      <div className="card">
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13.5, marginBottom: 6 }}>
+          <span>가용자산 {fmtWon(housingLiquid)}원</span>
+          <span style={{ color: "var(--ink-soft)" }}>필요 자기자금 {fmtWon(equityNeeded)}원</span>
+        </div>
+        <div style={{ height: 14, borderRadius: 999, background: "var(--line)", overflow: "hidden" }}>
+          <div
+            style={{
+              width: `${housingProgress}%`,
+              height: "100%",
+              background: housingProgress >= 100 ? "var(--safe)" : "var(--gold)",
+            }}
+          />
+        </div>
+        <p className="note" style={{ marginTop: 10 }}>
+          {housingRemaining > 0
+            ? `연금저축·IRP를 뺀 가용자산 기준으로 ${fmtWon(housingRemaining)}원을 더 모아야 해 (달성률 ${housingProgress}%).`
+            : "가용자산이 필요 자기자금을 이미 넘었어."}
+        </p>
+      </div>
+
+      <h2 className="section-title">
+        <span className="num">05</span> 요약
       </h2>
       <div className="card">
         {!editingSummary ? (

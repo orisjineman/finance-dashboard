@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 import type { GlidePathRow, LadderRung, StrategyData } from "../types";
+import { glideRiskPct, yearsUntil } from "../rebalance";
 import { fmtWon, newId } from "../utils";
 import MoneyInput from "./MoneyInput";
 
@@ -22,7 +23,9 @@ const textareaStyle: CSSProperties = {
 };
 
 export default function IsaPanel({ strategy, onChange }: Props) {
-  const { isaPortfolio, cmaLadder, glidePath, isaDutyEndDate } = strategy;
+  const { isaPortfolio, cmaLadder, glidePath, isaDutyEndDate, housePurchaseDate } = strategy;
+  const yearsLeft = yearsUntil(housePurchaseDate);
+  const todayTarget = yearsLeft === null ? null : glideRiskPct(glidePath, yearsLeft);
 
   function setPortfolio(patch: Partial<StrategyData["isaPortfolio"]>) {
     onChange({ ...strategy, isaPortfolio: { ...isaPortfolio, ...patch } });
@@ -56,7 +59,7 @@ export default function IsaPanel({ strategy, onChange }: Props) {
   }
 
   function addGlideRow() {
-    onChange({ ...strategy, glidePath: [...glidePath, { id: newId("glide"), horizon: "", riskPct: "" }] });
+    onChange({ ...strategy, glidePath: [...glidePath, { id: newId("glide"), yearsLeft: 0, riskPct: 0 }] });
   }
 
   function removeGlideRow(i: number) {
@@ -135,7 +138,7 @@ export default function IsaPanel({ strategy, onChange }: Props) {
       </div>
 
       <h2 className="section-title">
-        <span className="num">02</span> 만기 사다리 (합계 {fmtWon(ladderTotal)}원)
+        <span className="num">02</span> 만기 분산 계획 (합계 {fmtWon(ladderTotal)}원)
       </h2>
       <div className="card">
         <div className="ladder">
@@ -177,11 +180,20 @@ export default function IsaPanel({ strategy, onChange }: Props) {
         <span className="num">03</span> 집 매수 접근 글라이드 패스
       </h2>
       <div className="card">
+        <div className="field">
+          <label>집 매수 예정일</label>
+          <input type="date" value={housePurchaseDate} onChange={(e) => onChange({ ...strategy, housePurchaseDate: e.target.value })} />
+        </div>
+        <p className="note" style={{ marginTop: 0, marginBottom: 12 }}>
+          {yearsLeft === null || todayTarget === null
+            ? "집 매수 예정일을 입력하면 지금 시점의 목표 위험자산 비중을 계산해줘."
+            : `집 매수까지 약 ${yearsLeft.toFixed(1)}년 남았어. 아래 표의 지점 사이를 직선으로 이어서 계산하면 지금 목표 위험자산 비중은 약 ${todayTarget.toFixed(1)}%야.`}
+        </p>
         <table className="grid">
           <thead>
             <tr>
-              <th>집 매수까지 남은 기간</th>
-              <th>위험자산 비중</th>
+              <th>집 매수까지 남은 기간(년)</th>
+              <th>목표 위험자산 비중(%)</th>
               <th></th>
             </tr>
           </thead>
@@ -190,14 +202,21 @@ export default function IsaPanel({ strategy, onChange }: Props) {
               <tr key={row.id}>
                 <td>
                   <input
-                    type="text"
-                    value={row.horizon}
-                    onChange={(e) => updateGlideRow(i, { horizon: e.target.value })}
-                    style={{ textAlign: "left", border: "none", background: "none", padding: 0, width: "100%", font: "inherit", color: "inherit" }}
+                    type="number"
+                    min={0}
+                    step={0.5}
+                    value={row.yearsLeft}
+                    onChange={(e) => updateGlideRow(i, { yearsLeft: Math.max(0, parseFloat(e.target.value) || 0) })}
                   />
                 </td>
                 <td>
-                  <input type="text" value={row.riskPct} onChange={(e) => updateGlideRow(i, { riskPct: e.target.value })} />
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={row.riskPct}
+                    onChange={(e) => updateGlideRow(i, { riskPct: Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)) })}
+                  />
                 </td>
                 <td>
                   <button className="btn ghost" style={{ padding: "6px 10px", fontSize: 12 }} onClick={() => removeGlideRow(i)}>
@@ -208,8 +227,11 @@ export default function IsaPanel({ strategy, onChange }: Props) {
             ))}
           </tbody>
         </table>
+        <p className="note">
+          표에 없는 기간은 양옆 지점을 직선으로 이어서 계산해. 가장 먼 지점보다 멀면 그 지점 비중을, 가장 가까운 지점보다 가까우면 그 지점 비중을 그대로 써.
+        </p>
         <button className="btn ghost" style={{ marginTop: 10 }} onClick={addGlideRow}>
-          + 행 추가
+          + 지점 추가
         </button>
       </div>
     </section>

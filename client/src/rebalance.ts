@@ -1,4 +1,4 @@
-import type { AssetCategory, AssetRow, RebalanceSettings } from "./types";
+import type { AssetCategory, AssetRow, GlidePathRow } from "./types";
 
 export interface RebalanceTrade {
   rowId: string;
@@ -31,16 +31,42 @@ export function isTaxAdvantaged(account: string): boolean {
   return /ISA|IRP|연금/i.test(account);
 }
 
-export function computeRebalance(rows: AssetRow[], settings: RebalanceSettings): RebalanceResult {
-  const excluded = new Set(settings.excludedAccounts);
-  const scope = rows.filter((r) => !excluded.has(r.account) && (r.category === "risk" || r.category === "safe"));
+// 집 매수 예정일까지 남은 기간(년). 날짜가 없거나 잘못되면 null, 이미 지났으면 0.
+export function yearsUntil(dateStr: string, now: Date = new Date()): number | null {
+  if (!dateStr) return null;
+  const target = new Date(`${dateStr}T00:00:00`);
+  if (Number.isNaN(target.getTime())) return null;
+  return Math.max(0, (target.getTime() - now.getTime()) / (365.25 * 86400000));
+}
+
+// 글리드 패스 지점(남은 기간, 위험 비중) 사이를 직선으로 이어서 목표 비중을 계산.
+// 가장 먼 지점보다 멀면 그 지점 값, 가장 가까운 지점보다 가까우면 그 지점 값을 쓴다.
+export function glideRiskPct(points: GlidePathRow[], yearsLeft: number): number | null {
+  const pts = points.filter((p) => Number.isFinite(p.yearsLeft) && Number.isFinite(p.riskPct)).sort((a, b) => a.yearsLeft - b.yearsLeft);
+  if (pts.length === 0) return null;
+  if (yearsLeft <= pts[0].yearsLeft) return pts[0].riskPct;
+  if (yearsLeft >= pts[pts.length - 1].yearsLeft) return pts[pts.length - 1].riskPct;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i];
+    const b = pts[i + 1];
+    if (yearsLeft >= a.yearsLeft && yearsLeft <= b.yearsLeft) {
+      const t = b.yearsLeft === a.yearsLeft ? 0 : (yearsLeft - a.yearsLeft) / (b.yearsLeft - a.yearsLeft);
+      return a.riskPct + (b.riskPct - a.riskPct) * t;
+    }
+  }
+  return null;
+}
+
+export function computeRebalance(rows: AssetRow[], accounts: string[], targetRiskPct: number, tolerancePct: number): RebalanceResult {
+  const included = new Set(accounts);
+  const scope = rows.filter((r) => included.has(r.account) && (r.category === "risk" || r.category === "safe"));
 
   const risk = scope.filter((r) => r.category === "risk").reduce((s, r) => s + r.amount, 0);
   const safe = scope.filter((r) => r.category === "safe").reduce((s, r) => s + r.amount, 0);
   const scopeTotal = risk + safe;
   const riskPct = scopeTotal > 0 ? (risk / scopeTotal) * 100 : 0;
-  const driftPct = riskPct - settings.targetRiskPct;
-  const needsRebalance = scopeTotal > 0 && Math.abs(driftPct) > settings.tolerancePct;
+  const driftPct = riskPct - targetRiskPct;
+  const needsRebalance = scopeTotal > 0 && Math.abs(driftPct) > tolerancePct;
 
   const result: RebalanceResult = {
     scopeTotal, risk, safe, riskPct, driftPct, needsRebalance,
@@ -50,25 +76,27 @@ export function computeRebalance(rows: AssetRow[], settings: RebalanceSettings):
 
   const sellCategory: AssetCategory = driftPct > 0 ? "risk" : "safe";
   const buyCategory: AssetCategory = sellCategory === "risk" ? "safe" : "risk";
-  const idealShift = Math.abs(risk - (settings.targetRiskPct / 100) * scopeTotal);
+  const idealShift = Math.abs(risk - (targetRiskPct / 100) * scopeTotal);
   result.sellCategory = sellCategory;
   result.idealShift = idealShift;
 
-  const accounts = Array.from(new Set(scope.map((r) => r.account)));
-  const plans = accounts
+  const accountList = Array.from(new Set(scope.map((r) => r.account)));
+  const plans = accountList
     .map((account) => {
       const inAccount = scope.filter((r) => r.account === account);
-      const sellRows = inAccount.filter((r) => r.category === sellCategory && r.amount > 0);
-      const buyRows = inAccount.filter((r) => r.category === buyCategory);
+      const sellRows = inAccount.filter((r) => r.category === sellCategory && r.amount > 0 && r.rebalanceRule !== "hold");
+      const buyCandidates = inAccount.filter((r) => r.category === buyCategory);
+      const preferred = buyCandidates.filter((r) => r.rebalanceRule === "preferred");
+      const buyRows = preferred.length > 0 ? preferred : buyCandidates;
       return { account, sellRows, buyRows, capacity: sellRows.reduce((s, r) => s + r.amount, 0) };
     })
     .filter((p) => p.capacity > 0 && p.buyRows.length > 0)
     .sort((a, b) => Number(isTaxAdvantaged(b.account)) - Number(isTaxAdvantaged(a.account)) || b.capacity - a.capacity);
 
   const sellLabel = sellCategory === "risk" ? "위험" : "안전";
-  const skipped = accounts.filter((a) => !plans.some((p) => p.account === a) && scope.some((r) => r.account === a && r.category === sellCategory && r.amount > 0));
+  const skipped = accountList.filter((a) => !plans.some((p) => p.account === a) && scope.some((r) => r.account === a && r.category === sellCategory && r.amount > 0 && r.rebalanceRule !== "hold"));
   if (skipped.length > 0) {
-    result.notes.push(`${skipped.join(", ")}: 같은 계좌 안에 사 둘 상품이 없어 제외했어 (계좌 밖으로 옮기려면 출금이 필요해).`);
+    result.notes.push(`${skipped.join(", ")}: 같은 계좌 안에 사 둘 상품이 없거나 '매도 안 함'으로 묶여 있어 제외했어 (계좌 밖으로 옮기려면 출금이 필요해).`);
   }
 
   const EPS = 1e-9;

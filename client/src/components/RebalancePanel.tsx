@@ -1,127 +1,256 @@
 import { useMemo } from "react";
-import type { AssetRow, RebalanceSettings } from "../types";
+import type { AssetRow, RebalanceGroup, RebalanceSettings, StrategyData } from "../types";
 import { fmtWon } from "../utils";
+import { computeRebalance, glideRiskPct, yearsUntil } from "../rebalance";
 import MoneyInput from "./MoneyInput";
-import { computeRebalance } from "../rebalance";
 
 interface Props {
   rows: AssetRow[];
+  strategy: StrategyData;
   settings: RebalanceSettings;
   onChange: (settings: RebalanceSettings) => void;
   onRowsChange: (rows: AssetRow[]) => void;
 }
 
-export default function RebalancePanel({ rows, settings, onChange, onRowsChange }: Props) {
-  const result = useMemo(() => computeRebalance(rows, settings), [rows, settings]);
-  const accounts = useMemo(() => Array.from(new Set(rows.map((r) => r.account).filter(Boolean))).sort(), [rows]);
-  const included = (a: string) => !settings.excludedAccounts.includes(a);
+interface GroupProps {
+  group: RebalanceGroup;
+  rows: AssetRow[];
+  allAccounts: string[];
+  tolerancePct: number;
+  targetRiskPct: number | null;
+  targetLabel: string;
+  onChange: (group: RebalanceGroup) => void;
+  onToggleAccount: (account: string, on: boolean) => void;
+}
 
-  function toggleAccount(a: string, on: boolean) {
-    const excludedAccounts = on ? settings.excludedAccounts.filter((x) => x !== a) : [...settings.excludedAccounts, a];
-    onChange({ ...settings, excludedAccounts });
+const barPct = (n: number) => `${Math.max(0, Math.min(100, n))}%`;
+
+function GroupSection({ group, rows, allAccounts, tolerancePct, targetRiskPct, targetLabel, onChange, onToggleAccount }: GroupProps) {
+  const result = useMemo(
+    () => (targetRiskPct === null ? null : computeRebalance(rows, group.accounts, targetRiskPct, tolerancePct)),
+    [rows, group.accounts, targetRiskPct, tolerancePct]
+  );
+
+  const sellLabel = result?.sellCategory === "risk" ? "위험자산" : "안전자산";
+  const buyLabel = result?.sellCategory === "risk" ? "안전자산" : "위험자산";
+  const sells = result?.trades.filter((t) => t.action === "sell") ?? [];
+  const buys = result?.trades.filter((t) => t.action === "buy") ?? [];
+
+  return (
+    <div className="card" style={{ marginTop: 12 }}>
+      <div className="field-row">
+        <div className="field">
+          <label>묶음 이름</label>
+          <input type="text" value={group.name} onChange={(e) => onChange({ ...group, name: e.target.value })} />
+        </div>
+        <div className="field">
+          <label>목표 비중 방식</label>
+          <select value={group.targetType} onChange={(e) => onChange({ ...group, targetType: e.target.value as "glide" | "fixed" })}>
+            <option value="glide">집 매수 시점에 맞춰 낮추기 (글리드 패스)</option>
+            <option value="fixed">고정 비중</option>
+          </select>
+        </div>
+      </div>
+      {group.targetType === "fixed" && (
+        <div className="field">
+          <label>목표 위험자산 비중 (%)</label>
+          <input
+            type="number"
+            min={0}
+            max={100}
+            value={group.fixedRiskPct}
+            onChange={(e) => onChange({ ...group, fixedRiskPct: Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)) })}
+          />
+        </div>
+      )}
+      <div className="field">
+        <label>이 묶음에 들어가는 계좌</label>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "8px 16px", fontSize: 13.5 }}>
+          {allAccounts.map((a) => (
+            <label key={a} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 0, color: "var(--ink)" }}>
+              <input
+                type="checkbox"
+                checked={group.accounts.includes(a)}
+                onChange={(e) => onToggleAccount(a, e.target.checked)}
+                style={{ width: 16, height: 16, padding: 0, flex: "0 0 auto" }}
+              />
+              {a}
+            </label>
+          ))}
+        </div>
+      </div>
+      <div className="field" style={{ marginBottom: 12 }}>
+        <label>메모</label>
+        <input type="text" value={group.note} onChange={(e) => onChange({ ...group, note: e.target.value })} />
+      </div>
+
+      {result === null || targetRiskPct === null ? (
+        <p className="note" style={{ color: "var(--risk)" }}>
+          목표 비중을 계산할 수 없어. ISA·CMA 전략 탭에서 집 매수 예정일과 글리드 패스 표를 입력해줘.
+        </p>
+      ) : (
+        <>
+          <div style={{ position: "relative", height: 18, borderRadius: 999, background: "var(--safe)", overflow: "hidden" }}>
+            <div style={{ width: barPct(result.riskPct), height: "100%", background: "var(--risk)" }} />
+          </div>
+          <div style={{ position: "relative", height: 10 }}>
+            <div
+              style={{ position: "absolute", left: barPct(targetRiskPct), top: -22, width: 2, height: 26, background: "var(--ink)", transform: "translateX(-1px)" }}
+              title="목표"
+            />
+          </div>
+          <div className="legend" style={{ marginTop: 10 }}>
+            <div className="row">
+              <span className="swatch" style={{ background: "var(--risk)" }} />
+              위험자산 {fmtWon(result.risk)}원 ({result.riskPct.toFixed(1)}%) · 목표 {targetRiskPct.toFixed(1)}% ({targetLabel})
+            </div>
+            <div className="row">
+              <span className="swatch" style={{ background: "var(--safe)" }} />
+              안전자산 {fmtWon(result.safe)}원 ({(100 - result.riskPct).toFixed(1)}%)
+            </div>
+          </div>
+          <p className="note" style={{ color: result.needsRebalance ? "var(--risk)" : "var(--safe)", fontWeight: 600 }}>
+            {result.scopeTotal <= 0
+              ? "이 묶음에 계좌를 하나 이상 선택해줘."
+              : result.needsRebalance
+                ? `목표보다 위험자산이 ${Math.abs(result.driftPct).toFixed(1)}%p ${result.driftPct > 0 ? "많아" : "적어"}. 리밸런싱이 필요해.`
+                : `목표 대비 ${result.driftPct >= 0 ? "+" : ""}${result.driftPct.toFixed(1)}%p — 허용 오차 안이라 그대로 둬도 돼.`}
+          </p>
+
+          {result.needsRebalance && (
+            <>
+              <div className="result-line total">
+                <span className="k">
+                  {sellLabel} 매도 → {buyLabel} 매수
+                </span>
+                <span className="v">{fmtWon(result.achievedShift)}원</span>
+              </div>
+              {result.trades.length > 0 && (
+                <table className="grid" style={{ marginTop: 12 }}>
+                  <thead>
+                    <tr>
+                      <th>구분</th>
+                      <th>계좌</th>
+                      <th>상품</th>
+                      <th className="num">수량</th>
+                      <th className="num">금액(원)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...sells, ...buys].map((t, i) => (
+                      <tr key={`${t.action}-${t.rowId}-${i}`}>
+                        <td>
+                          <span className={`tag ${t.action === "sell" ? "risk" : "safe"}`}>{t.action === "sell" ? "매도" : "매수"}</span>
+                        </td>
+                        <td>{t.account}</td>
+                        <td>{t.item}</td>
+                        <td className="num">{t.shares !== undefined ? `${t.shares}주` : "금액 단위"}</td>
+                        <td className="num">{fmtWon(t.amount)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+              <p className="note">
+                거래 후 위험자산 비중은 약 {result.afterRiskPct.toFixed(1)}%가 돼. 계좌 안에서 판 돈은 같은 계좌에 머무르기 때문에, ISA·IRP·연금저축처럼 세금 없이
+                굴릴 수 있는 계좌부터 먼저 배정했어. 매도는 보유금액 비율대로, 매수는 이미 들고 있는 상품에 비율대로 나눴어('매수 우선'으로 지정한 상품이 있으면 그 상품에만).
+              </p>
+              {result.notes.map((n, i) => (
+                <p className="note" key={i} style={{ color: "var(--risk)" }}>
+                  {n}
+                </p>
+              ))}
+            </>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+export default function RebalancePanel({ rows, strategy, settings, onChange, onRowsChange }: Props) {
+  const allAccounts = useMemo(() => Array.from(new Set(rows.map((r) => r.account).filter(Boolean))).sort(), [rows]);
+  const yearsLeft = yearsUntil(strategy.housePurchaseDate);
+  const glideTarget = yearsLeft === null ? null : glideRiskPct(strategy.glidePath, yearsLeft);
+
+  const grouped = new Set(settings.groups.flatMap((g) => g.accounts));
+  const ungrouped = allAccounts.filter((a) => !grouped.has(a));
+  const tradableRows = rows.filter((r) => grouped.has(r.account) && (r.category === "risk" || r.category === "safe"));
+
+  function updateGroup(next: RebalanceGroup) {
+    onChange({ ...settings, groups: settings.groups.map((g) => (g.id === next.id ? next : g)) });
   }
 
-  const scopeRows = rows.filter((r) => !settings.excludedAccounts.includes(r.account) && (r.category === "risk" || r.category === "safe"));
-  function setUnitPrice(id: string, manwon: number) {
-    onRowsChange(rows.map((r) => (r.id === id ? { ...r, unitPrice: manwon > 0 ? manwon : undefined } : r)));
+  function toggleAccount(groupId: string, account: string, on: boolean) {
+    onChange({
+      ...settings,
+      groups: settings.groups.map((g) => {
+        if (g.id === groupId) {
+          return { ...g, accounts: on ? [...g.accounts.filter((a) => a !== account), account] : g.accounts.filter((a) => a !== account) };
+        }
+        return on ? { ...g, accounts: g.accounts.filter((a) => a !== account) } : g;
+      }),
+    });
   }
 
-  const sellLabel = result.sellCategory === "risk" ? "위험자산" : "안전자산";
-  const buyLabel = result.sellCategory === "risk" ? "안전자산" : "위험자산";
-  const sells = result.trades.filter((t) => t.action === "sell");
-  const buys = result.trades.filter((t) => t.action === "buy");
-  const barPct = (n: number) => `${Math.max(0, Math.min(100, n))}%`;
+  function updateRow(id: string, patch: Partial<AssetRow>) {
+    onRowsChange(rows.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+  }
 
   return (
     <section className="panel active" id="panel-rebalance">
       <h2 className="section-title">
-        <span className="num">01</span> 목표 비중
+        <span className="num">01</span> 리밸런싱 기준
       </h2>
       <div className="card">
-        <div className="field-row">
-          <div className="field">
-            <label>목표 위험자산 비중 (%)</label>
-            <input
-              type="number"
-              min={0}
-              max={100}
-              value={settings.targetRiskPct}
-              onChange={(e) => onChange({ ...settings, targetRiskPct: Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)) })}
-            />
-          </div>
-          <div className="field">
-            <label>허용 오차 (±%p)</label>
-            <input
-              type="number"
-              min={0}
-              step={0.5}
-              value={settings.tolerancePct}
-              onChange={(e) => onChange({ ...settings, tolerancePct: Math.max(0, parseFloat(e.target.value) || 0) })}
-            />
-          </div>
-        </div>
-        <p className="note">안전자산 목표는 {100 - settings.targetRiskPct}%야. 허용 오차 안이면 리밸런싱하지 않아도 돼.</p>
-        <div className="field" style={{ marginTop: 12, marginBottom: 0 }}>
-          <label>리밸런싱 대상 계좌 (체크 해제하면 제외)</label>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "8px 16px", fontSize: 13.5 }}>
-            {accounts.map((a) => (
-              <label key={a} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 0, color: "var(--ink)" }}>
-                <input
-                  type="checkbox"
-                  checked={included(a)}
-                  onChange={(e) => toggleAccount(a, e.target.checked)}
-                  style={{ width: 16, height: 16, padding: 0, flex: "0 0 auto" }}
-                />
-                {a}
-              </label>
-            ))}
-          </div>
-        </div>
-        <p className="note">월세보증금처럼 사고팔 수 없는 자산이 든 계좌나, 집 자금으로 묶어둔 계좌는 빼두는 게 좋아.</p>
-      </div>
-
-      <h2 className="section-title">
-        <span className="num">02</span> 현재 vs 목표
-      </h2>
-      <div className="card">
-        <div style={{ position: "relative", height: 18, borderRadius: 999, background: "var(--safe)", overflow: "hidden" }}>
-          <div style={{ width: barPct(result.riskPct), height: "100%", background: "var(--risk)" }} />
-        </div>
-        <div style={{ position: "relative", height: 10 }}>
-          <div
-            style={{
-              position: "absolute", left: barPct(settings.targetRiskPct), top: -22, width: 2, height: 26,
-              background: "var(--ink)", transform: "translateX(-1px)",
-            }}
-            title="목표"
+        <div className="field" style={{ maxWidth: 240 }}>
+          <label>허용 오차 (±%p)</label>
+          <input
+            type="number"
+            min={0}
+            step={0.5}
+            value={settings.tolerancePct}
+            onChange={(e) => onChange({ ...settings, tolerancePct: Math.max(0, parseFloat(e.target.value) || 0) })}
           />
         </div>
-        <div className="legend" style={{ marginTop: 10 }}>
-          <div className="row">
-            <span className="swatch" style={{ background: "var(--risk)" }} />
-            위험자산 {fmtWon(result.risk)}원 ({result.riskPct.toFixed(1)}%) · 목표 {settings.targetRiskPct}%
-          </div>
-          <div className="row">
-            <span className="swatch" style={{ background: "var(--safe)" }} />
-            안전자산 {fmtWon(result.safe)}원 ({(100 - result.riskPct).toFixed(1)}%)
-          </div>
-        </div>
-        <p className="note" style={{ color: result.needsRebalance ? "var(--risk)" : "var(--safe)", fontWeight: 600 }}>
-          {result.scopeTotal <= 0
-            ? "대상 자산이 없어. 위에서 계좌를 선택해줘."
-            : result.needsRebalance
-              ? `목표보다 위험자산이 ${Math.abs(result.driftPct).toFixed(1)}%p ${result.driftPct > 0 ? "많아" : "적어"}. 리밸런싱이 필요해.`
-              : `목표 대비 ${result.driftPct >= 0 ? "+" : ""}${result.driftPct.toFixed(1)}%p — 허용 오차 안이라 그대로 둬도 돼.`}
+        <p className="note" style={{ marginTop: 0 }}>
+          목표 비중에서 이 값 이상 벗어났을 때만 팔고 사라고 알려줘.{" "}
+          {yearsLeft === null
+            ? "집 매수 예정일이 아직 없어. ISA·CMA 전략 탭에서 입력해줘."
+            : `집 매수 예정일은 ${strategy.housePurchaseDate}이고, 약 ${yearsLeft.toFixed(1)}년 남았어.`}
+        </p>
+        <p className="note">
+          자금의 용도별로 묶음을 나눠서 각각 목표 비중을 정해. CMA·예금·주택청약처럼 어느 묶음에도 넣지 않은 계좌는 리밸런싱하지 않아
+          {ungrouped.length > 0 ? ` (지금은: ${ungrouped.join(", ")}).` : "."}
         </p>
       </div>
 
+      {settings.groups.map((g, i) => (
+        <div key={g.id}>
+          <h2 className="section-title">
+            <span className="num">{String(i + 2).padStart(2, "0")}</span> {g.name}
+          </h2>
+          <GroupSection
+            group={g}
+            rows={rows}
+            allAccounts={allAccounts}
+            tolerancePct={settings.tolerancePct}
+            targetRiskPct={g.targetType === "fixed" ? g.fixedRiskPct : glideTarget}
+            targetLabel={g.targetType === "fixed" ? "고정 비중" : "글리드 패스"}
+            onChange={updateGroup}
+            onToggleAccount={(a, on) => toggleAccount(g.id, a, on)}
+          />
+        </div>
+      ))}
+
       <h2 className="section-title">
-        <span className="num">03</span> 상품별 1주 가격 (선택)
+        <span className="num">{String(settings.groups.length + 2).padStart(2, "0")}</span> 상품별 거래 조건 (선택)
       </h2>
       <div className="card">
         <p className="note" style={{ marginTop: 0 }}>
-          주식·ETF처럼 1주 단위로만 살 수 있는 상품은 1주 가격을 넣어줘. 넣으면 정수 주수로 계산하고, 비워두면 금액 단위(소수점 거래, RP·예수금·통장 등)로 계산해.
-          가격은 시세에 따라 바뀌니 거래 직전에 다시 확인해줘.
+          <strong>1주 가격</strong>을 넣으면 정수 주수로 계산하고, 비워두면 금액 단위(소수점 거래, RP·예수금 등)로 계산해. 가격은 시세에 따라 바뀌니 거래 직전에 다시 확인해줘.
+          <br />
+          <strong>매도 안 함</strong>은 만기까지 들고 갈 채권처럼 중간에 팔지 않을 상품에, <strong>매수 우선</strong>은 새로 살 때 그 상품에만 몰아서 사고 싶을 때(예: S&P500만 살 때) 지정해.
         </p>
         <table className="grid" style={{ marginTop: 8 }}>
           <thead>
@@ -130,72 +259,41 @@ export default function RebalancePanel({ rows, settings, onChange, onRowsChange 
               <th>상품</th>
               <th className="num">보유 수량</th>
               <th className="num">1주 가격(원)</th>
+              <th>규칙</th>
             </tr>
           </thead>
           <tbody>
-            {scopeRows.map((r) => (
+            {tradableRows.map((r) => (
               <tr key={r.id}>
                 <td>{r.account}</td>
                 <td>{r.item}</td>
                 <td className="num">{r.unitPrice && r.unitPrice > 0 ? `${(r.amount / r.unitPrice).toFixed(2)}주` : "-"}</td>
                 <td className="num">
-                  <MoneyInput value={r.unitPrice ?? 0} onChange={(v) => setUnitPrice(r.id, v)} />
+                  <MoneyInput value={r.unitPrice ?? 0} onChange={(v) => updateRow(r.id, { unitPrice: v > 0 ? v : undefined })} />
+                </td>
+                <td>
+                  <select
+                    value={r.rebalanceRule ?? ""}
+                    onChange={(e) => updateRow(r.id, { rebalanceRule: (e.target.value || undefined) as AssetRow["rebalanceRule"] })}
+                    style={{ textAlign: "left" }}
+                  >
+                    <option value="">기본</option>
+                    <option value="hold">매도 안 함</option>
+                    <option value="preferred">매수 우선</option>
+                  </select>
                 </td>
               </tr>
             ))}
+            {tradableRows.length === 0 && (
+              <tr>
+                <td colSpan={5} style={{ textAlign: "center", color: "var(--ink-soft)" }}>
+                  위에서 묶음에 계좌를 넣으면 여기에 상품이 나타나.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
-
-      {result.needsRebalance && (
-        <>
-          <h2 className="section-title">
-            <span className="num">04</span> 추천 거래
-          </h2>
-          <div className="card">
-            <div className="result-line total">
-              <span className="k">
-                {sellLabel} 매도 → {buyLabel} 매수
-              </span>
-              <span className="v">{fmtWon(result.achievedShift)}원</span>
-            </div>
-            <table className="grid" style={{ marginTop: 12 }}>
-              <thead>
-                <tr>
-                  <th>구분</th>
-                  <th>계좌</th>
-                  <th>상품</th>
-                  <th className="num">수량</th>
-                  <th className="num">금액(원)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[...sells, ...buys].map((t, i) => (
-                  <tr key={`${t.action}-${t.rowId}-${i}`}>
-                    <td>
-                      <span className={`tag ${t.action === "sell" ? "risk" : "safe"}`}>{t.action === "sell" ? "매도" : "매수"}</span>
-                    </td>
-                    <td>{t.account}</td>
-                    <td>{t.item}</td>
-                    <td className="num">{t.shares !== undefined ? `${t.shares}주` : "금액 단위"}</td>
-                    <td className="num">{fmtWon(t.amount)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <p className="note">
-              거래 후 위험자산 비중은 약 {result.afterRiskPct.toFixed(1)}%가 돼. 계좌 안에서 팔고 산 돈은 같은 계좌에 머무르기 때문에, ISA·IRP·연금저축처럼
-              세금 없이 굴릴 수 있는 계좌부터 먼저 배정했어. 매도는 그 계좌의 {sellLabel} 상품을 보유금액 비율대로, 매수는 이미 들고 있는 {buyLabel} 상품에 비율대로 나눴어.
-            </p>
-            {result.notes.map((n, i) => (
-              <p className="note" key={i} style={{ color: "var(--risk)" }}>
-                {n}
-              </p>
-            ))}
-            <p className="note">실제 주문 전에 현재가·수수료·세금을 확인하고, 최종 판단은 직접 해줘. 이 화면은 참고용 계산 결과야.</p>
-          </div>
-        </>
-      )}
     </section>
   );
 }

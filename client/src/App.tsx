@@ -224,7 +224,7 @@ export default function App() {
         {tab === "snapshot" && (
           <SnapshotPanel rows={data.rows} onChange={updateRows} history={data.history} onHistoryChange={updateHistory} />
         )}
-        {tab === "rebalance" && <RebalancePanel rows={data.rows} settings={data.rebalance} onChange={updateRebalance} onRowsChange={updateRows} />}
+        {tab === "rebalance" && <RebalancePanel rows={data.rows} strategy={data.strategy} settings={data.rebalance} onChange={updateRebalance} onRowsChange={updateRows} />}
         {tab === "budget" && <BudgetPanel budget={data.budget} onChange={updateBudget} />}
         {tab === "sim" && (
           <SimulationPanel rows={data.rows} sim={data.simulation} onChange={updateSim} annualRaisePct={data.budget.annualRaisePct} />

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { AssetRow, BudgetData, HistoryEntry, LoanInput, StrategyData } from "../types";
 import { computeCurrentReturn, computeHousingLiquid, computeLoanEquity, computeTotals, fmtWon } from "../utils";
+import { yearsUntil } from "../rebalance";
 import BudgetBreakdown from "./BudgetBreakdown";
 import MoneyInput from "./MoneyInput";
 
@@ -38,6 +39,7 @@ function daysUntil(dateStr: string): number | null {
 export default function OverviewPanel({ rows, strategy, onStrategyChange, budget, onBudgetChange, loan, history }: Props) {
   const t = computeTotals(rows);
   const dday = daysUntil(strategy.isaDutyEndDate);
+  const houseYears = yearsUntil(strategy.housePurchaseDate);
   const currentReturn = computeCurrentReturn(rows, history);
   const [editingSummary, setEditingSummary] = useState(false);
   const [draft, setDraft] = useState(strategy.overviewSummary.join("\n"));
@@ -108,7 +110,7 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
         <div className="stat">
           <div className="label">집 매수 목표까지</div>
           <div className="value">
-            3~5<small>년</small>
+            {houseYears === null ? "-" : formatYearsMonths(houseYears)}
           </div>
         </div>
         <div className="stat">

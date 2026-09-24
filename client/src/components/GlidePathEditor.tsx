@@ -7,6 +7,14 @@ interface Props {
   onChange: (strategy: StrategyData) => void;
 }
 
+// 집 매수 예정일에서 남은 기간(년)만큼 거슬러 올라간 시점을 "2029년 6월" 형태로 표시
+function whenLabel(purchaseDate: string, yearsLeft: number): string {
+  const t = new Date(purchaseDate);
+  if (!purchaseDate || Number.isNaN(t.getTime())) return "-";
+  const d = new Date(t.getTime() - yearsLeft * 365.25 * 24 * 3600 * 1000);
+  return `${d.getFullYear()}년 ${d.getMonth() + 1}월`;
+}
+
 // 집 매수 예정일과, 남은 기간별 목표 위험 비중 표 (지점 사이는 직선으로 이어서 계산)
 export default function GlidePathEditor({ strategy, onChange }: Props) {
   const { glidePath, housePurchaseDate } = strategy;
@@ -32,6 +40,7 @@ export default function GlidePathEditor({ strategy, onChange }: Props) {
         <thead>
           <tr>
             <th>집 매수까지 남은 기간(년)</th>
+            <th>해당 시점</th>
             <th>목표 위험 비중(%)</th>
             <th></th>
           </tr>
@@ -42,6 +51,7 @@ export default function GlidePathEditor({ strategy, onChange }: Props) {
               <td>
                 <input type="number" min={0} step={0.5} value={row.yearsLeft} onChange={(e) => updateRow(i, { yearsLeft: Math.max(0, parseFloat(e.target.value) || 0) })} />
               </td>
+              <td style={{ whiteSpace: "nowrap" }}>{whenLabel(housePurchaseDate, row.yearsLeft)}</td>
               <td>
                 <input
                   type="number"

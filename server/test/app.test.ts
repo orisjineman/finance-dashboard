@@ -95,3 +95,69 @@ describe("POST /api/import-xlsx", () => {
     expect((await fetch(`${base}/api/import-xlsx`, { method: "POST" })).status).toBe(400);
   });
 });
+
+describe("백업·복원·내보내기·가져오기", () => {
+  const post = (url: string, body?: unknown) => fetch(`${base}${url}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body ?? {}) });
+
+  it("지금 백업하면 목록에 나타난다", async () => {
+    const { name } = (await (await post("/api/backups")).json()) as { name: string };
+    expect(name).toMatch(/^finance-dashboard-.*-manual\.json$/);
+    const { backups } = (await (await fetch(`${base}/api/backups`)).json()) as { backups: { name: string; size: number }[] };
+    expect(backups.some((b) => b.name === name && b.size > 0)).toBe(true);
+  });
+
+  it("백업으로 되돌리면 그때 값으로 돌아가고 되돌리기 직전 상태도 백업된다", async () => {
+    const before = await getData();
+    const { name } = (await (await post("/api/backups")).json()) as { name: string };
+    await fetch(`${base}/api/loan`, json({ ...before.loan, price: 999999 }));
+    expect((await getData()).loan.price).toBe(999999);
+    const res = await post("/api/backups/restore", { name });
+    expect(res.status).toBe(200);
+    expect((await getData()).loan.price).toBe(before.loan.price);
+    const { backups } = (await (await fetch(`${base}/api/backups`)).json()) as { backups: { name: string }[] };
+    expect(backups.some((b) => b.name.endsWith("-before-restore.json"))).toBe(true);
+  });
+
+  it("되돌리면 섹션 버전이 바뀌어 열려 있던 오래된 화면의 저장은 막힌다", async () => {
+    const v = (await getData())._versions.loan;
+    const { name } = (await (await post("/api/backups")).json()) as { name: string };
+    await post("/api/backups/restore", { name });
+    const stale = await fetch(`${base}/api/loan`, json((await getData()).loan, { "If-Match": v }));
+    expect(stale.status).toBe(409);
+  });
+
+  it("없는 백업이나 이상한 이름(경로 조작)은 404", async () => {
+    expect((await post("/api/backups/restore", { name: "finance-dashboard-1.json" })).status).toBe(404);
+    expect((await post("/api/backups/restore", { name: "../../etc/passwd" })).status).toBe(404);
+    expect((await post("/api/backups/restore", {})).status).toBe(404);
+  });
+
+  it("내보낸 JSON은 다시 가져올 수 있다", async () => {
+    const exp = await fetch(`${base}/api/export`);
+    expect(exp.headers.get("content-disposition")).toContain("attachment");
+    const exported = await exp.json();
+    exported.loan.price = 424242;
+    const res = await post("/api/import", exported);
+    expect(res.status).toBe(200);
+    expect((await getData()).loan.price).toBe(424242);
+  });
+
+  it("가져오기는 형식이 이상하면 거절하고 기존 데이터를 지키며 가져오기 직전 상태를 백업한다", async () => {
+    const before = (await getData()).loan.price;
+    expect((await post("/api/import", { hello: 1 })).status).toBe(400);
+    expect((await post("/api/import", { rows: { not: "array" } })).status).toBe(400);
+    expect((await getData()).loan.price).toBe(before);
+    const { backups } = (await (await fetch(`${base}/api/backups`)).json()) as { backups: { name: string }[] };
+    expect(backups.some((b) => b.name.endsWith("-before-import.json"))).toBe(true);
+  });
+
+  it("엑셀 내보내기는 자산·히스토리 시트를 가진 xlsx를 준다", async () => {
+    const res = await fetch(`${base}/api/export.xlsx`);
+    expect(res.headers.get("content-type")).toContain("spreadsheetml");
+    const XLSX = await import("xlsx");
+    const wb = XLSX.read(Buffer.from(await res.arrayBuffer()), { type: "buffer" });
+    expect(wb.SheetNames).toEqual(["자산", "히스토리"]);
+    const first = XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets["자산"])[0];
+    if (first) expect(typeof first["잔액(원)"]).toBe("number");
+  });
+});

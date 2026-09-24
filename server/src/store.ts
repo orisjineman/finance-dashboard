@@ -45,8 +45,60 @@ export async function readData(): Promise<DashboardData> {
 // Serialize writes so concurrent requests can't interleave and corrupt the file.
 let writeQueue: Promise<void> = Promise.resolve();
 
+const BACKUP_DIR = path.join(DATA_DIR, "backups");
+const BACKUP_KEEP = 30; // 자동·수동 백업을 최근 이만큼만 보관
+const AUTO_BACKUP_INTERVAL_MS = 10 * 60 * 1000; // 저장이 잦아도 자동 백업은 이 간격으로만
+const BACKUP_NAME = /^finance-dashboard-[0-9-]+(-[a-z-]+)?\.json$/;
+let lastAutoBackup = 0;
+
+export interface BackupInfo {
+  name: string;
+  createdAt: string; // ISO
+  size: number; // bytes
+}
+
+function stamp(d = new Date()): string {
+  const p = (n: number, w = 2) => String(n).padStart(w, "0");
+  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}-${p(d.getMilliseconds(), 3)}`;
+}
+
+// 지금 데이터 파일을 backups/ 에 복사해 두고, 오래된 백업은 정리한다. 데이터 파일이 아직 없으면 null.
+async function createBackupFile(tag: string): Promise<string | null> {
+  try {
+    await fs.access(DATA_FILE);
+  } catch {
+    return null;
+  }
+  await fs.mkdir(BACKUP_DIR, { recursive: true });
+  const name = `finance-dashboard-${stamp()}${tag ? `-${tag}` : ""}.json`;
+  await fs.copyFile(DATA_FILE, path.join(BACKUP_DIR, name));
+  const names = (await fs.readdir(BACKUP_DIR)).filter((n) => BACKUP_NAME.test(n)).sort();
+  for (const old of names.slice(0, Math.max(0, names.length - BACKUP_KEEP))) await fs.rm(path.join(BACKUP_DIR, old), { force: true });
+  return name;
+}
+
+export async function listBackups(): Promise<BackupInfo[]> {
+  let names: string[] = [];
+  try {
+    names = (await fs.readdir(BACKUP_DIR)).filter((n) => BACKUP_NAME.test(n));
+  } catch {
+    return [];
+  }
+  const infos = await Promise.all(
+    names.map(async (name) => {
+      const st = await fs.stat(path.join(BACKUP_DIR, name));
+      return { name, createdAt: st.mtime.toISOString(), size: st.size };
+    })
+  );
+  return infos.sort((a, b) => b.name.localeCompare(a.name));
+}
+
 async function persist(data: DashboardData): Promise<void> {
   await fs.mkdir(DATA_DIR, { recursive: true });
+  if (Date.now() - lastAutoBackup >= AUTO_BACKUP_INTERVAL_MS) {
+    lastAutoBackup = Date.now();
+    await createBackupFile("auto"); // 바뀌기 전 상태를 남긴다
+  }
   const tmpFile = `${DATA_FILE}.tmp`;
   await fs.writeFile(tmpFile, JSON.stringify(data, null, 2), "utf-8");
   await fs.rename(tmpFile, DATA_FILE);
@@ -70,6 +122,40 @@ export function updateData(mutate: (data: DashboardData) => void): Promise<Dashb
   return enqueue(async () => {
     const data = await readData();
     mutate(data);
+    await persist(data);
+    return data;
+  });
+}
+
+// 지금 상태를 바로 백업한다 (화면의 '지금 백업').
+export function backupNow(): Promise<string | null> {
+  return enqueue(() => createBackupFile("manual"));
+}
+
+// 백업 파일로 되돌린다. 되돌리기 직전 상태도 백업으로 남겨서 되돌리기를 다시 되돌릴 수 있다. 이름이 올바르지 않거나 없으면 null.
+export function restoreBackup(name: string): Promise<DashboardData | null> {
+  return enqueue(async () => {
+    if (!BACKUP_NAME.test(name)) return null;
+    let raw: string;
+    try {
+      raw = await fs.readFile(path.join(BACKUP_DIR, name), "utf-8");
+    } catch {
+      return null;
+    }
+    const data = migrate(JSON.parse(raw));
+    await createBackupFile("before-restore");
+    lastAutoBackup = Date.now();
+    await persist(data);
+    return data;
+  });
+}
+
+// 내보낸 파일 등으로 전체 데이터를 통째로 바꾼다. 바꾸기 직전 상태는 백업으로 남긴다.
+export function replaceAll(input: Partial<DashboardData> & Record<string, unknown>): Promise<DashboardData> {
+  return enqueue(async () => {
+    const data = migrate(input);
+    await createBackupFile("before-import");
+    lastAutoBackup = Date.now();
     await persist(data);
     return data;
   });

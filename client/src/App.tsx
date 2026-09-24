@@ -9,6 +9,7 @@ import RebalancePanel from "./components/RebalancePanel";
 import SimulationPanel from "./components/SimulationPanel";
 import LoanPanel from "./components/LoanPanel";
 import ChecklistPanel from "./components/ChecklistPanel";
+import DataPanel from "./components/DataPanel";
 
 const TABS = [
   { key: "overview", label: "개요" },
@@ -18,7 +19,11 @@ const TABS = [
   { key: "sim", label: "연도별 시뮬레이션" },
   { key: "loan", label: "대출 계산기" },
   { key: "checklist", label: "체크리스트" },
+  { key: "data", label: "데이터" },
 ] as const;
+
+// 웹(아티팩트) 빌드에는 서버가 없어서 백업·내보내기 탭을 숨긴다.
+const VISIBLE_TABS = import.meta.env.MODE === "artifact" ? TABS.filter((t) => t.key !== "data") : TABS;
 
 const SAVE_DELAY_MS = 400;
 
@@ -165,7 +170,7 @@ export default function App() {
           </div>
         </div>
         <nav className="tabs">
-          {TABS.map((t) => (
+          {VISIBLE_TABS.map((t) => (
             <button key={t.key} className={tab === t.key ? "active" : ""} onClick={() => setTab(t.key)}>
               {t.label}
             </button>
@@ -206,6 +211,7 @@ export default function App() {
         )}
         {tab === "loan" && <LoanPanel rows={data.rows} loan={data.loan} onChange={updateLoan} />}
         {tab === "checklist" && <ChecklistPanel items={data.checklist} onChange={updateChecklist} />}
+        {tab === "data" && <DataPanel />}
       </main>
 
       <footer className="foot">개인 참고용 재무 대시보드 · 실제 실행 전 최신 금리·세제·대출 규제를 다시 확인할 것</footer>

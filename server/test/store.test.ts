@@ -79,3 +79,13 @@ describe("store", () => {
     expect(existsSync(`${file}.tmp`)).toBe(false);
   });
 });
+
+describe("backups", () => {
+  it("보관 개수를 넘으면 오래된 백업부터 지운다", async () => {
+    for (let i = 0; i < 35; i++) await store.backupNow();
+    const list = await store.listBackups();
+    expect(list.length).toBeLessThanOrEqual(30);
+    const names = list.map((b) => b.name);
+    expect([...names].sort().reverse()).toEqual(names); // 최신순
+  });
+});

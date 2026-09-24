@@ -105,3 +105,29 @@ export async function fetchQuotes(codes: string[]): Promise<Record<string, Quote
   if (!res.ok) throw new Error(body.error ?? `시세 조회 실패 (${res.status})`);
   return body.results as Record<string, QuoteResult>;
 }
+
+export interface BackupInfo {
+  name: string;
+  createdAt: string;
+  size: number;
+}
+
+export async function listBackups(): Promise<BackupInfo[]> {
+  return (await request<{ backups: BackupInfo[] }>("/api/backups")).backups;
+}
+
+export async function createBackup(): Promise<void> {
+  await request("/api/backups", { method: "POST", body: "{}" });
+}
+
+export async function restoreBackup(name: string): Promise<void> {
+  await request("/api/backups/restore", { method: "POST", body: JSON.stringify({ name }) });
+}
+
+export async function importJson(data: unknown): Promise<void> {
+  const res = await fetch("/api/import", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? `가져오기 실패 (${res.status})`);
+  }
+}

@@ -16,6 +16,13 @@ const catLabel: Record<AssetCategory, string> = { risk: "위험", safe: "안전"
 
 type SortKey = "account" | "item" | "category" | "amount";
 
+// 분류별 색 (위험=붉은 계열, 안전=초록 계열, 현금성=금색 계열). 라이트/다크 테마 변수를 그대로 따른다.
+const catColor: Record<AssetCategory, { bg: string; fg: string }> = {
+  risk: { bg: "var(--risk-soft)", fg: "var(--risk)" },
+  safe: { bg: "var(--safe-soft)", fg: "var(--safe)" },
+  cash: { bg: "var(--gold-soft)", fg: "var(--gold)" },
+};
+
 export default function SnapshotPanel({ rows, onChange, history, onHistoryChange }: Props) {
   const [showImport, setShowImport] = useState(false);
   const [accountFilter, setAccountFilter] = useState("");
@@ -25,6 +32,13 @@ export default function SnapshotPanel({ rows, onChange, history, onHistoryChange
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
   const accounts = useMemo(() => Array.from(new Set(rows.map((r) => r.account).filter(Boolean))).sort(), [rows]);
+
+  // 계좌마다 서로 멀리 떨어진 색상(황금각)을 배정해 계좌끼리 구분이 잘 되게 한다.
+  const accountHue = useMemo(() => {
+    const map = new Map<string, number>();
+    accounts.forEach((a, idx) => map.set(a, (idx * 137.5) % 360));
+    return map;
+  }, [accounts]);
 
   const filtered = useMemo(() => {
     const q = itemSearch.trim().toLowerCase();
@@ -39,7 +53,13 @@ export default function SnapshotPanel({ rows, onChange, history, onHistoryChange
   }, [rows, accountFilter, categoryFilter, itemSearch]);
 
   const sorted = useMemo(() => {
-    if (!sortKey) return filtered;
+    if (!sortKey) {
+      return [...filtered].sort((a, b) => {
+        if (!a.r.account && b.r.account) return 1;
+        if (a.r.account && !b.r.account) return -1;
+        return a.r.account.localeCompare(b.r.account);
+      });
+    }
     const dir = sortDir === "asc" ? 1 : -1;
     return [...filtered].sort((a, b) => {
       const av = sortKey === "category" ? catLabel[a.r.category] : a.r[sortKey];
@@ -130,12 +150,20 @@ export default function SnapshotPanel({ rows, onChange, history, onHistoryChange
           </div>
         </div>
 
-        <table className="grid" style={{ marginTop: 16 }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 14, fontSize: 12, color: "var(--ink-soft)", flexWrap: "wrap" }}>
+          <span>분류 색:</span>
+          <span className="tag risk">위험</span>
+          <span className="tag safe">안전</span>
+          <span className="tag cash">현금성</span>
+          <span style={{ marginLeft: 8 }}>계좌는 왼쪽 색 띠로 구분하고, 계좌가 바뀌는 곳에는 굵은 선이 그어져.</span>
+        </div>
+        <table className="grid" style={{ marginTop: 8 }}>
           <thead>
             <tr>
               <th style={{ cursor: "pointer" }} onClick={() => toggleSort("account")}>
                 계좌{sortIndicator("account")}
               </th>
+              <th title="집 마련 자금 가용자산 계산에 포함할지">집자금</th>
               <th style={{ cursor: "pointer" }} onClick={() => toggleSort("item")}>
                 항목{sortIndicator("item")}
               </th>
@@ -145,20 +173,33 @@ export default function SnapshotPanel({ rows, onChange, history, onHistoryChange
               <th style={{ textAlign: "right", cursor: "pointer" }} onClick={() => toggleSort("amount")}>
                 잔액(원){sortIndicator("amount")}
               </th>
-              <th title="집 마련 자금 가용자산 계산에 포함할지">집자금</th>
               <th title="투자 수익률(투자원금 대비) 계산에 포함할지">수익률</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
-            {sorted.map(({ r, i }) => (
-              <tr key={r.id}>
-                <td>
+            {sorted.map(({ r, i }, idx) => {
+              const hue = accountHue.get(r.account);
+              const accountSolid = hue === undefined ? "var(--line)" : `hsl(${hue} 55% 52%)`;
+              const accountTint = hue === undefined ? undefined : `hsl(${hue} 55% 52% / 0.13)`;
+              const newGroup = idx > 0 && sorted[idx - 1].r.account !== r.account;
+              const cat = catColor[r.category];
+              return (
+              <tr key={r.id} style={newGroup ? { borderTop: "2px solid var(--ink-soft)" } : undefined}>
+                <td style={{ borderLeft: `5px solid ${accountSolid}`, background: accountTint }}>
                   <input
                     type="text"
                     value={r.account}
                     onChange={(e) => updateRow(i, { account: e.target.value })}
                     style={{ textAlign: "left", border: "none", background: "none", padding: 0, width: "100%", font: "inherit", color: "inherit" }}
+                  />
+                </td>
+                <td style={{ textAlign: "center" }}>
+                  <input
+                    type="checkbox"
+                    checked={r.housingEligible}
+                    onChange={(e) => updateRow(i, { housingEligible: e.target.checked })}
+                    title="집 마련 가용자산에 포함"
                   />
                 </td>
                 <td>
@@ -170,7 +211,11 @@ export default function SnapshotPanel({ rows, onChange, history, onHistoryChange
                   />
                 </td>
                 <td>
-                  <select value={r.category} onChange={(e) => updateRow(i, { category: e.target.value as AssetCategory })}>
+                  <select
+                    value={r.category}
+                    onChange={(e) => updateRow(i, { category: e.target.value as AssetCategory })}
+                    style={{ background: cat.bg, color: cat.fg, fontWeight: 600, borderColor: cat.fg }}
+                  >
                     {(["risk", "safe", "cash"] as AssetCategory[]).map((c) => (
                       <option key={c} value={c}>
                         {catLabel[c]}
@@ -180,14 +225,6 @@ export default function SnapshotPanel({ rows, onChange, history, onHistoryChange
                 </td>
                 <td className="num">
                   <MoneyInput value={r.amount} onChange={(v) => updateRow(i, { amount: v })} />
-                </td>
-                <td style={{ textAlign: "center" }}>
-                  <input
-                    type="checkbox"
-                    checked={r.housingEligible}
-                    onChange={(e) => updateRow(i, { housingEligible: e.target.checked })}
-                    title="집 마련 가용자산에 포함"
-                  />
                 </td>
                 <td style={{ textAlign: "center" }}>
                   <input
@@ -208,7 +245,8 @@ export default function SnapshotPanel({ rows, onChange, history, onHistoryChange
                   </button>
                 </td>
               </tr>
-            ))}
+              );
+            })}
             {sorted.length === 0 && (
               <tr>
                 <td colSpan={7} style={{ textAlign: "center", color: "var(--ink-soft)" }}>
@@ -219,13 +257,12 @@ export default function SnapshotPanel({ rows, onChange, history, onHistoryChange
           </tbody>
           <tfoot>
             <tr>
-              <td colSpan={3} style={{ fontWeight: 700 }}>
+              <td colSpan={4} style={{ fontWeight: 700 }}>
                 {filtersActive ? "합계 (필터됨)" : "합계"}
               </td>
               <td className="num" style={{ fontWeight: 700 }}>
                 {fmtWon(filteredTotal)}
               </td>
-              <td></td>
               <td></td>
               <td></td>
             </tr>

@@ -6,6 +6,7 @@ export interface AssetRow {
   item: string;
   category: AssetCategory;
   amount: number; // 만원
+  unitPrice?: number; // 만원, 1주(1좌) 가격. 비워두면 금액 단위(소수점·RP·예수금)로 거래한다고 본다
   housingEligible: boolean; // false면 집 마련 가용자산 계산에서 제외 (연금저축·IRP 등)
 }
 

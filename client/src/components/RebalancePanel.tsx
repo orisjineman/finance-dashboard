@@ -1,15 +1,17 @@
 import { useMemo } from "react";
 import type { AssetRow, RebalanceSettings } from "../types";
 import { fmtWon } from "../utils";
+import MoneyInput from "./MoneyInput";
 import { computeRebalance } from "../rebalance";
 
 interface Props {
   rows: AssetRow[];
   settings: RebalanceSettings;
   onChange: (settings: RebalanceSettings) => void;
+  onRowsChange: (rows: AssetRow[]) => void;
 }
 
-export default function RebalancePanel({ rows, settings, onChange }: Props) {
+export default function RebalancePanel({ rows, settings, onChange, onRowsChange }: Props) {
   const result = useMemo(() => computeRebalance(rows, settings), [rows, settings]);
   const accounts = useMemo(() => Array.from(new Set(rows.map((r) => r.account).filter(Boolean))).sort(), [rows]);
   const included = (a: string) => !settings.excludedAccounts.includes(a);
@@ -17,6 +19,11 @@ export default function RebalancePanel({ rows, settings, onChange }: Props) {
   function toggleAccount(a: string, on: boolean) {
     const excludedAccounts = on ? settings.excludedAccounts.filter((x) => x !== a) : [...settings.excludedAccounts, a];
     onChange({ ...settings, excludedAccounts });
+  }
+
+  const scopeRows = rows.filter((r) => !settings.excludedAccounts.includes(r.account) && (r.category === "risk" || r.category === "safe"));
+  function setUnitPrice(id: string, manwon: number) {
+    onRowsChange(rows.map((r) => (r.id === id ? { ...r, unitPrice: manwon > 0 ? manwon : undefined } : r)));
   }
 
   const sellLabel = result.sellCategory === "risk" ? "위험자산" : "안전자산";
@@ -108,10 +115,42 @@ export default function RebalancePanel({ rows, settings, onChange }: Props) {
         </p>
       </div>
 
+      <h2 className="section-title">
+        <span className="num">03</span> 상품별 1주 가격 (선택)
+      </h2>
+      <div className="card">
+        <p className="note" style={{ marginTop: 0 }}>
+          주식·ETF처럼 1주 단위로만 살 수 있는 상품은 1주 가격을 넣어줘. 넣으면 정수 주수로 계산하고, 비워두면 금액 단위(소수점 거래, RP·예수금·통장 등)로 계산해.
+          가격은 시세에 따라 바뀌니 거래 직전에 다시 확인해줘.
+        </p>
+        <table className="grid" style={{ marginTop: 8 }}>
+          <thead>
+            <tr>
+              <th>계좌</th>
+              <th>상품</th>
+              <th className="num">보유 수량</th>
+              <th className="num">1주 가격(원)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {scopeRows.map((r) => (
+              <tr key={r.id}>
+                <td>{r.account}</td>
+                <td>{r.item}</td>
+                <td className="num">{r.unitPrice && r.unitPrice > 0 ? `${(r.amount / r.unitPrice).toFixed(2)}주` : "-"}</td>
+                <td className="num">
+                  <MoneyInput value={r.unitPrice ?? 0} onChange={(v) => setUnitPrice(r.id, v)} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
       {result.needsRebalance && (
         <>
           <h2 className="section-title">
-            <span className="num">03</span> 추천 거래
+            <span className="num">04</span> 추천 거래
           </h2>
           <div className="card">
             <div className="result-line total">
@@ -126,6 +165,7 @@ export default function RebalancePanel({ rows, settings, onChange }: Props) {
                   <th>구분</th>
                   <th>계좌</th>
                   <th>상품</th>
+                  <th className="num">수량</th>
                   <th className="num">금액(원)</th>
                 </tr>
               </thead>
@@ -137,6 +177,7 @@ export default function RebalancePanel({ rows, settings, onChange }: Props) {
                     </td>
                     <td>{t.account}</td>
                     <td>{t.item}</td>
+                    <td className="num">{t.shares !== undefined ? `${t.shares}주` : "금액 단위"}</td>
                     <td className="num">{fmtWon(t.amount)}</td>
                   </tr>
                 ))}

@@ -23,3 +23,9 @@ npm-debug.log*
 # editor
 .vscode/
 .idea/
+
+# 아티팩트(웹) 게시용 빌드 파일 (원격 저장소에 올리지 않음)
+/scripts/build-artifact.mjs
+/client/src/api.artifact.ts
+/client/vite.config.artifact.ts
+/client/dist-artifact/

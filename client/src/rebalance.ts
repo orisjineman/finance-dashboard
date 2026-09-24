@@ -374,3 +374,10 @@ export function deriveGroupPlan(
     tooLow: needFromCapable < -EPS,
   };
 }
+
+// 추천 거래를 적용한 뒤의 자산 목록 (매도는 그 행에서 빼고 매수는 그 행에 더한다). 돈은 같은 묶음 안에 머무른다고 본다.
+export function applyTrades(rows: AssetRow[], trades: RebalanceTrade[]): AssetRow[] {
+  const delta = new Map<string, number>();
+  for (const t of trades) delta.set(t.rowId, (delta.get(t.rowId) ?? 0) + (t.action === "buy" ? t.amount : -t.amount));
+  return rows.map((r) => (delta.has(r.id) ? { ...r, amount: Math.max(0, r.amount + (delta.get(r.id) as number)) } : r));
+}

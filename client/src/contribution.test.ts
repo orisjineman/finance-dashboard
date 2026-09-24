@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { AssetRow } from "./types";
-import { computeContribution, contributionNeeded } from "./contribution";
+import { computeContribution, contributionNeeded, pickAccount, recommendTopUp } from "./contribution";
+import { applyTrades, computeRebalance } from "./rebalance";
 
 let n = 0;
 const row = (account: string, item: string, category: AssetRow["category"], amount: number, extra: Partial<AssetRow> = {}): AssetRow => ({
@@ -95,5 +96,93 @@ describe("computeContribution", () => {
   it("묶음에 없는 계좌나 0원이면 아무것도 사지 않는다", () => {
     expect(computeContribution(rows(), ["ISA"], 40, "다른계좌", 100).buys).toEqual([]);
     expect(computeContribution(rows(), ["ISA"], 40, "ISA", 0).buys).toEqual([]);
+  });
+});
+
+describe("pickAccount", () => {
+  const rows = [row("ISA", "S&P", "risk", 100), row("위탁", "SPY", "risk", 0), row("CMA", "RP", "safe", 500)];
+  it("입금 가능 금액이 있는 계좌를 먼저 고른다", () => {
+    expect(pickAccount(rows, ["ISA", "위탁", "CMA"], "risk", {}, { 위탁: 500 })).toBe("위탁");
+    expect(pickAccount(rows, ["ISA", "위탁", "CMA"], "risk")).toBe("ISA");
+  });
+  it("편입 불가 계좌와 해당 상품이 없는 계좌는 건너뛴다", () => {
+    expect(pickAccount(rows, ["ISA", "위탁", "CMA"], "risk", { ISA: "blocked" })).toBe("위탁");
+    expect(pickAccount(rows, ["ISA", "CMA"], "safe")).toBe("CMA");
+    expect(pickAccount(rows, ["CMA"], "risk")).toBeNull();
+  });
+});
+
+describe("applyTrades", () => {
+  it("매도는 빼고 매수는 더한다", () => {
+    const rows = [row("A", "x", "risk", 100), row("A", "y", "safe", 100)];
+    const out = applyTrades(rows, [
+      { rowId: rows[0].id, account: "A", item: "x", action: "sell", amount: 30, taxAdvantaged: true },
+      { rowId: rows[1].id, account: "A", item: "y", action: "buy", amount: 30, taxAdvantaged: true },
+    ]);
+    expect(out.map((r) => r.amount)).toEqual([70, 130]);
+  });
+});
+
+describe("recommendTopUp", () => {
+  const build = () => [
+    row("ISA", "S&P", "risk", 100),
+    row("ISA", "채권", "safe", 100),
+    row("CMA", "RP", "safe", 300),
+    row("위탁", "SPY", "risk", 0, { unitPrice: 10 }),
+  ];
+  const accounts = ["ISA", "CMA", "위탁"];
+
+  it("계좌 안 거래와 이동으로 못 맞춘 몫을 새 돈으로 채울 금액과 계좌를 알려준다", () => {
+    const rows = build();
+    // 이동 한도가 없으면 ISA 안에서만 조정 → 목표 50%에 못 닿는다
+    const r = computeRebalance(rows, accounts, 50, 5);
+    expect(r.afterRiskPct).toBeLessThan(45);
+    const rec = recommendTopUp(rows, accounts, 50, r.trades)!;
+    expect(rec).not.toBeNull();
+    expect(rec.category).toBe("risk");
+    expect(rec.account).toBe("ISA"); // 입금 한도 설정이 없으면 위험 상품이 있는 첫 계좌
+    expect(rec.plan.afterRiskPct).toBeCloseTo(50, 0);
+  });
+
+  it("입금 가능 금액이 설정된 위탁계좌를 우선 추천한다", () => {
+    const rows = build();
+    const r = computeRebalance(rows, accounts, 50, 5);
+    const rec = recommendTopUp(rows, accounts, 50, r.trades, {}, { 위탁: 5000 })!;
+    expect(rec.account).toBe("위탁");
+    expect(rec.plan.buys[0].item).toBe("SPY");
+    expect(Number.isInteger(rec.plan.buys[0].shares)).toBe(true);
+  });
+
+  it("이미 목표에 닿았으면 추천하지 않는다", () => {
+    const rows = [row("ISA", "S&P", "risk", 500), row("ISA", "채권", "safe", 500)];
+    expect(recommendTopUp(rows, ["ISA"], 50, [])).toBeNull();
+  });
+
+  it("위험이 넘치는데 안전 상품이 있는 계좌가 있으면 안전자산에 넣으라고 한다", () => {
+    const rows = [row("ISA", "S&P", "risk", 800, { rebalanceRule: "hold" }), row("ISA", "채권", "safe", 200)];
+    const rec = recommendTopUp(rows, ["ISA"], 50, [])!;
+    expect(rec.category).toBe("safe");
+    expect(rec.needed).toBeCloseTo(600, 6);
+  });
+
+  it("넣을 계좌를 찾을 수 없으면 null", () => {
+    const rows = [row("ISA", "S&P", "risk", 100, { rebalanceRule: "hold" }), row("ISA", "채권", "safe", 900)];
+    expect(recommendTopUp(rows, ["ISA"], 50, [], { ISA: "blocked" })).toBeNull();
+  });
+});
+
+describe("recommendTopUp — 1주보다 적은 금액", () => {
+  it("추천 금액으로 1주도 못 사면 1주를 사는 데 필요한 금액을 따로 알려준다", () => {
+    const rows = [row("ISA", "채권", "safe", 1000), row("위탁", "SPY", "risk", 0, { unitPrice: 100 })];
+    const rec = recommendTopUp(rows, ["ISA", "위탁"], 10, [], {}, { 위탁: 500 })!;
+    // 목표 10%: 필요 금액 = 0.1*1000/0.9 ≈ 111 → 1주(100)는 살 수 있다
+    expect(rec.plan.buys.length).toBeGreaterThan(0);
+    expect(rec.oneShare).toBeUndefined();
+
+    const small = recommendTopUp([row("ISA", "채권", "safe", 1000), row("위탁", "SPY", "risk", 0, { unitPrice: 500 })], ["ISA", "위탁"], 10, [], {}, { 위탁: 500 })!;
+    expect(small.plan.buys).toEqual([]);
+    expect(small.oneShare?.item).toBe("SPY");
+    expect(small.oneShare?.amount).toBe(500);
+    expect(small.oneShare?.plan.buys[0].shares).toBe(1);
   });
 });

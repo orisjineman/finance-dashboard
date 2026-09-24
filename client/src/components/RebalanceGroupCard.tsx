@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import type { AssetRow, RebalanceGroup } from "../types";
 import { fmtWon } from "../utils";
 import { computeRebalance, deriveGroupPlan } from "../rebalance";
-import { computeContribution, contributionNeeded } from "../contribution";
+import { computeContribution, contributionNeeded, pickAccount, recommendTopUp } from "../contribution";
 import MoneyInput from "./MoneyInput";
 import { DEFAULT_FEE_PCT, DEFAULT_TAX_RATE_PCT, estimateCosts } from "../costs";
 
@@ -40,12 +40,13 @@ export default function RebalanceGroupCard({ group, rows, allAccounts, tolerance
   const [payIn, setPayIn] = useState(0);
   const [payAccount, setPayAccount] = useState("");
   const contribAccounts = group.accounts.filter((a) => rows.some((r) => r.account === a && (r.category === "risk" || r.category === "safe")));
-  const account = contribAccounts.includes(payAccount) ? payAccount : contribAccounts.find((a) => (depositLimit[a] ?? 0) > 0 && riskAccess[a] !== "blocked") ?? contribAccounts.find((a) => riskAccess[a] !== "blocked") ?? contribAccounts[0] ?? "";
+  const account = contribAccounts.includes(payAccount) ? payAccount : pickAccount(rows, contribAccounts, "risk", riskAccess, depositLimit) ?? contribAccounts[0] ?? "";
   const scopeRows = rows.filter((r) => group.accounts.includes(r.account) && (r.category === "risk" || r.category === "safe"));
   const scopeTotal = scopeRows.reduce((sum, r) => sum + r.amount, 0);
   const scopeRisk = scopeRows.filter((r) => r.category === "risk").reduce((sum, r) => sum + r.amount, 0);
   const needed = targetRiskPct === null ? null : contributionNeeded(scopeRisk, scopeTotal, targetRiskPct);
   const contribution = targetRiskPct !== null && payIn > 0 && account ? computeContribution(rows, group.accounts, targetRiskPct, account, payIn, riskAccess) : null;
+  const topUp = result && result.needsRebalance && targetRiskPct !== null ? recommendTopUp(rows, group.accounts, targetRiskPct, result.trades, riskAccess, depositLimit) : null;
   const costs = result && result.trades.length > 0 ? estimateCosts(result.trades, rows, { feePct, taxRatePct }) : null;
   const sells = result?.trades.filter((t) => t.action === "sell") ?? [];
   const buys = result?.trades.filter((t) => t.action === "buy") ?? [];
@@ -251,6 +252,61 @@ export default function RebalanceGroupCard({ group, rows, allAccounts, tolerance
                 </p>
               ))}
             </>
+          )}
+          {topUp && (
+            <div className="contrib-box topup">
+              <div className="chart-title">그래도 못 맞추는 몫은 새 돈으로 채워</div>
+              <p className="note" style={{ marginTop: 0 }}>
+                위 매도·매수와 계좌 간 이동을 다 해도 위험 비중이 목표에 닿지 않아. 남는 몫을 채우려면{" "}
+                <strong>{topUp.account}</strong>에 새 돈 <strong>약 {fmtWon(topUp.needed)}원</strong>을 {topUp.category === "risk" ? "위험" : "안전"}자산으로 넣으면 돼
+                (기존 자산은 더 팔지 않아). 이 계좌는 입금 가능 금액이 설정된 계좌와 {topUp.category === "risk" ? "위험자산 상품이 있는" : "안전자산 상품이 있는"} 계좌 중에서 골랐어.
+              </p>
+              {topUp.plan.buys.length > 0 && (
+                <table className="grid">
+                  <thead>
+                    <tr>
+                      <th>구분</th>
+                      <th>계좌</th>
+                      <th>상품</th>
+                      <th className="num">수량</th>
+                      <th className="num">금액 (원)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {topUp.plan.buys.map((b) => (
+                      <tr key={b.rowId}>
+                        <td>
+                          <span className="tag safe">매수</span> <span style={{ fontSize: 11, color: "var(--ink-soft)" }}>새 돈</span>
+                        </td>
+                        <td>{topUp.account}</td>
+                        <td>{b.item}</td>
+                        <td className="num">{b.shares !== undefined ? `${b.shares}주` : "금액 단위"}</td>
+                        <td className="num">{fmtWon(b.amount)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+              {topUp.oneShare ? (
+                <p className="note">
+                  이 금액은 {topUp.oneShare.item} 1주 가격({fmtWon(topUp.oneShare.amount)}원)보다 작아서 지금은 살 수 없어. 1주를 사려면 최소{" "}
+                  <strong>{fmtWon(topUp.oneShare.amount)}원</strong>을 넣어야 하고, 그러면 위험 비중이 약 {topUp.oneShare.plan.afterRiskPct.toFixed(1)}%가 돼 (목표 {targetRiskPct?.toFixed(1)}%).
+                  달마다 나눠 모아서 1주 가격이 되면 사는 방법도 있어.
+                </p>
+              ) : (
+                <>
+                  <p className="note">
+                    넣은 뒤 위험 비중은 약 {topUp.plan.afterRiskPct.toFixed(1)}%가 돼 (목표 {targetRiskPct?.toFixed(1)}%).
+                    {topUp.plan.unspent * 10000 >= 1 && ` 1주 단위로 맞추느라 ${fmtWon(topUp.plan.unspent)}원은 예수금으로 남아.`}
+                  </p>
+                  {topUp.plan.notes.map((n, i) => (
+                    <p className="note" key={i} style={{ color: "var(--risk)" }}>
+                      {n}
+                    </p>
+                  ))}
+                </>
+              )}
+            </div>
           )}
           {targetRiskPct !== null && contribAccounts.length > 0 && (
             <div className="contrib-box">

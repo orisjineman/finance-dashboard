@@ -1,4 +1,5 @@
 import type { AssetRow } from "./types";
+import { applyTrades, type RebalanceTrade } from "./rebalance";
 
 export interface ContributionBuy {
   rowId: string;
@@ -32,6 +33,13 @@ export function contributionNeeded(risk: number, total: number, targetPct: numbe
 }
 
 const EPS = 1e-9;
+
+// 같은 이름의 상품은 한 곳에 입력한 1주 가격을 다른 행에서도 쓴다.
+function makePriceOf(rows: AssetRow[]): (r: AssetRow) => number | undefined {
+  const priceByItem = new Map<string, number>();
+  for (const r of rows) if ((r.unitPrice ?? 0) > 0 && !priceByItem.has(r.item)) priceByItem.set(r.item, r.unitPrice as number);
+  return (r) => ((r.unitPrice ?? 0) > 0 ? (r.unitPrice as number) : priceByItem.get(r.item));
+}
 
 // 기존 자산은 팔지 않고, account 에 새로 넣는 돈(amount, 만원)만으로 목표 위험 비중에 최대한 가깝게 사는 계획을 만든다.
 // 위험/안전 어느 쪽에 얼마를 넣을지는 '납입 후 목표 비중'에서 정하고, 그 계좌의 '매매 안 함' 상품은 사지 않는다.
@@ -69,9 +77,7 @@ export function computeContribution(
   plan.riskWanted = Math.min(amount, Math.max(0, riskGap));
   plan.safeWanted = amount - plan.riskWanted;
 
-  const priceByItem = new Map<string, number>();
-  for (const r of rows) if ((r.unitPrice ?? 0) > 0 && !priceByItem.has(r.item)) priceByItem.set(r.item, r.unitPrice as number);
-  const priceOf = (r: AssetRow) => ((r.unitPrice ?? 0) > 0 ? (r.unitPrice as number) : priceByItem.get(r.item));
+  const priceOf = makePriceOf(rows);
 
   const inAccount = scope.filter((r) => r.account === account);
   const spendOn = (category: "risk" | "safe", want: number) => {
@@ -119,3 +125,75 @@ export function computeContribution(
 }
 
 const won = (m: number) => Math.round(m * 10000).toLocaleString("ko-KR");
+
+// 새 돈을 넣을 계좌를 고른다. 해당 자산(위험/안전) 상품이 있고 편입 불가가 아닌 계좌 중, '입금 가능 금액'이 설정된 계좌를 먼저 쓴다.
+export function pickAccount(
+  rows: AssetRow[],
+  accounts: string[],
+  category: "risk" | "safe",
+  riskAccess: Record<string, "allowed" | "blocked"> = {},
+  depositLimit: Record<string, number> = {}
+): string | null {
+  const usable = accounts.filter(
+    (a) => !(category === "risk" && riskAccess[a] === "blocked") && rows.some((r) => r.account === a && r.category === category && r.rebalanceRule !== "hold")
+  );
+  return usable.find((a) => (depositLimit[a] ?? 0) > 0) ?? usable[0] ?? null;
+}
+
+export interface TopUpRecommendation {
+  account: string;
+  category: "risk" | "safe"; // 새 돈을 넣어야 하는 쪽
+  needed: number; // 만원, 추천 거래를 다 한 뒤에도 목표까지 모자란 몫을 새 돈으로 채우는 데 필요한 금액
+  plan: ContributionPlan;
+  // needed 만으로는 1주도 못 살 때: 가장 싼 상품 1주를 사려면 필요한 금액과 그때의 계획
+  oneShare?: { item: string; amount: number; plan: ContributionPlan };
+}
+
+// 묶음 안의 매매·계좌 간 이동(trades)을 다 해도 목표 비중에 못 닿을 때, 남는 몫을 채우려면 어느 계좌에 새 돈을 얼마 넣어야 하는지 추천한다.
+// 이미 목표에 닿았거나(0.05%p 이내) 채울 방법이 없으면 null.
+export function recommendTopUp(
+  rows: AssetRow[],
+  accounts: string[],
+  targetRiskPct: number,
+  trades: RebalanceTrade[],
+  riskAccess: Record<string, "allowed" | "blocked"> = {},
+  depositLimit: Record<string, number> = {}
+): TopUpRecommendation | null {
+  const after = applyTrades(rows, trades);
+  const scope = after.filter((r) => accounts.includes(r.account) && (r.category === "risk" || r.category === "safe"));
+  const total = scope.reduce((s, r) => s + r.amount, 0);
+  const risk = scope.filter((r) => r.category === "risk").reduce((s, r) => s + r.amount, 0);
+  if (total <= 0 || Math.abs((risk / total) * 100 - targetRiskPct) < 0.05) return null;
+  const needed = contributionNeeded(risk, total, targetRiskPct);
+  if (needed === null || needed <= EPS) return null;
+  const category = (risk / total) * 100 < targetRiskPct ? "risk" : "safe";
+  const account = pickAccount(after, accounts, category, riskAccess, depositLimit);
+  if (!account) return null;
+  const plan = computeContribution(after, accounts, targetRiskPct, account, needed, riskAccess);
+  const rec: TopUpRecommendation = { account, category, needed, plan };
+  if (plan.buys.length === 0 && !plan.notes.some((n) => n.includes("편입 불가"))) {
+    const priceOf = makePriceOf(after);
+    const cands = after.filter((r) => r.account === account && r.category === category && r.rebalanceRule !== "hold");
+    const preferred = cands.filter((r) => r.rebalanceRule === "preferred");
+    const priced = (preferred.length > 0 ? preferred : cands).map((r) => ({ r, price: priceOf(r) })).filter((x): x is { r: AssetRow; price: number } => x.price !== undefined);
+    if (priced.length > 0) {
+      const cheapest = priced.reduce((a, b) => (b.price < a.price ? b : a));
+      // 1주만 그대로 산다고 보고 그때의 비중을 계산한다 (목표 비중 배분과 상관없이 그 상품에 전액)
+      const oneShareAfter = ((category === "risk" ? risk + cheapest.price : risk) / (total + cheapest.price)) * 100;
+      rec.oneShare = {
+        item: cheapest.r.item,
+        amount: cheapest.price,
+        plan: {
+          ...plan,
+          buys: [{ rowId: cheapest.r.id, item: cheapest.r.item, category, amount: cheapest.price, shares: 1, unitPrice: cheapest.price }],
+          afterRiskPct: oneShareAfter,
+          unspent: 0,
+          riskWanted: category === "risk" ? cheapest.price : 0,
+          safeWanted: category === "safe" ? cheapest.price : 0,
+          reachesTarget: Math.abs(oneShareAfter - targetRiskPct) < 0.05,
+        },
+      };
+    }
+  }
+  return rec;
+}

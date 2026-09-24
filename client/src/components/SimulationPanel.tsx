@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import type { AssetRow, SimulationAssumptions } from "../types";
-import { computeTotals, fmtEok, fmtWon } from "../utils";
+import { computeReturnTotals, fmtEok, fmtWon } from "../utils";
 import MoneyInput from "./MoneyInput";
 
 interface Props {
@@ -42,7 +42,7 @@ function runSimulation(base: number, riskPct0: number, sim: SimulationAssumption
 }
 
 export default function SimulationPanel({ rows, sim, onChange, annualRaisePct }: Props) {
-  const t = computeTotals(rows);
+  const t = computeReturnTotals(rows);
   const riskPct0 = t.investBase > 0 ? t.risk / t.investBase : 0.5;
   const results = useMemo(() => runSimulation(t.total, riskPct0, sim, annualRaisePct), [t.total, riskPct0, sim, annualRaisePct]);
 
@@ -61,8 +61,11 @@ export default function SimulationPanel({ rows, sim, onChange, annualRaisePct }:
       </h2>
       <div className="card">
         <div className="field">
-          <label>현재 총자산 (원, 자동)</label>
+          <label>현재 투자자산 (원, 자동)</label>
           <MoneyInput value={t.total} readOnly />
+          <p className="note" style={{ marginTop: 6 }}>
+            자산 스냅샷에서 '수익률'이 체크된 항목만 계산해. 입출금 통장·월세보증금·청약처럼 체크를 해제한 항목은 빠져.
+          </p>
         </div>
         <div className="field-row">
           <div className="field">

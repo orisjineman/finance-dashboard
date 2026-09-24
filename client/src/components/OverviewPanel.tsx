@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { AssetRow, BudgetData, HistoryEntry, LoanInput, StrategyData } from "../types";
-import { computeCurrentReturn, computeHousingLiquid, computeLoanEquity, computeTotals, fmtWon } from "../utils";
+import { computeCurrentReturn, computeHousingLiquid, computeLoanEquity, computeReturnTotals, computeTotals, fmtWon } from "../utils";
 import { yearsUntil } from "../rebalance";
 import BudgetBreakdown from "./BudgetBreakdown";
 import MoneyInput from "./MoneyInput";
@@ -38,6 +38,7 @@ function daysUntil(dateStr: string): number | null {
 
 export default function OverviewPanel({ rows, strategy, onStrategyChange, budget, onBudgetChange, loan, history }: Props) {
   const t = computeTotals(rows);
+  const inv = computeReturnTotals(rows);
   const dday = daysUntil(strategy.isaDutyEndDate);
   const houseYears = yearsUntil(strategy.housePurchaseDate);
   const currentReturn = computeCurrentReturn(rows, history);
@@ -129,26 +130,26 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
       )}
 
       <h2 className="section-title">
-        <span className="num">02</span> 위험 / 안전 비중
+        <span className="num">02</span> 위험 / 안전 비중 (투자 항목 기준)
       </h2>
       <div className="card">
         <div className="donut-wrap">
           <div
             className="donut"
-            style={{ ["--risk-deg" as string]: `${t.riskPct * 3.6}deg` }}
+            style={{ ["--risk-deg" as string]: `${inv.riskPct * 3.6}deg` }}
           />
           <div className="legend">
             <div className="row">
               <span className="swatch" style={{ background: "var(--risk)" }} />
-              위험자산 {fmtWon(t.risk)}원 ({t.riskPct}%)
+              위험자산 {fmtWon(inv.risk)}원 ({inv.riskPct}%)
             </div>
             <div className="row">
               <span className="swatch" style={{ background: "var(--safe)" }} />
-              안전자산 {fmtWon(t.safe)}원 ({t.safePct}%)
+              안전자산 {fmtWon(inv.safe)}원 ({inv.safePct}%)
             </div>
           </div>
         </div>
-        <p className="note">자산 스냅샷 탭에서 숫자를 입력하면 여기 비중이 자동으로 계산돼.</p>
+        <p className="note">투자 항목 {fmtWon(inv.total)}원 기준이야. 자산 스냅샷에서 '수익률' 체크를 해제한 항목(입출금 통장, 월세보증금, 청약 등)은 빠져.</p>
       </div>
 
       <h2 className="section-title">

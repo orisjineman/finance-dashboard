@@ -1,7 +1,9 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { AssetRow, RebalanceGroup } from "../types";
 import { fmtWon } from "../utils";
 import { computeRebalance, deriveGroupPlan } from "../rebalance";
+import { computeContribution, contributionNeeded } from "../contribution";
+import MoneyInput from "./MoneyInput";
 import { DEFAULT_FEE_PCT, DEFAULT_TAX_RATE_PCT, estimateCosts } from "../costs";
 
 interface Props {
@@ -35,6 +37,15 @@ export default function RebalanceGroupCard({ group, rows, allAccounts, tolerance
 
   const sellLabel = result?.sellCategory === "risk" ? "위험자산" : "안전자산";
   const buyLabel = result?.sellCategory === "risk" ? "안전자산" : "위험자산";
+  const [payIn, setPayIn] = useState(0);
+  const [payAccount, setPayAccount] = useState("");
+  const contribAccounts = group.accounts.filter((a) => rows.some((r) => r.account === a && (r.category === "risk" || r.category === "safe")));
+  const account = contribAccounts.includes(payAccount) ? payAccount : contribAccounts.find((a) => (depositLimit[a] ?? 0) > 0 && riskAccess[a] !== "blocked") ?? contribAccounts.find((a) => riskAccess[a] !== "blocked") ?? contribAccounts[0] ?? "";
+  const scopeRows = rows.filter((r) => group.accounts.includes(r.account) && (r.category === "risk" || r.category === "safe"));
+  const scopeTotal = scopeRows.reduce((sum, r) => sum + r.amount, 0);
+  const scopeRisk = scopeRows.filter((r) => r.category === "risk").reduce((sum, r) => sum + r.amount, 0);
+  const needed = targetRiskPct === null ? null : contributionNeeded(scopeRisk, scopeTotal, targetRiskPct);
+  const contribution = targetRiskPct !== null && payIn > 0 && account ? computeContribution(rows, group.accounts, targetRiskPct, account, payIn, riskAccess) : null;
   const costs = result && result.trades.length > 0 ? estimateCosts(result.trades, rows, { feePct, taxRatePct }) : null;
   const sells = result?.trades.filter((t) => t.action === "sell") ?? [];
   const buys = result?.trades.filter((t) => t.action === "buy") ?? [];
@@ -240,6 +251,88 @@ export default function RebalanceGroupCard({ group, rows, allAccounts, tolerance
                 </p>
               ))}
             </>
+          )}
+          {targetRiskPct !== null && contribAccounts.length > 0 && (
+            <div className="contrib-box">
+              <div className="chart-title">새로 넣을 돈으로 맞추기 (팔지 않고)</div>
+              <p className="note" style={{ marginTop: 0 }}>
+                월급에서 이번에 새로 넣을 돈으로만 목표 비중에 가깝게 사는 방법이야. 기존 자산을 팔지 않으니 세금이 생기지 않아. 올해 납입 한도를 다 채운 ISA처럼 이번에 넣을 수 없는 계좌는 고르지 마.
+                {needed !== null && needed > 0 && (
+                  <>
+                    {" "}지금 비중을 팔지 않고 목표에 맞추려면 <strong>약 {fmtWon(needed)}원</strong>을 {result && result.driftPct < 0 ? "위험" : "안전"}자산으로 넣어야 해.
+                  </>
+                )}
+              </p>
+              <div className="field-row" style={{ maxWidth: 560 }}>
+                <div className="field">
+                  <label>이번에 새로 넣을 금액 (원)</label>
+                  <MoneyInput value={payIn} onChange={setPayIn} />
+                </div>
+                <div className="field">
+                  <label>넣을 계좌</label>
+                  <select value={account} onChange={(e) => setPayAccount(e.target.value)} style={{ textAlign: "left" }}>
+                    {contribAccounts.map((a) => (
+                      <option key={a} value={a}>
+                        {a}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              {contribution && (
+                <>
+                  <div className="result-line">
+                    <span className="k">위험자산으로 넣을 금액</span>
+                    <span className="v">{fmtWon(contribution.buys.filter((b) => b.category === "risk").reduce((s, b) => s + b.amount, 0))}원</span>
+                  </div>
+                  <div className="result-line">
+                    <span className="k">안전자산으로 넣을 금액</span>
+                    <span className="v">{fmtWon(contribution.buys.filter((b) => b.category === "safe").reduce((s, b) => s + b.amount, 0))}원</span>
+                  </div>
+                  <div className="result-line total">
+                    <span className="k">위험 비중</span>
+                    <span className="v">
+                      {contribution.riskPct.toFixed(1)}% → {contribution.afterRiskPct.toFixed(1)}% (목표 {targetRiskPct.toFixed(1)}%)
+                    </span>
+                  </div>
+                  {contribution.buys.length > 0 && (
+                    <table className="grid" style={{ marginTop: 10 }}>
+                      <thead>
+                        <tr>
+                          <th>구분</th>
+                          <th>계좌</th>
+                          <th>상품</th>
+                          <th className="num">수량</th>
+                          <th className="num">금액 (원)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {contribution.buys.map((b) => (
+                          <tr key={b.rowId}>
+                            <td>
+                              <span className="tag safe">매수</span>
+                            </td>
+                            <td>{account}</td>
+                            <td>{b.item}</td>
+                            <td className="num">{b.shares !== undefined ? `${b.shares}주` : "금액 단위"}</td>
+                            <td className="num">{fmtWon(b.amount)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                  {contribution.unspent * 10000 >= 1 && <p className="note">사지 못하고 예수금으로 남는 금액: {fmtWon(contribution.unspent)}원</p>}
+                  {!contribution.reachesTarget && (
+                    <p className="note">이 금액만으로는 목표 비중({targetRiskPct.toFixed(1)}%)에 닿지 못해. 위의 매도·매수 추천을 함께 쓰거나 다음 달에도 이어서 넣으면 돼.</p>
+                  )}
+                  {contribution.notes.map((n, i) => (
+                    <p className="note" key={i} style={{ color: "var(--risk)" }}>
+                      {n}
+                    </p>
+                  ))}
+                </>
+              )}
+            </div>
           )}
         </>
       )}

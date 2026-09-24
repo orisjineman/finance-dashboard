@@ -670,3 +670,8 @@ table.grid .btn {
   border: 1px dashed var(--line);
   border-radius: 12px;
 }
+.contrib-box {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}

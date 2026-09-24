@@ -29,7 +29,12 @@ function todayTag(): string {
 }
 
 function initialTheme(): Theme {
-  const saved = localStorage.getItem("fd_theme");
+  let saved: string | null = null;
+  try {
+    saved = localStorage.getItem("fd_theme");
+  } catch {
+    // 저장소를 못 쓰면 시스템 설정을 따른다
+  }
   if (saved === "light" || saved === "dark") return saved;
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
@@ -43,7 +48,11 @@ export default function App() {
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
-    localStorage.setItem("fd_theme", theme);
+    try {
+      localStorage.setItem("fd_theme", theme);
+    } catch {
+      // 무시
+    }
   }, [theme]);
 
   useEffect(() => {

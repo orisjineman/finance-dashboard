@@ -149,7 +149,7 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
             </div>
           </div>
         </div>
-        <p className="note">투자 항목 {fmtWon(inv.total)}원 기준이야. 자산 스냅샷에서 '수익률' 체크를 해제한 항목(입출금 통장, 월세보증금, 청약 등)은 빠져.</p>
+        <p className="note">투자 항목 {fmtWon(inv.total)}원 기준이야. 자산 스냅샷에서 '수익률' 체크를 해제한 항목(입출금 통장, 전세·월세 보증금, 청약 등)은 빠져.</p>
       </div>
 
       <h2 className="section-title">

@@ -68,7 +68,7 @@ body {
   min-height: 100%;
   background: var(--paper);
   color: var(--ink);
-  font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  font-family: 'Pretendard', 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 #root {
@@ -167,6 +167,48 @@ nav.tabs button.active {
   border-color: var(--accent);
   color: #fff;
   font-weight: 600;
+}
+
+.subtabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.subtabs button {
+  flex: 1 1 150px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--paper-raised);
+  color: var(--ink-soft);
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+.subtabs button:hover {
+  border-color: var(--accent);
+}
+.subtabs button.active {
+  border-color: var(--accent);
+  background: var(--accent-soft, var(--paper-raised));
+  box-shadow: inset 0 -3px 0 var(--accent);
+  color: var(--ink);
+}
+.subtab-name {
+  font-size: 14.5px;
+  font-weight: 700;
+}
+.subtab-sub {
+  font-size: 11.5px;
+  color: var(--ink-soft);
 }
 
 main {
@@ -415,44 +457,6 @@ ul.plain {
   padding-left: 18px;
   font-size: 13.5px;
   line-height: 1.8;
-}
-
-.ladder {
-  position: relative;
-  padding-left: 20px;
-}
-.ladder .rung {
-  position: relative;
-  padding: 10px 0 16px 16px;
-  border-left: 2px solid var(--line);
-}
-.ladder .rung:last-child {
-  border-left: 2px solid transparent;
-  padding-bottom: 0;
-}
-.ladder .rung::before {
-  content: '';
-  position: absolute;
-  left: -6px;
-  top: 12px;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--accent);
-}
-.ladder .rung .when {
-  font-size: 12px;
-  color: var(--ink-soft);
-}
-.ladder .rung .amt {
-  font-size: 16px;
-  font-weight: 700;
-  margin: 3px 0;
-  color: var(--ink);
-}
-.ladder .rung .why {
-  font-size: 13px;
-  color: var(--ink-soft);
 }
 
 .check-item {

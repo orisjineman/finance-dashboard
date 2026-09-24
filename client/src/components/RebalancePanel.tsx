@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { AssetRow, RebalanceGroup, RebalanceSettings, StrategyData } from "../types";
 import { fmtWon } from "../utils";
 import { computeRebalance, deriveGroupPlan, glideRiskPct, yearsUntil } from "../rebalance";
@@ -99,7 +99,7 @@ function GroupSection({ group, rows, allAccounts, tolerancePct, targetRiskPct, t
 
       {result === null || targetRiskPct === null ? (
         <p className="note" style={{ color: "var(--risk)" }}>
-          목표 비중을 계산할 수 없어. ISA·CMA 운용 계획 탭에서 집 매수 예정일과 글리드 패스 표를 입력해줘.
+          목표 비중을 계산할 수 없어. "집 자금" 탭의 "집 매수 예정일 · 목표 비중표"에서 집 매수 예정일과 글리드 패스 표를 입력해줘.
         </p>
       ) : (
         <>
@@ -242,6 +242,10 @@ export default function RebalancePanel({ rows, strategy, settings, onChange, onR
   const yearsLeft = yearsUntil(strategy.housePurchaseDate);
   const glideTarget = yearsLeft === null ? null : glideRiskPct(strategy.glidePath, yearsLeft);
 
+  const [view, setView] = useState<string>("");
+  const activeGroup = settings.groups.find((g) => g.id === view) ?? (view === "settings" || view === "products" ? null : settings.groups[0] ?? null);
+  const activeView = activeGroup ? activeGroup.id : view === "products" ? "products" : "settings";
+
   const riskAccess = settings.riskAccess ?? NO_ACCESS;
   const depositLimit = settings.depositLimit ?? NO_LIMIT;
 
@@ -312,9 +316,28 @@ export default function RebalancePanel({ rows, strategy, settings, onChange, onR
 
   return (
     <section className="panel active" id="panel-rebalance">
-      <h2 className="section-title">
-        <span className="num">01</span> 리밸런싱 기준
-      </h2>
+      <div className="subtabs" role="tablist">
+        {settings.groups.map((g) => (
+          <button key={g.id} role="tab" aria-selected={activeView === g.id} className={activeView === g.id ? "active" : ""} onClick={() => setView(g.id)}>
+            <span className="subtab-name">{g.name}</span>
+            <span className="subtab-sub">
+              {g.accounts.length}개 계좌 · {g.targetType === "fixed" ? `고정 위험 ${g.fixedRiskPct}%` : "집 매수 시점에 맞춰 조정"}
+            </span>
+          </button>
+        ))}
+        <button role="tab" aria-selected={activeView === "settings"} className={activeView === "settings" ? "active" : ""} onClick={() => setView("settings")}>
+          <span className="subtab-name">공통 기준</span>
+          <span className="subtab-sub">허용 오차 · 계좌별 편입</span>
+        </button>
+        <button role="tab" aria-selected={activeView === "products"} className={activeView === "products" ? "active" : ""} onClick={() => setView("products")}>
+          <span className="subtab-name">상품별 조건</span>
+          <span className="subtab-sub">1주 가격 · 매매 규칙</span>
+        </button>
+      </div>
+
+      {activeView === "settings" && (
+        <>
+      <h2 className="section-title">리밸런싱 기준</h2>
       <div className="card">
         <div className="field" style={{ maxWidth: 240 }}>
           <label>허용 오차 (±%p)</label>
@@ -329,7 +352,7 @@ export default function RebalancePanel({ rows, strategy, settings, onChange, onR
         <p className="note" style={{ marginTop: 0 }}>
           목표 비중에서 이 값 이상 벗어났을 때만 팔고 사라고 알려줘.{" "}
           {yearsLeft === null
-            ? "집 매수 예정일이 아직 없어. ISA·CMA 운용 계획 탭에서 입력해줘."
+            ? "집 매수 예정일이 아직 없어. '집 자금' 탭의 '집 매수 예정일 · 목표 비중표'에서 입력해줘."
             : `집 매수 예정일은 ${strategy.housePurchaseDate}이고, 약 ${yearsLeft.toFixed(1)}년 남았어.`}
         </p>
         <div className="field" style={{ marginTop: 4 }}>
@@ -383,37 +406,39 @@ export default function RebalancePanel({ rows, strategy, settings, onChange, onR
         </p>
       </div>
 
-      <h2 className="section-title">
-        <span className="num">02</span> 집 매수 예정일 · 목표 비중표
-      </h2>
-      <GlidePathEditor strategy={strategy} onChange={onStrategyChange} />
-      <p className="note">
-        '집 매수 시점에 맞춰 낮추기'를 고른 묶음은 이 표의 목표를 따라가. 표의 비중은 <strong>그 묶음 전체</strong>(CMA처럼 위험 상품이 없는 계좌 포함)에 대한 비율이야.
-      </p>
+        </>
+      )}
 
-      {settings.groups.map((g, i) => (
-        <div key={g.id}>
-          <h2 className="section-title">
-            <span className="num">{String(i + 3).padStart(2, "0")}</span> {g.name}
-          </h2>
+      {activeGroup && (
+        <>
+          {activeGroup.targetType === "glide" && (
+            <>
+              <h2 className="section-title">집 매수 예정일 · 목표 비중표</h2>
+              <GlidePathEditor strategy={strategy} onChange={onStrategyChange} />
+              <p className="note">
+                '집 매수 시점에 맞춰 낮추기'를 고른 묶음은 이 표의 목표를 따라가. 표의 비중은 <strong>그 묶음 전체</strong>(CMA처럼 위험 상품이 없는 계좌 포함)에 대한 비율이야.
+              </p>
+            </>
+          )}
+          <h2 className="section-title">{activeGroup.name} 리밸런싱</h2>
           <GroupSection
-            group={g}
+            group={activeGroup}
             rows={rows}
             allAccounts={allAccounts}
             tolerancePct={settings.tolerancePct}
-            targetRiskPct={g.targetType === "fixed" ? g.fixedRiskPct : glideTarget}
-            targetLabel={g.targetType === "fixed" ? "고정 비중" : "글리드 패스"}
+            targetRiskPct={activeGroup.targetType === "fixed" ? activeGroup.fixedRiskPct : glideTarget}
+            targetLabel={activeGroup.targetType === "fixed" ? "고정 비중" : "글리드 패스"}
             riskAccess={riskAccess}
             depositLimit={depositLimit}
             onChange={updateGroup}
-            onToggleAccount={(a, on) => toggleAccount(g.id, a, on)}
+            onToggleAccount={(a, on) => toggleAccount(activeGroup.id, a, on)}
           />
-        </div>
-      ))}
+        </>
+      )}
 
-      <h2 className="section-title">
-        <span className="num">{String(settings.groups.length + 3).padStart(2, "0")}</span> 상품별 거래 조건 (선택)
-      </h2>
+      {activeView === "products" && (
+        <>
+      <h2 className="section-title">상품별 거래 조건 (선택)</h2>
       <div className="card">
         <p className="note" style={{ marginTop: 0 }}>
           <strong>1주 가격</strong>을 넣으면 정수 주수로 계산하고, 비워두면 금액 단위(소수점 거래, RP·예수금 등)로 계산해. 가격은 시세에 따라 바뀌니 거래 직전에 다시 확인해줘. 같은 상품이 여러 계좌에 있으면 한 번만 입력해도 모든 계좌에 적용돼.
@@ -476,7 +501,7 @@ export default function RebalancePanel({ rows, strategy, settings, onChange, onR
             {products.length === 0 && (
               <tr>
                 <td colSpan={6} style={{ textAlign: "center", color: "var(--ink-soft)" }}>
-                  위에서 묶음에 계좌를 넣으면 여기에 상품이 나타나.
+                  '집 자금'·'노후 자금' 탭에서 묶음에 계좌를 넣으면 여기에 상품이 나타나.
                 </td>
               </tr>
             )}
@@ -484,6 +509,8 @@ export default function RebalancePanel({ rows, strategy, settings, onChange, onR
         </table>
         </div>
       </div>
+        </>
+      )}
     </section>
   );
 }

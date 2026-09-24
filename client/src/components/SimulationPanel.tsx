@@ -64,7 +64,7 @@ export default function SimulationPanel({ rows, sim, onChange, annualRaisePct }:
           <label>현재 투자자산 (원, 자동)</label>
           <MoneyInput value={t.total} readOnly />
           <p className="note" style={{ marginTop: 6 }}>
-            자산 스냅샷에서 '수익률'이 체크된 항목만 계산해. 입출금 통장·월세보증금·청약처럼 체크를 해제한 항목은 빠져.
+            자산 스냅샷에서 '수익률'이 체크된 항목만 계산해. 입출금 통장·전세·월세 보증금·청약처럼 체크를 해제한 항목은 빠져.
           </p>
         </div>
         <div className="field-row">

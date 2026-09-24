@@ -277,7 +277,7 @@ export default function SnapshotPanel({ rows, onChange, history, onHistoryChange
         )}
         <p className="note">
           잔액은 원 단위로 입력해(1원 단위까지 정확하게). 위험/안전 비중과 총자산은 자동으로 계산돼. "집자금" 체크를 해제하면 연금저축·IRP처럼 집
-          마련에는 못 쓰는 자산을 가용자산 계산에서 뺄 수 있어. "수익률" 체크를 해제하면 입출금 통장·월세보증금처럼 투자가 아닌 항목을 투자 수익률 계산에서 뺄 수 있어. 표 머리글을 클릭하면 정렬돼.
+          마련에는 못 쓰는 자산을 가용자산 계산에서 뺄 수 있어. "수익률" 체크를 해제하면 입출금 통장·전세·월세 보증금처럼 투자가 아닌 항목을 투자 수익률 계산에서 뺄 수 있어. 표 머리글을 클릭하면 정렬돼.
         </p>
         <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
           <button className="btn ghost" onClick={addRow}>

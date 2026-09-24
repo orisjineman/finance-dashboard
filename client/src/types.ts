@@ -90,6 +90,12 @@ export interface BudgetData {
   pensionTaxCreditRate: number; // %, 세액공제율 (13.2 또는 16.5)
 }
 
+export interface RebalanceSettings {
+  targetRiskPct: number;
+  tolerancePct: number;
+  excludedAccounts: string[];
+}
+
 export interface DashboardData {
   rows: AssetRow[];
   simulation: SimulationAssumptions;
@@ -98,6 +104,7 @@ export interface DashboardData {
   strategy: StrategyData;
   history: HistoryEntry[];
   budget: BudgetData;
+  rebalance: RebalanceSettings;
 }
 
 export interface ImportPreviewRow extends AssetRow {

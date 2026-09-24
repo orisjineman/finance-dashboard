@@ -6,6 +6,7 @@ import type {
   HistoryEntry,
   ImportPreview,
   LoanInput,
+  RebalanceSettings,
   SimulationAssumptions,
   StrategyData,
 } from "./types";
@@ -62,4 +63,8 @@ export async function importXlsx(file: File): Promise<ImportPreview> {
     throw new Error(body.error ?? `업로드 실패 (${res.status})`);
   }
   return res.json() as Promise<ImportPreview>;
+}
+
+export function saveRebalance(rebalance: RebalanceSettings): Promise<RebalanceSettings> {
+  return request<RebalanceSettings>("/api/rebalance", { method: "PUT", body: JSON.stringify(rebalance) });
 }

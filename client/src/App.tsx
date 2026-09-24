@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { AssetRow, BudgetData, ChecklistItem, DashboardData, HistoryEntry, LoanInput, SimulationAssumptions, StrategyData } from "./types";
-import { fetchData, saveBudget, saveChecklist, saveHistory, saveLoan, saveRows, saveSimulation, saveStrategy } from "./api";
+import type { AssetRow, BudgetData, ChecklistItem, DashboardData, HistoryEntry, LoanInput, RebalanceSettings, SimulationAssumptions, StrategyData } from "./types";
+import { fetchData, saveBudget, saveRebalance, saveChecklist, saveHistory, saveLoan, saveRows, saveSimulation, saveStrategy } from "./api";
 import { debounce } from "./utils";
 import OverviewPanel from "./components/OverviewPanel";
 import SnapshotPanel from "./components/SnapshotPanel";
 import BudgetPanel from "./components/BudgetPanel";
+import RebalancePanel from "./components/RebalancePanel";
 import SimulationPanel from "./components/SimulationPanel";
 import IsaPanel from "./components/IsaPanel";
 import LoanPanel from "./components/LoanPanel";
@@ -14,6 +15,7 @@ const TABS = [
   { key: "overview", label: "개요" },
   { key: "snapshot", label: "자산 스냅샷" },
   { key: "budget", label: "월급·예산" },
+  { key: "rebalance", label: "리밸런싱" },
   { key: "sim", label: "연도별 시뮬레이션" },
   { key: "isa", label: "ISA·CMA 전략" },
   { key: "loan", label: "대출 계산기" },
@@ -100,6 +102,14 @@ export default function App() {
       }, 400),
     []
   );
+  const debouncedSaveRebalance = useMemo(
+    () =>
+      debounce((rebalance: RebalanceSettings) => {
+        setSaving(true);
+        saveRebalance(rebalance).finally(() => setSaving(false));
+      }, 400),
+    []
+  );
   const debouncedSaveBudget = useMemo(
     () =>
       debounce((budget: BudgetData) => {
@@ -141,6 +151,11 @@ export default function App() {
     if (!dataRef.current) return;
     setData({ ...dataRef.current, history });
     debouncedSaveHistory(history);
+  }
+  function updateRebalance(rebalance: RebalanceSettings) {
+    if (!dataRef.current) return;
+    setData({ ...dataRef.current, rebalance });
+    debouncedSaveRebalance(rebalance);
   }
   function updateBudget(budget: BudgetData) {
     if (!dataRef.current) return;
@@ -209,6 +224,7 @@ export default function App() {
         {tab === "snapshot" && (
           <SnapshotPanel rows={data.rows} onChange={updateRows} history={data.history} onHistoryChange={updateHistory} />
         )}
+        {tab === "rebalance" && <RebalancePanel rows={data.rows} settings={data.rebalance} onChange={updateRebalance} />}
         {tab === "budget" && <BudgetPanel budget={data.budget} onChange={updateBudget} />}
         {tab === "sim" && (
           <SimulationPanel rows={data.rows} sim={data.simulation} onChange={updateSim} annualRaisePct={data.budget.annualRaisePct} />

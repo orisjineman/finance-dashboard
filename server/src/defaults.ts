@@ -65,6 +65,11 @@ export function defaultData(): DashboardData {
       ],
       pensionAnnualContribution: 900,
       pensionTaxCreditRate: 16.5
+    },
+    rebalance: {
+      targetRiskPct: 50,
+      tolerancePct: 5,
+      excludedAccounts: []
     }
   };
 }

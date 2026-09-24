@@ -90,6 +90,12 @@ export interface BudgetData {
   pensionTaxCreditRate: number; // %, 세액공제율 (13.2 또는 16.5)
 }
 
+export interface RebalanceSettings {
+  targetRiskPct: number; // 목표 위험자산 비중 (%)
+  tolerancePct: number; // 허용 오차 (%p), 이 안이면 리밸런싱 불필요
+  excludedAccounts: string[]; // 리밸런싱 대상에서 제외할 계좌 (예: 월세보증금이 든 "기타")
+}
+
 export interface DashboardData {
   rows: AssetRow[];
   simulation: SimulationAssumptions;
@@ -98,4 +104,5 @@ export interface DashboardData {
   strategy: StrategyData;
   history: HistoryEntry[];
   budget: BudgetData;
+  rebalance: RebalanceSettings;
 }

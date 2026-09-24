@@ -11,6 +11,7 @@ export interface AssetRow {
   priceDate?: string; // 1주 가격을 자동으로 불러온 기준일(YYYY-MM-DD). 없으면 직접 입력한 값
   rebalanceRule?: "hold" | "preferred"; // hold: 리밸런싱 때 팔지도 더 사지도 않음(만기 보유 채권 등), preferred: 매수는 이 상품에만
   excludeFromReturn?: boolean; // true면 투자 수익률 계산에서 제외 (입출금 통장, 전세·월세 보증금 등). 비어 있으면 포함
+  costBasis?: number; // 만원, 이 행의 매입 원금. 일반 과세 계좌에서 팔 때 예상 세금을 계산하는 데 쓴다
   housingEligible: boolean; // false면 집 마련 가용자산 계산에서 제외 (연금저축·IRP 등)
 }
 
@@ -20,7 +21,17 @@ export interface SimulationAssumptions {
   riskRate: number; // %
   safeRate: number; // %
   contributionRiskRatio: number; // %
+  scenarios?: SimulationScenario[]; // 시나리오 비교용 추가 가정 (현재 입력값과 나란히 비교)
   applySalaryRaise: boolean; // 매년 적립액에 연봉 상승률을 복리로 반영할지
+}
+
+export interface SimulationScenario {
+  id: string;
+  name: string;
+  riskRate: number; // %
+  safeRate: number; // %
+  annualContribution: number; // 만원
+  contributionRiskRatio: number; // %
 }
 
 export interface LoanInput {
@@ -75,6 +86,9 @@ export interface BudgetData {
   expenseCategories: BudgetCategory[];
   pensionAnnualContribution: number; // 만원, 연금저축+IRP 연간 납입 계획액
   pensionTaxCreditRate: number; // %, 세액공제율 (13.2 또는 16.5)
+  pensionCreditLimit?: number; // 만원, 세액공제 대상 납입 한도 (연금저축+IRP 합산). 없으면 900
+  pensionPaidThisYear?: number; // 만원, 올해 실제로 납입한 금액
+  pensionPaidYear?: number; // pensionPaidThisYear 가 어느 해의 값인지 (해가 바뀌면 0으로 본다)
 }
 
 export interface RebalanceGroup {
@@ -90,6 +104,8 @@ export interface RebalanceSettings {
   tolerancePct: number; // 허용 오차 (%p), 이 안이면 리밸런싱 불필요
   groups: RebalanceGroup[];
   riskAccess?: Record<string, "allowed" | "blocked">; // 계좌별 위험자산 편입 가능/불가. 없으면 위험 상품이 있는 계좌를 가능으로 자동 판단
+  feePct?: number; // 매매 수수료율(%). 없으면 0.015
+  taxRatePct?: number; // 일반 과세 계좌 매도 차익에 붙는 세율(%). 없으면 15.4
   depositLimit?: Record<string, number>; // 계좌별 '이번에 넣을 수 있는 금액'(만원). 다른 계좌에서 옮겨 올 수 있는 한도이고, 없으면 0
 }
 

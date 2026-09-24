@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { AssetRow, BudgetData, ChecklistItem, DashboardData, HistoryEntry, LoanInput, RebalanceSettings, SimulationAssumptions, StrategyData } from "./types";
 import { ConflictError, fetchData, saveBudget, saveRebalance, saveChecklist, saveHistory, saveLoan, saveRows, saveSimulation, saveStrategy } from "./api";
 import OverviewPanel from "./components/OverviewPanel";
+import { computeAlerts } from "./alerts";
 import SnapshotPanel from "./components/SnapshotPanel";
 import BudgetPanel from "./components/BudgetPanel";
 import RebalancePanel from "./components/RebalancePanel";
@@ -123,6 +124,8 @@ export default function App() {
   const updateRebalance = (rebalance: RebalanceSettings) => update("rebalance", rebalance);
   const updateBudget = (budget: BudgetData) => update("budget", budget);
 
+  const alerts = useMemo(() => (data ? computeAlerts(data) : []), [data]);
+
   if (error) {
     return (
       <div style={{ padding: 40, textAlign: "center" }}>
@@ -189,6 +192,8 @@ export default function App() {
             onBudgetChange={updateBudget}
             loan={data.loan}
             history={data.history}
+            alerts={alerts}
+            onNavigate={setTab}
           />
         )}
         {tab === "snapshot" && (
@@ -197,7 +202,7 @@ export default function App() {
         {tab === "rebalance" && <RebalancePanel rows={data.rows} strategy={data.strategy} settings={data.rebalance} onChange={updateRebalance} onRowsChange={updateRows} onStrategyChange={updateStrategy} />}
         {tab === "budget" && <BudgetPanel budget={data.budget} onChange={updateBudget} />}
         {tab === "sim" && (
-          <SimulationPanel rows={data.rows} sim={data.simulation} onChange={updateSim} annualRaisePct={data.budget.annualRaisePct} />
+          <SimulationPanel rows={data.rows} sim={data.simulation} onChange={updateSim} annualRaisePct={data.budget.annualRaisePct} loan={data.loan} />
         )}
         {tab === "loan" && <LoanPanel rows={data.rows} loan={data.loan} onChange={updateLoan} />}
         {tab === "checklist" && <ChecklistPanel items={data.checklist} onChange={updateChecklist} />}

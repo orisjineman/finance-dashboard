@@ -4,6 +4,7 @@ import { computeCurrentReturn, computeHousingLiquid, computeLoanEquity, computeR
 import { yearsUntil } from "../rebalance";
 import { projectHousing } from "../housing";
 import LineChart from "./LineChart";
+import type { Alert } from "../alerts";
 import BudgetBreakdown from "./BudgetBreakdown";
 import MoneyInput from "./MoneyInput";
 import SectionTitle from "./SectionTitle";
@@ -16,6 +17,8 @@ interface Props {
   onBudgetChange: (budget: BudgetData) => void;
   loan: LoanInput;
   history: HistoryEntry[];
+  alerts: Alert[];
+  onNavigate: (tab: NonNullable<Alert["tab"]>) => void;
 }
 
 function formatYearsMonths(years: number): string {
@@ -39,7 +42,7 @@ function daysUntil(dateStr: string): number | null {
   return Math.ceil((target.getTime() - today.getTime()) / 86400000);
 }
 
-export default function OverviewPanel({ rows, strategy, onStrategyChange, budget, onBudgetChange, loan, history }: Props) {
+export default function OverviewPanel({ rows, strategy, onStrategyChange, budget, onBudgetChange, loan, history, alerts, onNavigate }: Props) {
   const t = computeTotals(rows);
   const inv = computeReturnTotals(rows);
   const dday = daysUntil(strategy.isaDutyEndDate);
@@ -99,6 +102,26 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
 
   return (
     <section className="panel active" id="panel-overview">
+      <SectionTitle>점검할 것</SectionTitle>
+      <div className="card">
+        {alerts.length === 0 ? (
+          <p className="note" style={{ margin: 0 }}>지금은 따로 점검할 게 없어.</p>
+        ) : (
+          <ul className="alert-list">
+            {alerts.map((al) => (
+              <li key={al.id} className={`alert ${al.level}`}>
+                <span className="alert-text">{al.text}</span>
+                {al.tab && al.tab !== "overview" && (
+                  <button className="btn ghost sm" onClick={() => onNavigate(al.tab!)}>
+                    열기
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
       <SectionTitle>지금 상태</SectionTitle>
       <div className="stat-grid">
         <div className="stat">

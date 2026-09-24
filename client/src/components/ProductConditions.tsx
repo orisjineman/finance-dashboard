@@ -1,8 +1,10 @@
 import type { AssetRow } from "../types";
+import { fmtWon } from "../utils";
 import type { QuoteResult } from "../api";
 import MoneyInput from "./MoneyInput";
 import QuoteBar from "./QuoteBar";
 import SectionTitle from "./SectionTitle";
+import { isTaxAdvantaged } from "../rebalance";
 
 interface Props {
   rows: AssetRow[];
@@ -42,6 +44,8 @@ export default function ProductConditions({ rows, tradableRows, onRowsChange }: 
   function updateProduct(item: string, patch: Partial<AssetRow>) {
     onRowsChange(rows.map((r) => (r.item === item ? { ...r, ...patch } : r)));
   }
+
+  const taxableRows = tradableRows.filter((r) => !isTaxAdvantaged(r.account) && r.amount > 0);
 
   return (
     <>
@@ -114,6 +118,41 @@ export default function ProductConditions({ rows, tradableRows, onRowsChange }: 
             )}
           </tbody>
         </table>
+        </div>
+        <SectionTitle>일반 과세 계좌 보유분의 매입 원금 (선택)</SectionTitle>
+        <p className="note" style={{ marginTop: 0 }}>
+          일반 과세 계좌(ISA·IRP·연금저축이 아닌 계좌)에서 팔 때 예상 세금을 계산하려면 그 보유분을 얼마에 샀는지(매입 원금)가 필요해. 증권사 앱의 "매입금액"을 넣어줘. 비워두면 세금은 계산하지 않고 '모름'으로 표시돼.
+        </p>
+        <div className="table-scroll">
+          <table className="grid" style={{ minWidth: 560 }}>
+            <thead>
+              <tr>
+                <th>계좌</th>
+                <th>상품</th>
+                <th className="num">평가금액 (원)</th>
+                <th className="num">매입 원금 (원)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {taxableRows.map((r) => (
+                <tr key={r.id}>
+                  <td>{r.account}</td>
+                  <td>{r.item}</td>
+                  <td className="num">{fmtWon(r.amount)}</td>
+                  <td className="num">
+                    <MoneyInput value={r.costBasis ?? 0} onChange={(v) => onRowsChange(rows.map((x) => (x.id === r.id ? { ...x, costBasis: v > 0 ? v : undefined } : x)))} />
+                  </td>
+                </tr>
+              ))}
+              {taxableRows.length === 0 && (
+                <tr>
+                  <td colSpan={4} style={{ textAlign: "center", color: "var(--ink-soft)" }}>
+                    일반 과세 계좌에 든 위험·안전 자산이 없어.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </>

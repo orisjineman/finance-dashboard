@@ -638,3 +638,35 @@ table.grid .btn {
   font-weight: 600;
   margin-bottom: 4px;
 }
+.alert-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  border-left-width: 5px;
+  font-size: 13.5px;
+}
+.alert.warn {
+  border-left-color: var(--risk);
+  background: var(--risk-soft);
+}
+.alert.info {
+  border-left-color: var(--gold);
+  background: var(--gold-soft);
+}
+.cost-box {
+  margin-top: 12px;
+  padding: 10px 14px;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+}

@@ -1,6 +1,8 @@
 import { useMemo } from "react";
-import type { AssetRow, SimulationAssumptions } from "../types";
-import { computeReturnTotals, fmtEok, fmtWon } from "../utils";
+import type { AssetRow, LoanInput, SimulationAssumptions, SimulationScenario } from "../types";
+import { computeHousingLiquid, computeLoanEquity, computeReturnTotals, fmtEok, fmtWon, newId } from "../utils";
+import { evaluateScenario, runSimulation } from "../simulation";
+import LineChart from "./LineChart";
 import MoneyInput from "./MoneyInput";
 import SectionTitle from "./SectionTitle";
 
@@ -9,43 +11,44 @@ interface Props {
   sim: SimulationAssumptions;
   onChange: (sim: SimulationAssumptions) => void;
   annualRaisePct: number;
+  loan: LoanInput;
 }
 
-interface YearResult {
-  year: number;
-  contribution: number;
-  total: number;
-  profit: number;
-}
-
-function runSimulation(base: number, riskPct0: number, sim: SimulationAssumptions, raisePct: number): YearResult[] {
-  const years = Math.max(1, Math.min(40, sim.years || 10));
-  const riskRate = (sim.riskRate || 0) / 100;
-  const safeRate = (sim.safeRate || 0) / 100;
-  const contribRiskRatio = (sim.contributionRiskRatio || 0) / 100;
-  const raise = sim.applySalaryRaise ? (raisePct || 0) / 100 : 0;
-
-  let riskBal = base * riskPct0;
-  let safeBal = base * (1 - riskPct0);
-  let principal = base;
-  const out: YearResult[] = [];
-  for (let y = 1; y <= years; y++) {
-    const contribution = sim.annualContribution * Math.pow(1 + raise, y - 1);
-    riskBal += contribution * contribRiskRatio;
-    safeBal += contribution * (1 - contribRiskRatio);
-    riskBal *= 1 + riskRate;
-    safeBal *= 1 + safeRate;
-    principal += contribution;
-    const total = riskBal + safeBal;
-    out.push({ year: y, contribution, total, profit: total - principal });
-  }
-  return out;
-}
-
-export default function SimulationPanel({ rows, sim, onChange, annualRaisePct }: Props) {
+export default function SimulationPanel({ rows, sim, onChange, annualRaisePct, loan }: Props) {
   const t = computeReturnTotals(rows);
   const riskPct0 = t.investBase > 0 ? t.risk / t.investBase : 0.5;
   const results = useMemo(() => runSimulation(t.total, riskPct0, sim, annualRaisePct), [t.total, riskPct0, sim, annualRaisePct]);
+
+  const scenarios = sim.scenarios ?? [];
+  const housingRows = rows.filter((r) => r.housingEligible);
+  const hRisk = housingRows.filter((r) => r.category === "risk").reduce((sum, r) => sum + r.amount, 0);
+  const hSafe = housingRows.filter((r) => r.category === "safe").reduce((sum, r) => sum + r.amount, 0);
+  const evalCtx = {
+    base: t.total,
+    riskPct0,
+    housingBase: computeHousingLiquid(rows),
+    housingRiskPct0: hRisk + hSafe > 0 ? hRisk / (hRisk + hSafe) : 0.5,
+    equityNeeded: computeLoanEquity(loan),
+    raisePct: annualRaisePct,
+  };
+  const outcomes = useMemo(
+    () => [evaluateScenario(evalCtx, sim, null), ...scenarios.map((sc) => evaluateScenario(evalCtx, sim, sc))],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [t.total, riskPct0, sim, annualRaisePct, loan, rows]
+  );
+  const names = ["현재 입력값", ...scenarios.map((sc) => sc.name || "이름 없음")];
+  const palette = ["var(--accent)", "var(--gold)", "var(--safe)", "var(--ink-soft)", "var(--risk)"];
+  const thisYear = new Date().getFullYear();
+
+  function setScenario(id: string, patch: Partial<SimulationScenario>) {
+    set("scenarios", scenarios.map((sc) => (sc.id === id ? { ...sc, ...patch } : sc)));
+  }
+  function addScenario() {
+    set("scenarios", [
+      ...scenarios,
+      { id: newId("sc"), name: `시나리오 ${scenarios.length + 1}`, riskRate: sim.riskRate, safeRate: sim.safeRate, annualContribution: sim.annualContribution, contributionRiskRatio: sim.contributionRiskRatio },
+    ]);
+  }
 
   const maxVal = Math.max(...results.map((r) => r.total), 1);
   const showEvery = sim.years > 12 ? Math.ceil(sim.years / 12) : 1;
@@ -152,6 +155,106 @@ export default function SimulationPanel({ rows, sim, onChange, annualRaisePct }:
         </table>
 </div>
         <p className="note">단리가 아니라 복리로 계산하고, 매년 초 적립금이 들어온다고 가정한 값이야. 실제 수익률은 시장 상황에 따라 크게 달라질 수 있어서, 참고용 시나리오로만 써줘.</p>
+      </div>
+
+      <SectionTitle>시나리오 비교</SectionTitle>
+      <div className="card">
+        <p className="note" style={{ marginTop: 0 }}>
+          위쪽 가정(현재 입력값)과 나란히 놓고 볼 다른 가정을 추가해. 수익률·연간 적립액·신규 적립금의 위험 비중만 다르게 하고, 기간·연봉 상승률·시작 자산은 위쪽 값을 그대로 써.
+        </p>
+        <div className="table-scroll">
+          <table className="grid" style={{ minWidth: 640 }}>
+            <thead>
+              <tr>
+                <th>이름</th>
+                <th className="num">위험 수익률 (%)</th>
+                <th className="num">안전 수익률 (%)</th>
+                <th className="num">연간 적립액 (원)</th>
+                <th className="num">적립 위험 비중 (%)</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>현재 입력값</td>
+                <td className="num">{sim.riskRate}</td>
+                <td className="num">{sim.safeRate}</td>
+                <td className="num">{fmtWon(sim.annualContribution)}</td>
+                <td className="num">{sim.contributionRiskRatio}</td>
+                <td></td>
+              </tr>
+              {scenarios.map((sc) => (
+                <tr key={sc.id}>
+                  <td>
+                    <input type="text" value={sc.name} onChange={(e) => setScenario(sc.id, { name: e.target.value })} style={{ width: 120, textAlign: "left" }} />
+                  </td>
+                  <td className="num">
+                    <input type="number" step={0.5} value={sc.riskRate} onChange={(e) => setScenario(sc.id, { riskRate: parseFloat(e.target.value) || 0 })} />
+                  </td>
+                  <td className="num">
+                    <input type="number" step={0.1} value={sc.safeRate} onChange={(e) => setScenario(sc.id, { safeRate: parseFloat(e.target.value) || 0 })} />
+                  </td>
+                  <td className="num">
+                    <MoneyInput value={sc.annualContribution} onChange={(v) => setScenario(sc.id, { annualContribution: v })} />
+                  </td>
+                  <td className="num">
+                    <input type="number" value={sc.contributionRiskRatio} onChange={(e) => setScenario(sc.id, { contributionRiskRatio: parseFloat(e.target.value) || 0 })} />
+                  </td>
+                  <td>
+                    <button className="btn ghost sm" onClick={() => set("scenarios", scenarios.filter((x) => x.id !== sc.id))}>
+                      삭제
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {scenarios.length < 4 && (
+          <button className="btn ghost" style={{ marginTop: 10 }} onClick={addScenario}>
+            + 시나리오 추가
+          </button>
+        )}
+
+        <div className="table-scroll">
+          <table className="grid" style={{ marginTop: 16, minWidth: 560 }}>
+            <thead>
+              <tr>
+                <th>시나리오</th>
+                <th className="num">{sim.years}년 뒤 자산</th>
+                <th className="num">누적 수익</th>
+                <th className="num">집 자기자금 도달</th>
+              </tr>
+            </thead>
+            <tbody>
+              {outcomes.map((o, i) => (
+                <tr key={names[i] + i}>
+                  <td>
+                    <span className="swatch" style={{ background: palette[i % palette.length], display: "inline-block", marginRight: 8 }} />
+                    {names[i]}
+                  </td>
+                  <td className="num">{fmtWon(o.final)}원</td>
+                  <td className="num">{fmtWon(o.profit)}원</td>
+                  <td className="num">{evalCtx.equityNeeded <= 0 ? "-" : o.housingYear === null ? `${sim.years}년 안에 못 닿음` : `${o.housingYear}년차 (${thisYear + o.housingYear}년)`}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div style={{ marginTop: 14 }}>
+          <LineChart
+            yFormat={fmtEok}
+            series={outcomes.map((o, i) => ({
+              label: names[i],
+              color: palette[i % palette.length],
+              dots: false,
+              points: [{ t: new Date(thisYear, 0, 1).getTime(), y: evalCtx.base }, ...o.results.map((r) => ({ t: new Date(thisYear + r.year, 0, 1).getTime(), y: r.total }))],
+            }))}
+          />
+        </div>
+        <p className="note">
+          '집 자기자금 도달'은 연금저축·IRP를 뺀 집 마련 가용자산에 같은 수익률·적립 가정을 적용했을 때, 대출 계산기의 필요 자기자금에 처음 닿는 해야. 미래 수익률은 알 수 없으니 여러 가정을 비교해 보는 용도로만 써줘.
+        </p>
       </div>
     </section>
   );

@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import type { AssetRow, RebalanceGroup, RebalanceSettings, StrategyData } from "../types";
 import { fmtWon, uniqueAccounts } from "../utils";
 import { glideRiskPct, yearsUntil } from "../rebalance";
+import { DEFAULT_FEE_PCT, DEFAULT_TAX_RATE_PCT } from "../costs";
 import GlidePathEditor from "./GlidePathEditor";
 import MoneyInput from "./MoneyInput";
 import SectionTitle from "./SectionTitle";
@@ -110,6 +111,19 @@ export default function RebalancePanel({ rows, strategy, settings, onChange, onR
             ? "집 매수 예정일이 아직 없어. '집 자금' 탭의 '집 매수 예정일 · 목표 비중표'에서 입력해줘."
             : `집 매수 예정일은 ${strategy.housePurchaseDate}이고, 약 ${yearsLeft.toFixed(1)}년 남았어.`}
         </p>
+        <div className="field-row" style={{ maxWidth: 520 }}>
+          <div className="field">
+            <label>매매 수수료율 (%)</label>
+            <input type="number" min={0} step={0.005} value={settings.feePct ?? DEFAULT_FEE_PCT} onChange={(e) => onChange({ ...settings, feePct: Math.max(0, parseFloat(e.target.value) || 0) })} />
+          </div>
+          <div className="field">
+            <label>매도 차익 세율 (%)</label>
+            <input type="number" min={0} step={0.1} value={settings.taxRatePct ?? DEFAULT_TAX_RATE_PCT} onChange={(e) => onChange({ ...settings, taxRatePct: Math.max(0, parseFloat(e.target.value) || 0) })} />
+          </div>
+        </div>
+        <p className="note" style={{ marginTop: 0 }}>
+          추천 거래의 '예상 비용'을 계산할 때만 쓰는 값이야. 기본값은 수수료 0.015%, 세율 15.4%(국내 상장 ETF 배당소득세 기준)이고, 해외 상장 상품(양도세 22% 등)은 세율을 직접 바꿔서 봐.
+        </p>
         <div className="field" style={{ marginTop: 4 }}>
           <label>계좌별 위험자산 편입</label>
           <div className="table-scroll">
@@ -181,6 +195,8 @@ export default function RebalancePanel({ rows, strategy, settings, onChange, onR
             rows={rows}
             allAccounts={allAccounts}
             tolerancePct={settings.tolerancePct}
+            feePct={settings.feePct}
+            taxRatePct={settings.taxRatePct}
             targetRiskPct={activeGroup.targetType === "fixed" ? activeGroup.fixedRiskPct : glideTarget}
             targetLabel={activeGroup.targetType === "fixed" ? "고정 비중" : "글리드 패스"}
             riskAccess={riskAccess}

@@ -2,12 +2,15 @@ import { useMemo } from "react";
 import type { AssetRow, RebalanceGroup } from "../types";
 import { fmtWon } from "../utils";
 import { computeRebalance, deriveGroupPlan } from "../rebalance";
+import { DEFAULT_FEE_PCT, DEFAULT_TAX_RATE_PCT, estimateCosts } from "../costs";
 
 interface Props {
   group: RebalanceGroup;
   rows: AssetRow[];
   allAccounts: string[];
   tolerancePct: number;
+  feePct?: number;
+  taxRatePct?: number;
   targetRiskPct: number | null;
   targetLabel: string;
   riskAccess: Record<string, "allowed" | "blocked">;
@@ -19,7 +22,7 @@ interface Props {
 const barPct = (n: number) => `${Math.max(0, Math.min(100, n))}%`;
 
 // 한 묶음(집 자금·노후 자금 등)의 목표·현재 비중, 필요한 조치, 추천 거래를 보여주는 카드
-export default function RebalanceGroupCard({ group, rows, allAccounts, tolerancePct, targetRiskPct, targetLabel, riskAccess, depositLimit, onChange, onToggleAccount }: Props) {
+export default function RebalanceGroupCard({ group, rows, allAccounts, tolerancePct, feePct, taxRatePct, targetRiskPct, targetLabel, riskAccess, depositLimit, onChange, onToggleAccount }: Props) {
   const result = useMemo(
     () => (targetRiskPct === null ? null : computeRebalance(rows, group.accounts, targetRiskPct, tolerancePct, riskAccess, depositLimit)),
     [rows, group.accounts, targetRiskPct, tolerancePct, riskAccess, depositLimit]
@@ -32,6 +35,7 @@ export default function RebalanceGroupCard({ group, rows, allAccounts, tolerance
 
   const sellLabel = result?.sellCategory === "risk" ? "위험자산" : "안전자산";
   const buyLabel = result?.sellCategory === "risk" ? "안전자산" : "위험자산";
+  const costs = result && result.trades.length > 0 ? estimateCosts(result.trades, rows, { feePct, taxRatePct }) : null;
   const sells = result?.trades.filter((t) => t.action === "sell") ?? [];
   const buys = result?.trades.filter((t) => t.action === "buy") ?? [];
 
@@ -205,6 +209,26 @@ export default function RebalanceGroupCard({ group, rows, allAccounts, tolerance
                     ))}
                   </tbody>
                 </table>
+              )}
+              {costs && (
+                <div className="cost-box">
+                  <div className="result-line">
+                    <span className="k">예상 수수료 (매매율 {feePct ?? DEFAULT_FEE_PCT}%)</span>
+                    <span className="v">{fmtWon(costs.fee)}원</span>
+                  </div>
+                  <div className="result-line">
+                    <span className="k">예상 세금 (일반 과세 계좌 매도 차익 × {taxRatePct ?? DEFAULT_TAX_RATE_PCT}%)</span>
+                    <span className="v">{fmtWon(costs.tax)}원</span>
+                  </div>
+                  {costs.unknown.length > 0 && (
+                    <p className="note" style={{ margin: "6px 0 0" }}>
+                      매입 원금을 입력하지 않아 세금을 계산하지 못한 상품: {costs.unknown.join(", ")}. '상품별 조건' 탭에서 매입 원금을 넣으면 반영돼.
+                    </p>
+                  )}
+                  <p className="note" style={{ margin: "6px 0 0" }}>
+                    참고용 추정치야. 실제 세금은 상품 종류(국내·해외 상장), 연간 손익 통산, 공제에 따라 달라지니 거래 전에 확인해줘.
+                  </p>
+                </div>
               )}
               <p className="note">
                 거래 후 위험자산 비중은 약 {result.afterRiskPct.toFixed(1)}%가 돼. 계좌 안에서 판 돈은 같은 계좌에 머무르기 때문에, ISA·IRP·연금저축처럼 세금 없이

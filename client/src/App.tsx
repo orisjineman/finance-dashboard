@@ -35,6 +35,22 @@ const SAVERS: { [K in keyof DashboardData]: (value: DashboardData[K]) => Promise
 type TabKey = (typeof TABS)[number]["key"];
 type Theme = "light" | "dark";
 
+// 라이트/다크 전환 아이콘 (현재 테마를 보여준다)
+function ThemeIcon({ dark }: { dark: boolean }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {dark ? (
+        <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />
+      ) : (
+        <>
+          <circle cx="12" cy="12" r="4" />
+          <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+        </>
+      )}
+    </svg>
+  );
+}
+
 function todayTag(): string {
   const t = new Date();
   return `${t.getFullYear()}.${String(t.getMonth() + 1).padStart(2, "0")}.${String(t.getDate()).padStart(2, "0")}`;
@@ -124,7 +140,7 @@ export default function App() {
     <>
       <header className="top">
         <div className="brand">
-          <h1 className="serif">재무 대시보드</h1>
+          <h1 className="brand-title">재무 대시보드</h1>
           <div className="brand-right">
             <div className="sub">
               {todayTag()}
@@ -137,7 +153,7 @@ export default function App() {
               aria-label="라이트/다크 모드 전환"
               title="라이트/다크 모드 전환"
             >
-              {theme === "dark" ? "🌙" : "☀️"}
+              <ThemeIcon dark={theme === "dark"} />
             </button>
           </div>
         </div>
@@ -150,7 +166,7 @@ export default function App() {
         </nav>
       </header>
 
-      <main className={tab === "snapshot" || tab === "rebalance" ? "wide" : undefined}>
+      <main>
         {tab === "overview" && (
           <OverviewPanel
             rows={data.rows}

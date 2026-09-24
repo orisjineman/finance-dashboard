@@ -77,7 +77,7 @@ export default function ImportXlsxModal({ onClose, onImport }: Props) {
                   <th>계좌</th>
                   <th>항목</th>
                   <th>분류</th>
-                  <th style={{ textAlign: "right" }}>금액(원)</th>
+                  <th style={{ textAlign: "right" }}>금액 (원)</th>
                 </tr>
               </thead>
               <tbody>

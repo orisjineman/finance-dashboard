@@ -74,7 +74,7 @@ body {
 #root {
   min-height: 100%;
 }
-.serif {
+.brand-title {
   font-family: 'Pretendard', sans-serif;
   font-weight: 700;
 }
@@ -212,7 +212,7 @@ nav.tabs button.active {
 }
 
 main {
-  max-width: 760px;
+  max-width: 1000px;
   margin: 0 auto;
   padding: 20px 16px 64px;
 }
@@ -431,6 +431,16 @@ table.grid select:focus {
 .btn:hover {
   opacity: 0.88;
 }
+table.grid .cell-input,
+.cell-input {
+  text-align: left;
+  border: none;
+  background: none;
+  padding: 0;
+  width: 100%;
+  font: inherit;
+  color: inherit;
+}
 .btn.sm {
   padding: 6px 10px;
   font-size: 12px;
@@ -586,7 +596,4 @@ table.grid .btn {
 }
 .table-scroll {
   overflow-x: auto;
-}
-main.wide {
-  max-width: 1100px;
 }

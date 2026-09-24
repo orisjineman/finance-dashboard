@@ -171,7 +171,7 @@ export default function SnapshotPanel({ rows, onChange, history, onHistoryChange
                 분류{sortIndicator("category")}
               </th>
               <th style={{ textAlign: "right", cursor: "pointer" }} onClick={() => toggleSort("amount")}>
-                잔액(원){sortIndicator("amount")}
+                잔액 (원){sortIndicator("amount")}
               </th>
               <th title="투자 수익률(투자원금 대비) 계산에 포함할지">수익률</th>
               <th></th>
@@ -191,7 +191,7 @@ export default function SnapshotPanel({ rows, onChange, history, onHistoryChange
                     type="text"
                     value={r.account}
                     onChange={(e) => updateRow(i, { account: e.target.value })}
-                    style={{ textAlign: "left", border: "none", background: "none", padding: 0, width: "100%", font: "inherit", color: "inherit" }}
+                    className="cell-input"
                   />
                 </td>
                 <td style={{ textAlign: "center" }}>
@@ -207,7 +207,7 @@ export default function SnapshotPanel({ rows, onChange, history, onHistoryChange
                     type="text"
                     value={r.item}
                     onChange={(e) => updateRow(i, { item: e.target.value })}
-                    style={{ textAlign: "left", border: "none", background: "none", padding: 0, width: "100%", font: "inherit", color: "inherit" }}
+                    className="cell-input"
                   />
                 </td>
                 <td>

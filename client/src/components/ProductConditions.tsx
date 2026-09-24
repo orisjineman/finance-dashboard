@@ -61,7 +61,7 @@ export default function ProductConditions({ rows, tradableRows, onRowsChange }: 
               <th>보유 계좌</th>
               <th>종목코드</th>
               <th className="num">보유 수량</th>
-              <th className="num">1주 가격(원)</th>
+              <th className="num">1주 가격 (원)</th>
               <th>규칙</th>
             </tr>
           </thead>

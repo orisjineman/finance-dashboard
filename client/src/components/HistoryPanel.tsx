@@ -129,10 +129,10 @@ export default function HistoryPanel({ rows, history, onChange }: Props) {
               <thead>
                 <tr>
                   <th>날짜</th>
-                  <th className="num">신규납입(원)</th>
-                  <th className="num">누적원금(원)</th>
-                  <th className="num">총평가금액(원)</th>
-                  <th className="num">수익(원)</th>
+                  <th className="num">신규납입 (원)</th>
+                  <th className="num">누적원금 (원)</th>
+                  <th className="num">총평가금액 (원)</th>
+                  <th className="num">수익 (원)</th>
                   <th className="num">수익률</th>
                   <th></th>
                 </tr>

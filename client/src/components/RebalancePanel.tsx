@@ -201,7 +201,7 @@ function GroupSection({ group, rows, allAccounts, tolerancePct, targetRiskPct, t
                       <th>계좌</th>
                       <th>상품</th>
                       <th className="num">수량</th>
-                      <th className="num">금액(원)</th>
+                      <th className="num">금액 (원)</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -334,7 +334,7 @@ export default function RebalancePanel({ rows, strategy, settings, onChange, onR
                   <th>계좌</th>
                   <th className="num">지금 들고 있는 위험자산</th>
                   <th>편입 설정</th>
-                  <th className="num">이번에 넣을 수 있는 금액(원)</th>
+                  <th className="num">이번에 넣을 수 있는 금액 (원)</th>
                 </tr>
               </thead>
               <tbody>

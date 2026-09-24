@@ -56,7 +56,7 @@ export default function BudgetPanel({ budget, onChange }: Props) {
           <thead>
             <tr>
               <th>항목</th>
-              <th style={{ textAlign: "right" }}>월 예산(원)</th>
+              <th style={{ textAlign: "right" }}>월 예산 (원)</th>
               <th></th>
             </tr>
           </thead>
@@ -68,7 +68,7 @@ export default function BudgetPanel({ budget, onChange }: Props) {
                     type="text"
                     value={c.name}
                     onChange={(e) => updateCategory(i, { name: e.target.value })}
-                    style={{ textAlign: "left", border: "none", background: "none", padding: 0, width: "100%", font: "inherit", color: "inherit" }}
+                    className="cell-input"
                   />
                 </td>
                 <td className="num">

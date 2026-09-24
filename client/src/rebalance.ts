@@ -102,7 +102,13 @@ export function computeRebalance(rows: AssetRow[], accounts: string[], targetRis
   const EPS = 1e-9;
   const won = (m: number) => Math.round(m * 10000).toLocaleString("ko-KR");
   const wholeShares = (amount: number, price: number) => Math.floor(amount / price + EPS);
-  const hasPrice = (r: AssetRow) => (r.unitPrice ?? 0) > 0;
+  // 같은 상품(이름)이 여러 계좌에 있으면 가격을 한 번만 입력해도 되도록, 어느 한 곳에 입력된 가격을 같은 이름의 상품에 공유한다.
+  const priceByItem = new Map<string, number>();
+  for (const r of rows) {
+    if ((r.unitPrice ?? 0) > 0 && !priceByItem.has(r.item)) priceByItem.set(r.item, r.unitPrice as number);
+  }
+  const priceOf = (r: AssetRow): number | undefined => ((r.unitPrice ?? 0) > 0 ? r.unitPrice : priceByItem.get(r.item));
+  const hasPrice = (r: AssetRow) => priceOf(r) !== undefined;
 
   let remaining = idealShift;
   let sumSells = 0;
@@ -115,7 +121,7 @@ export function computeRebalance(rows: AssetRow[], accounts: string[], targetRis
     const sells = plan.sellRows.map((r) => {
       const target = (x * r.amount) / plan.capacity;
       if (hasPrice(r)) {
-        const price = r.unitPrice as number;
+        const price = priceOf(r) as number;
         const shares = Math.min(wholeShares(r.amount, price), Math.round(target / price));
         return { r, shares: shares as number | undefined, amount: shares * price };
       }
@@ -132,7 +138,7 @@ export function computeRebalance(rows: AssetRow[], accounts: string[], targetRis
       const share = buyBase > 0 ? r.amount / buyBase : 1 / plan.buyRows.length;
       const target = proceeds * share;
       if (hasPrice(r)) {
-        const price = r.unitPrice as number;
+        const price = priceOf(r) as number;
         const shares = wholeShares(target, price);
         return { r, shares: shares as number | undefined, amount: shares * price };
       }
@@ -158,11 +164,11 @@ export function computeRebalance(rows: AssetRow[], accounts: string[], targetRis
 
     for (const t of sells) {
       if (t.amount <= EPS) continue;
-      result.trades.push({ rowId: t.r.id, account: plan.account, item: t.r.item, action: "sell", amount: t.amount, shares: t.shares, unitPrice: t.r.unitPrice, taxAdvantaged });
+      result.trades.push({ rowId: t.r.id, account: plan.account, item: t.r.item, action: "sell", amount: t.amount, shares: t.shares, unitPrice: priceOf(t.r), taxAdvantaged });
     }
     for (const t of buys) {
       if (t.amount <= EPS) continue;
-      result.trades.push({ rowId: t.r.id, account: plan.account, item: t.r.item, action: "buy", amount: t.amount, shares: t.shares, unitPrice: t.r.unitPrice, taxAdvantaged });
+      result.trades.push({ rowId: t.r.id, account: plan.account, item: t.r.item, action: "buy", amount: t.amount, shares: t.shares, unitPrice: priceOf(t.r), taxAdvantaged });
     }
     if (!taxAdvantaged) {
       result.notes.push(`${plan.account}는 일반 과세 계좌라 ${sellLabel}자산을 팔면 양도소득세·배당세가 생길 수 있어.`);

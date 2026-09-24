@@ -7,6 +7,8 @@ export interface AssetRow {
   category: AssetCategory;
   amount: number; // 만원
   unitPrice?: number; // 만원, 1주(1좌) 가격. 비워두면 금액 단위(소수점·RP·예수금)로 거래한다고 본다
+  ticker?: string; // 종목코드(예: 360750). 시세 자동 불러오기에 사용
+  priceDate?: string; // 1주 가격을 자동으로 불러온 기준일(YYYY-MM-DD). 없으면 직접 입력한 값
   rebalanceRule?: "hold" | "preferred"; // hold: 리밸런싱 때 팔지도 더 사지도 않음(만기 보유 채권 등), preferred: 매수는 이 상품에만
   excludeFromReturn?: boolean; // true면 투자 수익률 계산에서 제외 (입출금 통장, 월세보증금 등). 비어 있으면 포함
   housingEligible: boolean; // false면 집 마련 가용자산 계산에서 제외 (연금저축·IRP 등)

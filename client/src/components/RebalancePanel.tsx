@@ -3,6 +3,8 @@ import type { AssetRow, RebalanceGroup, RebalanceSettings, StrategyData } from "
 import { fmtWon } from "../utils";
 import { computeRebalance, glideRiskPct, yearsUntil } from "../rebalance";
 import MoneyInput from "./MoneyInput";
+import QuoteBar from "./QuoteBar";
+import type { QuoteResult } from "../api";
 
 interface Props {
   rows: AssetRow[];
@@ -202,7 +204,23 @@ export default function RebalancePanel({ rows, strategy, settings, onChange, onR
       cur.rules.add(r.rebalanceRule ?? "");
       return map.set(r.item, cur);
     }, new Map<string, { item: string; accounts: string[]; amount: number; rules: Set<string> }>())
-  ).map(([, v]) => ({ ...v, price: rows.find((r) => r.item === v.item && (r.unitPrice ?? 0) > 0)?.unitPrice }));
+  ).map(([, v]) => {
+    const priced = rows.find((r) => r.item === v.item && (r.unitPrice ?? 0) > 0);
+    const withTicker = rows.find((r) => r.item === v.item && r.ticker);
+    return { ...v, price: priced?.unitPrice, priceDate: priced?.priceDate, ticker: withTicker?.ticker ?? "" };
+  });
+
+  const tickers = Array.from(new Set(products.map((p) => p.ticker).filter(Boolean)));
+
+  function applyQuotes(results: Record<string, QuoteResult>) {
+    const toDate = (d?: string) => (d && d.length === 8 ? `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}` : undefined);
+    onRowsChange(
+      rows.map((r) => {
+        const q = r.ticker ? results[r.ticker] : undefined;
+        return q?.ok && q.price ? { ...r, unitPrice: q.price / 10000, priceDate: toDate(q.basDt) } : r;
+      })
+    );
+  }
 
   function updateProduct(item: string, patch: Partial<AssetRow>) {
     onRowsChange(rows.map((r) => (r.item === item ? { ...r, ...patch } : r)));
@@ -263,12 +281,14 @@ export default function RebalancePanel({ rows, strategy, settings, onChange, onR
           <br />
           <strong>매매 안 함</strong>은 만기까지 들고 갈 채권처럼 팔지도 더 사지도 않을 상품에, <strong>매수 우선</strong>은 새로 살 때 그 상품에만 몰아서 사고 싶을 때(예: S&P500만 살 때) 지정해.
         </p>
+        <QuoteBar tickers={tickers} onResults={applyQuotes} />
         <div className="table-scroll">
-        <table className="grid" style={{ marginTop: 8, minWidth: 640 }}>
+        <table className="grid" style={{ marginTop: 8, minWidth: 780 }}>
           <thead>
             <tr>
               <th>상품</th>
               <th>보유 계좌</th>
+              <th>종목코드</th>
               <th className="num">보유 수량</th>
               <th className="num">1주 가격(원)</th>
               <th>규칙</th>
@@ -281,9 +301,19 @@ export default function RebalancePanel({ rows, strategy, settings, onChange, onR
                 <tr key={p.item}>
                   <td>{p.item}</td>
                   <td style={{ fontSize: 12, color: "var(--ink-soft)" }}>{p.accounts.join(", ")}</td>
+                  <td>
+                    <input
+                      type="text"
+                      value={p.ticker}
+                      placeholder="예: 360750"
+                      onChange={(e) => updateProduct(p.item, { ticker: e.target.value.trim().toUpperCase() || undefined })}
+                      style={{ textAlign: "left", width: 110 }}
+                    />
+                  </td>
                   <td className="num">{p.price && p.price > 0 ? `${(p.amount / p.price).toFixed(2)}주` : "-"}</td>
                   <td className="num">
-                    <MoneyInput value={p.price ?? 0} onChange={(v) => updateProduct(p.item, { unitPrice: v > 0 ? v : undefined })} />
+                    <MoneyInput value={p.price ?? 0} onChange={(v) => updateProduct(p.item, { unitPrice: v > 0 ? v : undefined, priceDate: undefined })} />
+                    {p.priceDate && <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 2 }}>{p.priceDate} 종가</div>}
                   </td>
                   <td>
                     <select
@@ -306,7 +336,7 @@ export default function RebalancePanel({ rows, strategy, settings, onChange, onR
             })}
             {products.length === 0 && (
               <tr>
-                <td colSpan={5} style={{ textAlign: "center", color: "var(--ink-soft)" }}>
+                <td colSpan={6} style={{ textAlign: "center", color: "var(--ink-soft)" }}>
                   위에서 묶음에 계좌를 넣으면 여기에 상품이 나타나.
                 </td>
               </tr>

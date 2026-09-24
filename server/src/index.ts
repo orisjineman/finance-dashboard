@@ -5,6 +5,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { readData, writeData } from "./store.js";
 import { parseWorkbook } from "./xlsxImport.js";
+import { getPublicDataKey, setPublicDataKey } from "./secrets.js";
+import { fetchQuotes } from "./quotes.js";
 import type { AssetRow, BudgetData, RebalanceSettings, ChecklistItem, HistoryEntry, LoanInput, SimulationAssumptions, StrategyData } from "./types.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -83,6 +85,35 @@ app.put("/api/rebalance", async (req, res) => {
   data.rebalance = rebalance;
   await writeData(data);
   res.json(data.rebalance);
+});
+
+app.get("/api/quotes/status", async (_req, res) => {
+  res.json({ hasKey: (await getPublicDataKey()) !== null });
+});
+
+app.put("/api/quotes/key", async (req, res) => {
+  const key = typeof req.body?.key === "string" ? req.body.key.trim() : "";
+  if (key.length < 10 || key.length > 400 || /\s/.test(key)) {
+    res.status(400).json({ error: "서비스 키 형식이 올바르지 않아." });
+    return;
+  }
+  await setPublicDataKey(key);
+  res.json({ hasKey: true });
+});
+
+app.post("/api/quotes", async (req, res) => {
+  const key = await getPublicDataKey();
+  if (!key) {
+    res.status(400).json({ error: "서비스 키가 아직 등록되지 않았어." });
+    return;
+  }
+  const raw: unknown = req.body?.codes;
+  const codes = Array.isArray(raw) ? Array.from(new Set(raw.filter((c): c is string => typeof c === "string").map((c) => c.trim()).filter((c) => /^[A-Za-z0-9]{4,12}$/.test(c)))) : [];
+  if (codes.length === 0 || codes.length > 60) {
+    res.status(400).json({ error: "조회할 종목코드가 없거나 너무 많아." });
+    return;
+  }
+  res.json({ results: await fetchQuotes(key, codes) });
 });
 
 app.post("/api/import-xlsx", upload.single("file"), async (req, res) => {

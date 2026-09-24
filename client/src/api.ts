@@ -68,3 +68,39 @@ export async function importXlsx(file: File): Promise<ImportPreview> {
 export function saveRebalance(rebalance: RebalanceSettings): Promise<RebalanceSettings> {
   return request<RebalanceSettings>("/api/rebalance", { method: "PUT", body: JSON.stringify(rebalance) });
 }
+
+export interface QuoteResult {
+  ok: boolean;
+  price?: number; // 원
+  basDt?: string; // YYYYMMDD
+  name?: string;
+  source?: string;
+  error?: string;
+}
+
+export async function getQuoteStatus(): Promise<{ hasKey: boolean }> {
+  return request<{ hasKey: boolean }>("/api/quotes/status");
+}
+
+export async function saveQuoteKey(key: string): Promise<void> {
+  const res = await fetch("/api/quotes/key", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ key }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? `키 저장 실패 (${res.status})`);
+  }
+}
+
+export async function fetchQuotes(codes: string[]): Promise<Record<string, QuoteResult>> {
+  const res = await fetch("/api/quotes", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ codes }),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error ?? `시세 조회 실패 (${res.status})`);
+  return body.results as Record<string, QuoteResult>;
+}

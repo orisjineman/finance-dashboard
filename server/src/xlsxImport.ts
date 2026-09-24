@@ -46,6 +46,10 @@ function classifyCategory(itemCell: string, accountCell: string, categoryCell: s
     text.includes("채권") ||
     text.includes("irp") ||
     text.includes("국채") ||
+    text.includes("국고채") ||
+    text.includes("회사채") ||
+    text.includes("은행채") ||
+    text.includes("국공채") ||
     text.includes("금etf") ||
     text.includes("금 etf") ||
     text.includes("골드")

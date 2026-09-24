@@ -38,17 +38,6 @@ export function defaultData(): DashboardData {
       housePurchaseDate: "",
       isaDutyEndDate: "",
       overviewSummary: ["여기에 나만의 요약 메모를 적어보세요 (개요 편집에서 수정 가능)"],
-      isaPortfolio: {
-        riskPct: 50,
-        safePct: 50,
-        riskProduct: "예: S&P500 ETF로 통일, 매년 적립식 매수",
-        safeProduct: "예: 국고채·은행채 + 금 ETF + 단기국채 ETF",
-        dutyNote: "의무가입기간과 적립 계획을 여기에 적어보세요"
-      },
-      cmaLadder: {
-        rungs: [],
-        note: ""
-      },
       glidePath: [
         { id: "g1", yearsLeft: 5, riskPct: 50 },
         { id: "g2", yearsLeft: 3, riskPct: 40 },

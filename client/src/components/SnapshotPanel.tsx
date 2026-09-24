@@ -146,6 +146,7 @@ export default function SnapshotPanel({ rows, onChange, history, onHistoryChange
                 잔액(원){sortIndicator("amount")}
               </th>
               <th title="집 마련 자금 가용자산 계산에 포함할지">집자금</th>
+              <th title="투자 수익률(투자원금 대비) 계산에 포함할지">수익률</th>
               <th></th>
             </tr>
           </thead>
@@ -188,6 +189,14 @@ export default function SnapshotPanel({ rows, onChange, history, onHistoryChange
                     title="집 마련 가용자산에 포함"
                   />
                 </td>
+                <td style={{ textAlign: "center" }}>
+                  <input
+                    type="checkbox"
+                    checked={!r.excludeFromReturn}
+                    onChange={(e) => updateRow(i, { excludeFromReturn: !e.target.checked })}
+                    title="투자 수익률 계산에 포함"
+                  />
+                </td>
                 <td>
                   <button
                     className="btn ghost"
@@ -202,7 +211,7 @@ export default function SnapshotPanel({ rows, onChange, history, onHistoryChange
             ))}
             {sorted.length === 0 && (
               <tr>
-                <td colSpan={6} style={{ textAlign: "center", color: "var(--ink-soft)" }}>
+                <td colSpan={7} style={{ textAlign: "center", color: "var(--ink-soft)" }}>
                   조건에 맞는 항목이 없어.
                 </td>
               </tr>
@@ -218,6 +227,7 @@ export default function SnapshotPanel({ rows, onChange, history, onHistoryChange
               </td>
               <td></td>
               <td></td>
+              <td></td>
             </tr>
           </tfoot>
         </table>
@@ -228,7 +238,7 @@ export default function SnapshotPanel({ rows, onChange, history, onHistoryChange
         )}
         <p className="note">
           잔액은 원 단위로 입력해(1원 단위까지 정확하게). 위험/안전 비중과 총자산은 자동으로 계산돼. "집자금" 체크를 해제하면 연금저축·IRP처럼 집
-          마련에는 못 쓰는 자산을 가용자산 계산에서 뺄 수 있어. 표 머리글을 클릭하면 정렬돼.
+          마련에는 못 쓰는 자산을 가용자산 계산에서 뺄 수 있어. "수익률" 체크를 해제하면 입출금 통장·월세보증금처럼 투자가 아닌 항목을 투자 수익률 계산에서 뺄 수 있어. 표 머리글을 클릭하면 정렬돼.
         </p>
         <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
           <button className="btn ghost" onClick={addRow}>

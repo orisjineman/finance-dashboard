@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { AssetRow, HistoryEntry } from "../types";
-import { computeCurrentReturn, computeTotals, fmtEok, fmtWon, newId } from "../utils";
+import { computeCurrentReturn, computeReturnTotals, fmtEok, fmtWon, newId } from "../utils";
 import MoneyInput from "./MoneyInput";
 
 interface Props {
@@ -22,7 +22,7 @@ export default function HistoryPanel({ rows, history, onChange }: Props) {
   const [date, setDate] = useState(todayIso());
   const [principalInput, setPrincipalInput] = useState<number | null>(null);
 
-  const t = computeTotals(rows);
+  const t = computeReturnTotals(rows);
   const sorted = [...history].sort((a, b) => a.date.localeCompare(b.date));
   const current = computeCurrentReturn(rows, history);
   const latestPrincipal = sorted[sorted.length - 1]?.cumulativePrincipal ?? 0;
@@ -69,7 +69,7 @@ export default function HistoryPanel({ rows, history, onChange }: Props) {
               <span className="v">{fmtWon(current.principal)}원</span>
             </div>
             <div className="result-line">
-              <span className="k">지금 평가금액</span>
+              <span className="k">지금 평가금액 (수익률 포함 항목)</span>
               <span className="v">{fmtWon(current.currentTotal)}원</span>
             </div>
             <div className="result-line total">
@@ -102,7 +102,7 @@ export default function HistoryPanel({ rows, history, onChange }: Props) {
           </div>
         </div>
         <p className="note">
-          지금 자산 스냅샷 합계({fmtWon(t.total)}원)를 총평가금액으로 기록해. 투자원금은 지금까지 내가 실제로 넣은 돈의 합계야. 직전 기록 이후 새로 넣은 돈이
+          스냅샷에서 '수익률' 체크된 항목의 합계({fmtWon(t.total)}원)를 총평가금액으로 기록해. 입출금 통장 등 체크 해제한 항목은 빠져. 투자원금은 지금까지 내가 실제로 넣은 돈의 합계야. 직전 기록 이후 새로 넣은 돈이
           없으면 그대로 두면 돼. 새로 넣었다면 그만큼 늘린 값으로 고쳐줘
           {newContribution !== 0 ? ` (직전보다 ${newContribution > 0 ? "+" : ""}${fmtWon(newContribution)}원)` : ""}.
           증권사 앱 계좌 화면의 "투자원금"이나 "매입금액"을 더해서 넣어도 돼.

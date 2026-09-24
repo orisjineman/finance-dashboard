@@ -25,6 +25,11 @@ export function computeTotals(rows: AssetRow[]): Totals {
   return { risk, safe, cash, total: risk + safe + cash, investBase, riskPct, safePct };
 }
 
+// 투자 수익률 계산에 포함되는 항목(excludeFromReturn이 아닌 것)만의 합계
+export function computeReturnTotals(rows: AssetRow[]): Totals {
+  return computeTotals(rows.filter((r) => !r.excludeFromReturn));
+}
+
 // 집 마련 자금으로 쓸 수 있는 가용자산 합계 (연금저축·IRP 등 housingEligible=false 항목 제외)
 export function computeHousingLiquid(rows: AssetRow[]): number {
   return rows.filter((r) => r.housingEligible).reduce((sum, r) => sum + r.amount, 0);
@@ -49,7 +54,7 @@ export function computeCurrentReturn(rows: AssetRow[], history: HistoryEntry[]):
   if (history.length === 0) return null;
   const latest = [...history].sort((a, b) => a.date.localeCompare(b.date))[history.length - 1];
   if (!latest || latest.cumulativePrincipal <= 0) return null;
-  const currentTotal = computeTotals(rows).total;
+  const currentTotal = computeReturnTotals(rows).total;
   const profit = currentTotal - latest.cumulativePrincipal;
   return {
     principal: latest.cumulativePrincipal,

@@ -24,17 +24,19 @@ interface GroupProps {
   targetRiskPct: number | null;
   targetLabel: string;
   riskAccess: Record<string, "allowed" | "blocked">;
+  depositLimit: Record<string, number>;
   onChange: (group: RebalanceGroup) => void;
   onToggleAccount: (account: string, on: boolean) => void;
 }
 
 const barPct = (n: number) => `${Math.max(0, Math.min(100, n))}%`;
 const NO_ACCESS: Record<string, "allowed" | "blocked"> = {};
+const NO_LIMIT: Record<string, number> = {};
 
-function GroupSection({ group, rows, allAccounts, tolerancePct, targetRiskPct, targetLabel, riskAccess, onChange, onToggleAccount }: GroupProps) {
+function GroupSection({ group, rows, allAccounts, tolerancePct, targetRiskPct, targetLabel, riskAccess, depositLimit, onChange, onToggleAccount }: GroupProps) {
   const result = useMemo(
-    () => (targetRiskPct === null ? null : computeRebalance(rows, group.accounts, targetRiskPct, tolerancePct, riskAccess)),
-    [rows, group.accounts, targetRiskPct, tolerancePct, riskAccess]
+    () => (targetRiskPct === null ? null : computeRebalance(rows, group.accounts, targetRiskPct, tolerancePct, riskAccess, depositLimit)),
+    [rows, group.accounts, targetRiskPct, tolerancePct, riskAccess, depositLimit]
   );
 
   const plan = useMemo(
@@ -180,6 +182,17 @@ function GroupSection({ group, rows, allAccounts, tolerancePct, targetRiskPct, t
                 </span>
                 <span className="v">{fmtWon(result.achievedShift)}원</span>
               </div>
+              {result.transfers.length > 0 && (
+                <div style={{ background: "var(--paper)", border: "1px solid var(--line)", borderRadius: 12, padding: 12, marginTop: 10 }}>
+                  <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 6 }}>먼저 계좌 간 이동이 필요해</div>
+                  {result.transfers.map((tr) => (
+                    <p className="note" key={`${tr.from}-${tr.to}`} style={{ margin: "4px 0", color: "var(--ink)" }}>
+                      <strong>{tr.from}</strong>에서 <strong>{fmtWon(tr.amount)}원</strong>을 빼서 <strong>{tr.to}</strong>로 옮겨줘.
+                    </p>
+                  ))}
+                  <p className="note" style={{ margin: "6px 0 0" }}>아래 표에서 '이동 자금'으로 표시된 거래가 이 돈으로 하는 거래야.</p>
+                </div>
+              )}
               {result.trades.length > 0 && (
                 <table className="grid" style={{ marginTop: 12 }}>
                   <thead>
@@ -196,6 +209,7 @@ function GroupSection({ group, rows, allAccounts, tolerancePct, targetRiskPct, t
                       <tr key={`${t.action}-${t.rowId}-${i}`}>
                         <td>
                           <span className={`tag ${t.action === "sell" ? "risk" : "safe"}`}>{t.action === "sell" ? "매도" : "매수"}</span>
+                          {t.crossAccount && <span style={{ fontSize: 11, color: "var(--ink-soft)", marginLeft: 6 }}>이동 자금</span>}
                         </td>
                         <td>{t.account}</td>
                         <td>{t.item}</td>
@@ -229,6 +243,14 @@ export default function RebalancePanel({ rows, strategy, settings, onChange, onR
   const glideTarget = yearsLeft === null ? null : glideRiskPct(strategy.glidePath, yearsLeft);
 
   const riskAccess = settings.riskAccess ?? NO_ACCESS;
+  const depositLimit = settings.depositLimit ?? NO_LIMIT;
+
+  function setDeposit(account: string, manwon: number) {
+    const next = { ...depositLimit };
+    if (manwon > 0) next[account] = manwon;
+    else delete next[account];
+    onChange({ ...settings, depositLimit: next });
+  }
 
   function setAccess(account: string, value: string) {
     const next = { ...riskAccess };
@@ -313,12 +335,13 @@ export default function RebalancePanel({ rows, strategy, settings, onChange, onR
         <div className="field" style={{ marginTop: 4 }}>
           <label>계좌별 위험자산 편입</label>
           <div className="table-scroll">
-            <table className="grid" style={{ minWidth: 520 }}>
+            <table className="grid" style={{ minWidth: 700 }}>
               <thead>
                 <tr>
                   <th>계좌</th>
                   <th className="num">지금 들고 있는 위험자산</th>
                   <th>편입 설정</th>
+                  <th className="num">이번에 넣을 수 있는 금액(원)</th>
                 </tr>
               </thead>
               <tbody>
@@ -338,6 +361,9 @@ export default function RebalancePanel({ rows, strategy, settings, onChange, onR
                             <option value="blocked">위험자산 편입 불가</option>
                           </select>
                         </td>
+                        <td className="num">
+                          <MoneyInput value={depositLimit[a] ?? 0} onChange={(v) => setDeposit(a, v)} />
+                        </td>
                       </tr>
                     );
                   })}
@@ -346,6 +372,9 @@ export default function RebalancePanel({ rows, strategy, settings, onChange, onR
           </div>
           <p className="note">
             '편입 불가'로 두면 그 계좌에는 위험자산을 새로 사지 않고, 나머지 계좌가 목표 위험 비중을 맡아. '자동'은 위험 상품이 있는 계좌만 가능으로 봐.
+            <br />
+            '이번에 넣을 수 있는 금액'은 다른 계좌에서 이 계좌로 옮겨 올 수 있는 한도야. 0이면 이 계좌로는 돈을 옮기지 않아(예: ISA는 올해 납입 한도를 다 채웠으면 0, 2027년에 새 한도가 생기면 그때 입력).
+            돈을 뺄 수 있는 계좌는 ISA·IRP·연금저축처럼 묶인 계좌를 뺀 일반 계좌(CMA·위탁 등)만이야.
           </p>
         </div>
         <p className="note">
@@ -375,6 +404,7 @@ export default function RebalancePanel({ rows, strategy, settings, onChange, onR
             targetRiskPct={g.targetType === "fixed" ? g.fixedRiskPct : glideTarget}
             targetLabel={g.targetType === "fixed" ? "고정 비중" : "글리드 패스"}
             riskAccess={riskAccess}
+            depositLimit={depositLimit}
             onChange={updateGroup}
             onToggleAccount={(a, on) => toggleAccount(g.id, a, on)}
           />

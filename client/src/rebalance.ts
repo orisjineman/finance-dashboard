@@ -9,6 +9,7 @@ export interface RebalanceTrade {
   shares?: number; // 1주 가격이 입력된 상품만
   unitPrice?: number; // 만원
   taxAdvantaged: boolean;
+  crossAccount?: boolean; // 다른 계좌에서 옮겨 온 돈으로 하는 거래인지
 }
 
 export interface RebalanceResult {
@@ -23,6 +24,7 @@ export interface RebalanceResult {
   achievedShift: number; // 실제 추천 거래로 옮기는 금액
   afterRiskPct: number;
   trades: RebalanceTrade[];
+  transfers: { from: string; to: string; amount: number }[]; // 계좌 간 이동 (만원)
   notes: string[];
 }
 
@@ -62,7 +64,8 @@ export function computeRebalance(
   accounts: string[],
   targetRiskPct: number,
   tolerancePct: number,
-  riskAccess: Record<string, "allowed" | "blocked"> = {}
+  riskAccess: Record<string, "allowed" | "blocked"> = {},
+  depositLimit: Record<string, number> = {}
 ): RebalanceResult {
   const included = new Set(accounts);
   const scope = rows.filter((r) => included.has(r.account) && (r.category === "risk" || r.category === "safe"));
@@ -76,7 +79,7 @@ export function computeRebalance(
 
   const result: RebalanceResult = {
     scopeTotal, risk, safe, riskPct, driftPct, needsRebalance,
-    sellCategory: null, idealShift: 0, achievedShift: 0, afterRiskPct: riskPct, trades: [], notes: [],
+    sellCategory: null, idealShift: 0, achievedShift: 0, afterRiskPct: riskPct, trades: [], transfers: [], notes: [],
   };
   if (!needsRebalance) return result;
 
@@ -189,13 +192,103 @@ export function computeRebalance(
     remaining -= proceeds;
   }
 
+  // 2단계: 계좌 안에서 다 못 맞춘 몫은 계좌 간 이동으로 채운다.
+  // 돈을 뺄 수 있는 계좌는 ISA·IRP·연금저축처럼 묶인 계좌를 뺀 계좌, 받을 수 있는 계좌는 '입금 가능 금액'이 남은 계좌뿐이다.
+  if (remaining * 10000 > 1000) {
+    const limitLeft = new Map<string, number>();
+    for (const a of accountList) limitLeft.set(a, depositLimit[a] ?? 0);
+    const soldBy = new Map<string, number>();
+    for (const t of result.trades) if (t.action === "sell") soldBy.set(t.rowId, (soldBy.get(t.rowId) ?? 0) + t.amount);
+
+    const sources = scope
+      .filter((r) => r.category === sellCategory && r.rebalanceRule !== "hold" && !isTaxAdvantaged(r.account))
+      .map((r) => ({ r, avail: r.amount - (soldBy.get(r.id) ?? 0) }))
+      .filter((x) => x.avail > EPS)
+      .sort((x, y) => y.avail - x.avail);
+
+    const moved = new Map<string, number>();
+    const taxNoted = new Set<string>();
+    for (const src of sources) {
+      let avail = src.avail;
+      while (remaining * 10000 > 1000 && avail > EPS) {
+        const dest = accountList
+          .filter((a) => a !== src.r.account && (limitLeft.get(a) ?? 0) > EPS && !(buyCategory === "risk" && riskAccess[a] === "blocked"))
+          .map((a) => {
+            const cands = scope.filter((r) => r.account === a && r.category === buyCategory && r.rebalanceRule !== "hold");
+            const pref = cands.filter((r) => r.rebalanceRule === "preferred");
+            return { a, rows: pref.length > 0 ? pref : cands };
+          })
+          .filter((d) => d.rows.length > 0)
+          .sort((x, y) => (limitLeft.get(y.a) ?? 0) - (limitLeft.get(x.a) ?? 0))[0];
+        if (!dest) break;
+
+        let x = Math.min(remaining, avail, limitLeft.get(dest.a) ?? 0);
+        let sellShares: number | undefined;
+        if (hasPrice(src.r)) {
+          const price = priceOf(src.r) as number;
+          sellShares = Math.min(wholeShares(avail, price), Math.round(x / price));
+          x = sellShares * price;
+        }
+        if (x <= EPS) break;
+
+        const base = dest.rows.reduce((sum, r) => sum + r.amount, 0);
+        const buysHere = dest.rows.map((r) => {
+          const share = base > 0 ? r.amount / base : 1 / dest.rows.length;
+          const target = x * share;
+          if (hasPrice(r)) {
+            const price = priceOf(r) as number;
+            const sh = wholeShares(target, price);
+            return { r, shares: sh as number | undefined, amount: sh * price };
+          }
+          return { r, shares: undefined as number | undefined, amount: target };
+        });
+        let spent = buysHere.reduce((sum, t) => sum + t.amount, 0);
+        let left = x - spent;
+        const free = buysHere.filter((b) => b.shares === undefined);
+        if (left > EPS && free.length > 0) {
+          free.forEach((b) => (b.amount += left / free.length));
+          spent = x;
+          left = 0;
+        }
+        if (spent <= EPS) {
+          result.notes.push(`${dest.a}로 옮길 금액(${won(x)}원)이 1주 가격보다 작아서 계좌 간 이동은 하지 않았어.`);
+          break;
+        }
+        if (left * 10000 >= 1) {
+          result.notes.push(`${dest.a}: 1주 단위로 맞추다 보니 옮겨 온 돈 중 ${won(left)}원은 쓰지 못하고 예수금으로 남아.`);
+        }
+
+        result.trades.push({ rowId: src.r.id, account: src.r.account, item: src.r.item, action: "sell", amount: x, shares: sellShares, unitPrice: priceOf(src.r), taxAdvantaged: false, crossAccount: true });
+        for (const t of buysHere) {
+          if (t.amount <= EPS) continue;
+          result.trades.push({ rowId: t.r.id, account: dest.a, item: t.r.item, action: "buy", amount: t.amount, shares: t.shares, unitPrice: priceOf(t.r), taxAdvantaged: isTaxAdvantaged(dest.a), crossAccount: true });
+        }
+        const key = `${src.r.account}\u0000${dest.a}`;
+        moved.set(key, (moved.get(key) ?? 0) + x);
+        if (!taxNoted.has(src.r.account) && !result.notes.some((n) => n.startsWith(`${src.r.account}는 일반 과세`))) {
+          result.notes.push(`${src.r.account}는 일반 과세 계좌라 ${sellLabel}자산을 팔면 양도소득세·배당세가 생길 수 있어.`);
+        }
+        taxNoted.add(src.r.account);
+        limitLeft.set(dest.a, (limitLeft.get(dest.a) ?? 0) - x);
+        avail -= x;
+        remaining -= x;
+        sumSells += x;
+        sumBuys += spent;
+      }
+    }
+    result.transfers = Array.from(moved.entries()).map(([key, amount]) => {
+      const [from, to] = key.split("\u0000");
+      return { from, to, amount };
+    });
+  }
+
   result.achievedShift = sumSells;
   const riskDelta = sellCategory === "risk" ? -sumSells : sumBuys;
   result.afterRiskPct = ((risk + riskDelta) / scopeTotal) * 100;
   if (remaining * 10000 > 1000) {
     const buyLabel = buyCategory === "risk" ? "위험자산" : "안전자산";
     result.notes.push(
-      `계좌 안 대체 상품이 부족하거나 1주 단위로 맞추느라 ${won(remaining)}원은 못 맞췄어. 남는 부족분은 신규 납입금으로 ${buyLabel}을 추가 매수하거나, 해당 계좌 밖의 ${sellLabel}자산을 출금해 채워야 해.`
+      `계좌 안 대체 상품이 부족하거나, 1주 단위로 맞추느라, 또는 계좌 간 이동 한도(입금 가능 금액)가 없어서 ${won(remaining)}원은 못 맞췄어. 남는 부족분은 신규 납입금으로 ${buyLabel}을 추가 매수하거나, 입금 가능 금액을 늘려야 해.`
     );
   }
   return result;

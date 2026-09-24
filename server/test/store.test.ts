@@ -18,6 +18,31 @@ afterAll(() => {
   rmSync(dir, { recursive: true, force: true });
 });
 
+describe("migrate", () => {
+  it("빠진 섹션 안쪽 필드를 기본값으로 채우고 값은 유지한다", async () => {
+    const { migrate } = store;
+    const d = migrate({ rows: [{ id: "a", account: "A", item: "x", category: "safe", amount: 1 } as never], simulation: { years: 7 } as never, rebalance: { tolerancePct: 9 } as never });
+    expect(d.rows[0].housingEligible).toBe(true);
+    expect(d.simulation.years).toBe(7);
+    expect(d.simulation.riskRate).toBeDefined();
+    expect(d.rebalance.tolerancePct).toBe(9);
+    expect(d.rebalance.groups.length).toBeGreaterThan(0);
+  });
+
+  it("이미 있는 housingEligible=false는 그대로 둔다", () => {
+    const d = store.migrate({ rows: [{ id: "a", account: "A", item: "x", category: "safe", amount: 1, housingEligible: false }] });
+    expect(d.rows[0].housingEligible).toBe(false);
+  });
+
+  it("없어진 ISA·CMA 탭 데이터는 버린다", () => {
+    const d = store.migrate({ strategy: { housePurchaseDate: "2030-01-01", isaPortfolio: { riskPct: 1 }, cmaLadder: { rungs: [] } } as never });
+    expect(d.strategy.housePurchaseDate).toBe("2030-01-01");
+    expect(d.strategy).not.toHaveProperty("isaPortfolio");
+    expect(d.strategy).not.toHaveProperty("cmaLadder");
+    expect(d.strategy.glidePath.length).toBeGreaterThan(0);
+  });
+});
+
 describe("store", () => {
   it("데이터 파일이 없으면 기본값으로 만든다", async () => {
     expect(existsSync(file)).toBe(false);

@@ -11,48 +11,53 @@ import type {
   StrategyData,
 } from "./types";
 
+// 섹션별로 마지막으로 본 서버 버전. 저장할 때 If-Match로 보내서, 다른 화면이 먼저 바꿨으면 서버가 409로 막는다.
+const versions: Record<string, string> = {};
+
+export class ConflictError extends Error {
+  constructor() {
+    super("다른 화면에서 먼저 바뀌었어. 새로고침한 뒤 다시 시도해줘.");
+    this.name = "ConflictError";
+  }
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(path, {
     headers: { "Content-Type": "application/json" },
     ...options,
   });
+  if (res.status === 409) throw new ConflictError();
   if (!res.ok) {
     throw new Error(`요청 실패: ${path} (${res.status})`);
   }
   return res.json() as Promise<T>;
 }
 
-export function fetchData(): Promise<DashboardData> {
-  return request<DashboardData>("/api/data");
+async function saveSection<T>(section: string, value: T): Promise<T> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (versions[section]) headers["If-Match"] = versions[section];
+  const res = await fetch(`/api/${section}`, { method: "PUT", headers, body: JSON.stringify(value) });
+  if (res.status === 409) throw new ConflictError();
+  if (!res.ok) throw new Error(`요청 실패: /api/${section} (${res.status})`);
+  const next = res.headers.get("X-Version");
+  if (next) versions[section] = next;
+  return (await res.json()) as T;
 }
 
-export function saveRows(rows: AssetRow[]): Promise<AssetRow[]> {
-  return request<AssetRow[]>("/api/rows", { method: "PUT", body: JSON.stringify(rows) });
+export async function fetchData(): Promise<DashboardData> {
+  const { _versions, ...data } = await request<DashboardData & { _versions?: Record<string, string> }>("/api/data");
+  Object.assign(versions, _versions);
+  return data;
 }
 
-export function saveSimulation(sim: SimulationAssumptions): Promise<SimulationAssumptions> {
-  return request<SimulationAssumptions>("/api/simulation", { method: "PUT", body: JSON.stringify(sim) });
-}
-
-export function saveLoan(loan: LoanInput): Promise<LoanInput> {
-  return request<LoanInput>("/api/loan", { method: "PUT", body: JSON.stringify(loan) });
-}
-
-export function saveChecklist(items: ChecklistItem[]): Promise<ChecklistItem[]> {
-  return request<ChecklistItem[]>("/api/checklist", { method: "PUT", body: JSON.stringify(items) });
-}
-
-export function saveStrategy(strategy: StrategyData): Promise<StrategyData> {
-  return request<StrategyData>("/api/strategy", { method: "PUT", body: JSON.stringify(strategy) });
-}
-
-export function saveHistory(history: HistoryEntry[]): Promise<HistoryEntry[]> {
-  return request<HistoryEntry[]>("/api/history", { method: "PUT", body: JSON.stringify(history) });
-}
-
-export function saveBudget(budget: BudgetData): Promise<BudgetData> {
-  return request<BudgetData>("/api/budget", { method: "PUT", body: JSON.stringify(budget) });
-}
+export const saveRows = (rows: AssetRow[]) => saveSection("rows", rows);
+export const saveSimulation = (sim: SimulationAssumptions) => saveSection("simulation", sim);
+export const saveLoan = (loan: LoanInput) => saveSection("loan", loan);
+export const saveChecklist = (items: ChecklistItem[]) => saveSection("checklist", items);
+export const saveStrategy = (strategy: StrategyData) => saveSection("strategy", strategy);
+export const saveHistory = (history: HistoryEntry[]) => saveSection("history", history);
+export const saveBudget = (budget: BudgetData) => saveSection("budget", budget);
+export const saveRebalance = (rebalance: RebalanceSettings) => saveSection("rebalance", rebalance);
 
 export async function importXlsx(file: File): Promise<ImportPreview> {
   const formData = new FormData();
@@ -63,10 +68,6 @@ export async function importXlsx(file: File): Promise<ImportPreview> {
     throw new Error(body.error ?? `업로드 실패 (${res.status})`);
   }
   return res.json() as Promise<ImportPreview>;
-}
-
-export function saveRebalance(rebalance: RebalanceSettings): Promise<RebalanceSettings> {
-  return request<RebalanceSettings>("/api/rebalance", { method: "PUT", body: JSON.stringify(rebalance) });
 }
 
 export interface QuoteResult {

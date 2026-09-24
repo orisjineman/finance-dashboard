@@ -597,3 +597,18 @@ table.grid .btn {
 .table-scroll {
   overflow-x: auto;
 }
+
+.conflict-banner {
+  max-width: 1000px;
+  margin: 12px auto 0;
+  padding: 10px 16px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid var(--risk);
+  border-radius: 12px;
+  background: var(--risk-soft);
+  color: var(--risk);
+  font-size: 13.5px;
+}

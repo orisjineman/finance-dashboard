@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { AssetRow, BudgetData, ChecklistItem, DashboardData, HistoryEntry, LoanInput, RebalanceSettings, SimulationAssumptions, StrategyData } from "./types";
-import { fetchData, saveBudget, saveRebalance, saveChecklist, saveHistory, saveLoan, saveRows, saveSimulation, saveStrategy } from "./api";
+import { ConflictError, fetchData, saveBudget, saveRebalance, saveChecklist, saveHistory, saveLoan, saveRows, saveSimulation, saveStrategy } from "./api";
 import OverviewPanel from "./components/OverviewPanel";
 import SnapshotPanel from "./components/SnapshotPanel";
 import BudgetPanel from "./components/BudgetPanel";
@@ -73,6 +73,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveFailed, setSaveFailed] = useState(false);
+  const [conflict, setConflict] = useState(false);
   const [theme, setTheme] = useState<Theme>(initialTheme);
 
   useEffect(() => {
@@ -102,7 +103,10 @@ export default function App() {
       setSaving(true);
       setSaveFailed(false);
       (SAVERS[key] as (v: DashboardData[K]) => Promise<unknown>)(value)
-        .catch(() => setSaveFailed(true))
+        .catch((e) => {
+          if (e instanceof ConflictError) setConflict(true);
+          else setSaveFailed(true);
+        })
         .finally(() => {
           pending.current -= 1;
           if (pending.current === 0) setSaving(false);
@@ -165,6 +169,15 @@ export default function App() {
           ))}
         </nav>
       </header>
+
+      {conflict && (
+        <div className="conflict-banner" role="alert">
+          다른 화면(탭)에서 먼저 저장한 내용이 있어서, 이 화면의 수정은 저장되지 않았어. 최신 내용을 불러오려면 새로고침해줘.
+          <button className="btn sm" onClick={() => window.location.reload()}>
+            새로고침
+          </button>
+        </div>
+      )}
 
       <main>
         {tab === "overview" && (

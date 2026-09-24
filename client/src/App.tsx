@@ -224,12 +224,12 @@ export default function App() {
         {tab === "snapshot" && (
           <SnapshotPanel rows={data.rows} onChange={updateRows} history={data.history} onHistoryChange={updateHistory} />
         )}
-        {tab === "rebalance" && <RebalancePanel rows={data.rows} strategy={data.strategy} settings={data.rebalance} onChange={updateRebalance} onRowsChange={updateRows} />}
+        {tab === "rebalance" && <RebalancePanel rows={data.rows} strategy={data.strategy} settings={data.rebalance} onChange={updateRebalance} onRowsChange={updateRows} onStrategyChange={updateStrategy} />}
         {tab === "budget" && <BudgetPanel budget={data.budget} onChange={updateBudget} />}
         {tab === "sim" && (
           <SimulationPanel rows={data.rows} sim={data.simulation} onChange={updateSim} annualRaisePct={data.budget.annualRaisePct} />
         )}
-        {tab === "isa" && <IsaPanel strategy={data.strategy} onChange={updateStrategy} />}
+        {tab === "isa" && <IsaPanel rows={data.rows} rebalance={data.rebalance} strategy={data.strategy} onChange={updateStrategy} />}
         {tab === "loan" && <LoanPanel rows={data.rows} loan={data.loan} onChange={updateLoan} />}
         {tab === "checklist" && <ChecklistPanel items={data.checklist} onChange={updateChecklist} />}
       </main>

@@ -1,7 +1,8 @@
 import { useMemo } from "react";
 import type { AssetRow, RebalanceGroup, RebalanceSettings, StrategyData } from "../types";
 import { fmtWon } from "../utils";
-import { computeRebalance, glideRiskPct, yearsUntil } from "../rebalance";
+import { computeRebalance, deriveGroupPlan, glideRiskPct, yearsUntil } from "../rebalance";
+import GlidePathEditor from "./GlidePathEditor";
 import MoneyInput from "./MoneyInput";
 import QuoteBar from "./QuoteBar";
 import type { QuoteResult } from "../api";
@@ -12,6 +13,7 @@ interface Props {
   settings: RebalanceSettings;
   onChange: (settings: RebalanceSettings) => void;
   onRowsChange: (rows: AssetRow[]) => void;
+  onStrategyChange: (strategy: StrategyData) => void;
 }
 
 interface GroupProps {
@@ -31,6 +33,11 @@ function GroupSection({ group, rows, allAccounts, tolerancePct, targetRiskPct, t
   const result = useMemo(
     () => (targetRiskPct === null ? null : computeRebalance(rows, group.accounts, targetRiskPct, tolerancePct)),
     [rows, group.accounts, targetRiskPct, tolerancePct]
+  );
+
+  const plan = useMemo(
+    () => (targetRiskPct === null ? null : deriveGroupPlan(rows, group.accounts, targetRiskPct)),
+    [rows, group.accounts, targetRiskPct]
   );
 
   const sellLabel = result?.sellCategory === "risk" ? "위험자산" : "안전자산";
@@ -119,6 +126,36 @@ function GroupSection({ group, rows, allAccounts, tolerancePct, targetRiskPct, t
                 : `목표 대비 ${result.driftPct >= 0 ? "+" : ""}${result.driftPct.toFixed(1)}%p — 허용 오차 안이라 그대로 둬도 돼.`}
           </p>
 
+          {plan && plan.total > 0 && (
+            <div style={{ background: "var(--paper)", border: "1px solid var(--line)", borderRadius: 12, padding: 12, margin: "10px 0" }}>
+              <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 6 }}>
+                이 목표를 이루려면 (목표 위험 {plan.targetRiskPct.toFixed(1)}% = {fmtWon(plan.requiredRisk)}원)
+              </div>
+              {plan.capable.length > 0 && (
+                <p className="note" style={{ margin: "4px 0", color: "var(--ink)" }}>
+                  <strong>{plan.capable.map((a) => a.account).join(", ")}</strong> (합계 {fmtWon(plan.capableTotal)}원):{" "}
+                  {plan.feasible ? (
+                    <>
+                      위험 <strong>{(plan.capableRiskPct ?? 0).toFixed(1)}%</strong> / 안전 {(100 - (plan.capableRiskPct ?? 0)).toFixed(1)}%로 구성
+                    </>
+                  ) : (
+                    <>전부 위험자산으로 채워도 목표에 모자라</>
+                  )}
+                </p>
+              )}
+              {plan.safeOnly.map((a) => (
+                <p className="note" key={a.account} style={{ margin: "4px 0", color: "var(--ink)" }}>
+                  <strong>{a.account}</strong> ({fmtWon(a.amount)}원, 묶음의 {((a.amount / plan.total) * 100).toFixed(0)}%): 위험 상품이 없어서 전액 안전으로 둬
+                </p>
+              ))}
+              {!plan.feasible && (
+                <p className="note" style={{ margin: "6px 0 0", color: "var(--risk)", fontWeight: 600 }}>
+                  이 묶음이 낼 수 있는 최대 위험 비중은 약 {plan.maxRiskPct.toFixed(1)}%라서 목표 {plan.targetRiskPct.toFixed(1)}%는 달성할 수 없어. 위쪽 목표 비중표의 값을 낮추거나, 위험 상품을 살 수 있는 계좌에 자금을 더 넣어야 해.
+                </p>
+              )}
+            </div>
+          )}
+
           {result.needsRebalance && (
             <>
               <div className="result-line total">
@@ -170,7 +207,7 @@ function GroupSection({ group, rows, allAccounts, tolerancePct, targetRiskPct, t
   );
 }
 
-export default function RebalancePanel({ rows, strategy, settings, onChange, onRowsChange }: Props) {
+export default function RebalancePanel({ rows, strategy, settings, onChange, onRowsChange, onStrategyChange }: Props) {
   const allAccounts = useMemo(() => Array.from(new Set(rows.map((r) => r.account).filter(Boolean))).sort(), [rows]);
   const yearsLeft = yearsUntil(strategy.housePurchaseDate);
   const glideTarget = yearsLeft === null ? null : glideRiskPct(strategy.glidePath, yearsLeft);
@@ -254,10 +291,18 @@ export default function RebalancePanel({ rows, strategy, settings, onChange, onR
         </p>
       </div>
 
+      <h2 className="section-title">
+        <span className="num">02</span> 집 매수 예정일 · 목표 비중표
+      </h2>
+      <GlidePathEditor strategy={strategy} onChange={onStrategyChange} />
+      <p className="note">
+        '집 매수 시점에 맞춰 낮추기'를 고른 묶음은 이 표의 목표를 따라가. 표의 비중은 <strong>그 묶음 전체</strong>(CMA처럼 위험 상품이 없는 계좌 포함)에 대한 비율이야.
+      </p>
+
       {settings.groups.map((g, i) => (
         <div key={g.id}>
           <h2 className="section-title">
-            <span className="num">{String(i + 2).padStart(2, "0")}</span> {g.name}
+            <span className="num">{String(i + 3).padStart(2, "0")}</span> {g.name}
           </h2>
           <GroupSection
             group={g}
@@ -273,7 +318,7 @@ export default function RebalancePanel({ rows, strategy, settings, onChange, onR
       ))}
 
       <h2 className="section-title">
-        <span className="num">{String(settings.groups.length + 2).padStart(2, "0")}</span> 상품별 거래 조건 (선택)
+        <span className="num">{String(settings.groups.length + 3).padStart(2, "0")}</span> 상품별 거래 조건 (선택)
       </h2>
       <div className="card">
         <p className="note" style={{ marginTop: 0 }}>

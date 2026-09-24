@@ -1,4 +1,4 @@
-import type { AssetCategory, AssetRow, GlidePathRow } from "./types";
+import type { AssetCategory, AssetRow, GlidePathRow, RebalanceGroup, StrategyData } from "./types";
 
 export interface RebalanceTrade {
   rowId: string;
@@ -188,4 +188,62 @@ export function computeRebalance(rows: AssetRow[], accounts: string[], targetRis
     );
   }
   return result;
+}
+
+// 묶음의 목표 위험 비중 (고정이면 그 값, 글리드 패스면 집 매수 예정일까지 남은 기간으로 계산). 계산할 수 없으면 null.
+export function groupTarget(group: RebalanceGroup, strategy: StrategyData): number | null {
+  if (group.targetType === "fixed") return group.fixedRiskPct;
+  const y = yearsUntil(strategy.housePurchaseDate);
+  return y === null ? null : glideRiskPct(strategy.glidePath, y);
+}
+
+export interface GroupPlanAccount {
+  account: string;
+  amount: number; // 만원
+  holdsRisk: boolean; // 위험자산 상품이 하나라도 있는 계좌인지
+}
+
+// 리밸런싱 탭의 목표(묶음 전체 기준)를 이루려면 계좌별로 어떻게 나눠야 하는지 계산한다.
+// 위험 상품이 없는 계좌(CMA·예금 등)는 전액 안전으로 고정, 나머지 계좌가 목표 위험 금액을 모두 담아야 한다.
+export interface GroupPlan {
+  total: number;
+  targetRiskPct: number;
+  requiredRisk: number; // 목표 위험 금액
+  accounts: GroupPlanAccount[];
+  safeOnly: GroupPlanAccount[];
+  capable: GroupPlanAccount[];
+  capableTotal: number;
+  capableRiskPct: number | null; // 위험을 담을 수 있는 계좌들 안에서 필요한 위험 비중 (100 초과면 불가능)
+  maxRiskPct: number; // 이 묶음이 낼 수 있는 최대 위험 비중
+  feasible: boolean;
+}
+
+export function deriveGroupPlan(rows: AssetRow[], accountNames: string[], targetRiskPct: number): GroupPlan {
+  const included = new Set(accountNames);
+  const map = new Map<string, GroupPlanAccount>();
+  for (const r of rows) {
+    if (!included.has(r.account) || (r.category !== "risk" && r.category !== "safe")) continue;
+    const cur = map.get(r.account) ?? { account: r.account, amount: 0, holdsRisk: false };
+    cur.amount += r.amount;
+    if (r.category === "risk") cur.holdsRisk = true;
+    map.set(r.account, cur);
+  }
+  const accounts = Array.from(map.values()).sort((a, b) => b.amount - a.amount);
+  const total = accounts.reduce((sum, a) => sum + a.amount, 0);
+  const capable = accounts.filter((a) => a.holdsRisk);
+  const safeOnly = accounts.filter((a) => !a.holdsRisk);
+  const capableTotal = capable.reduce((sum, a) => sum + a.amount, 0);
+  const requiredRisk = (total * targetRiskPct) / 100;
+  return {
+    total,
+    targetRiskPct,
+    requiredRisk,
+    accounts,
+    safeOnly,
+    capable,
+    capableTotal,
+    capableRiskPct: capableTotal > 0 ? (requiredRisk / capableTotal) * 100 : null,
+    maxRiskPct: total > 0 ? (capableTotal / total) * 100 : 0,
+    feasible: requiredRisk <= capableTotal + 1e-9,
+  };
 }

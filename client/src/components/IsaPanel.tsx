@@ -1,10 +1,12 @@
 import type { CSSProperties } from "react";
-import type { GlidePathRow, LadderRung, StrategyData } from "../types";
-import { glideRiskPct, yearsUntil } from "../rebalance";
+import type { AssetRow, LadderRung, RebalanceSettings, StrategyData } from "../types";
+import { deriveGroupPlan, glideRiskPct, groupTarget, yearsUntil } from "../rebalance";
 import { fmtWon, newId } from "../utils";
 import MoneyInput from "./MoneyInput";
 
 interface Props {
+  rows: AssetRow[];
+  rebalance: RebalanceSettings;
   strategy: StrategyData;
   onChange: (strategy: StrategyData) => void;
 }
@@ -22,10 +24,20 @@ const textareaStyle: CSSProperties = {
   lineHeight: 1.6,
 };
 
-export default function IsaPanel({ strategy, onChange }: Props) {
+export default function IsaPanel({ rows, rebalance, strategy, onChange }: Props) {
   const { isaPortfolio, cmaLadder, glidePath, isaDutyEndDate, housePurchaseDate } = strategy;
   const yearsLeft = yearsUntil(housePurchaseDate);
   const todayTarget = yearsLeft === null ? null : glideRiskPct(glidePath, yearsLeft);
+
+  // 리밸런싱 탭이 기준: 그 묶음의 목표에서 ISA·CMA가 맡아야 할 몫을 계산한다.
+  const isaGroup = rebalance.groups.find((g) => g.accounts.some((a) => /ISA/i.test(a)));
+  const isaTarget = isaGroup ? groupTarget(isaGroup, strategy) : null;
+  const isaPlan = isaGroup && isaTarget !== null ? deriveGroupPlan(rows, isaGroup.accounts, isaTarget) : null;
+  const cmaGroup = rebalance.groups.find((g) => g.accounts.some((a) => /CMA/i.test(a)));
+  const cmaTarget = cmaGroup ? groupTarget(cmaGroup, strategy) : null;
+  const cmaPlan = cmaGroup && cmaTarget !== null ? deriveGroupPlan(rows, cmaGroup.accounts, cmaTarget) : null;
+  const cmaAccounts = cmaPlan ? cmaPlan.accounts.filter((a) => /CMA/i.test(a.account)) : [];
+  const capableRisk = isaPlan?.capableRiskPct ?? null;
 
   function setPortfolio(patch: Partial<StrategyData["isaPortfolio"]>) {
     onChange({ ...strategy, isaPortfolio: { ...isaPortfolio, ...patch } });
@@ -53,19 +65,6 @@ export default function IsaPanel({ strategy, onChange }: Props) {
     onChange({ ...strategy, cmaLadder: { ...cmaLadder, note } });
   }
 
-  function updateGlideRow(i: number, patch: Partial<GlidePathRow>) {
-    const rows = glidePath.map((r, idx) => (idx === i ? { ...r, ...patch } : r));
-    onChange({ ...strategy, glidePath: rows });
-  }
-
-  function addGlideRow() {
-    onChange({ ...strategy, glidePath: [...glidePath, { id: newId("glide"), yearsLeft: 0, riskPct: 0 }] });
-  }
-
-  function removeGlideRow(i: number) {
-    onChange({ ...strategy, glidePath: glidePath.filter((_, idx) => idx !== i) });
-  }
-
   const ladderTotal = cmaLadder.rungs.reduce((sum, r) => sum + r.amount, 0);
 
   return (
@@ -85,19 +84,8 @@ export default function IsaPanel({ strategy, onChange }: Props) {
           <tbody>
             <tr>
               <td>위험자산</td>
-              <td>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: "flex-end" }}>
-                  <input
-                    type="number"
-                    style={{ width: 60 }}
-                    value={isaPortfolio.riskPct}
-                    onChange={(e) => {
-                      const v = parseFloat(e.target.value) || 0;
-                      setPortfolio({ riskPct: v, safePct: 100 - v });
-                    }}
-                  />
-                  <span>%</span>
-                </div>
+              <td style={{ textAlign: "right", fontWeight: 700 }}>
+                {isaPlan === null ? "-" : capableRisk === null ? "-" : isaPlan.feasible ? `${capableRisk.toFixed(1)}%` : "달성 불가"}
               </td>
               <td>
                 <input
@@ -110,7 +98,9 @@ export default function IsaPanel({ strategy, onChange }: Props) {
             </tr>
             <tr>
               <td>안전자산</td>
-              <td>{isaPortfolio.safePct}%</td>
+              <td style={{ textAlign: "right", fontWeight: 700 }}>
+                {isaPlan === null || capableRisk === null ? "-" : isaPlan.feasible ? `${(100 - capableRisk).toFixed(1)}%` : "-"}
+              </td>
               <td>
                 <input
                   type="text"
@@ -122,7 +112,13 @@ export default function IsaPanel({ strategy, onChange }: Props) {
             </tr>
           </tbody>
         </table>
-        <div className="field" style={{ marginTop: 14 }}>
+        <p className="note" style={{ marginTop: 10 }}>
+          {isaPlan === null
+            ? "이 비중은 리밸런싱 탭에서 자동으로 나와. 리밸런싱 탭에서 ISA가 들어간 묶음을 만들고 목표 비중을 정해줘."
+            : isaPlan.feasible
+              ? `리밸런싱 탭의 '${isaGroup?.name}' 묶음 목표(위험 ${isaPlan.targetRiskPct.toFixed(1)}%)를 이루려면 ${isaPlan.capable.map((a) => a.account).join(", ")}이(가) 이 비중이어야 해. 숫자는 여기서 고치지 않고 리밸런싱 탭에서 정해.`
+              : `리밸런싱 탭의 목표(위험 ${isaPlan.targetRiskPct.toFixed(1)}%)는 ISA를 전부 위험자산으로 채워도 못 이뤄. 리밸런싱 탭에서 목표를 조정해줘.`}
+        </p>        <div className="field" style={{ marginTop: 14 }}>
           <label>ISA 의무가입 종료일</label>
           <input type="date" value={isaDutyEndDate} onChange={(e) => setDutyEndDate(e.target.value)} />
         </div>
@@ -141,6 +137,11 @@ export default function IsaPanel({ strategy, onChange }: Props) {
         <span className="num">02</span> 만기 분산 계획 (합계 {fmtWon(ladderTotal)}원)
       </h2>
       <div className="card">
+        <p className="note" style={{ marginTop: 0, marginBottom: 12 }}>
+          {cmaPlan === null || cmaAccounts.length === 0
+            ? "CMA를 리밸런싱 탭의 묶음에 넣으면 이 자금이 집 자금 전체에서 어떤 역할인지 여기에 나와."
+            : `${cmaAccounts.map((a) => `${a.account} ${fmtWon(a.amount)}원`).join(", ")} — '${cmaGroup?.name}' 묶음의 ${((cmaAccounts.reduce((sum, a) => sum + a.amount, 0) / cmaPlan.total) * 100).toFixed(0)}%이고, ${cmaAccounts.every((a) => !a.holdsRisk) ? "위험 상품이 없어서 전액 안전으로 둬." : "위험 상품도 들고 있어."} 목표 비중은 리밸런싱 탭에서 정해.`}
+        </p>
         <div className="ladder">
           {cmaLadder.rungs.map((r, i) => (
             <div className="rung" key={r.id}>
@@ -180,59 +181,21 @@ export default function IsaPanel({ strategy, onChange }: Props) {
         <span className="num">03</span> 집 매수 접근 글라이드 패스
       </h2>
       <div className="card">
-        <div className="field">
-          <label>집 매수 예정일</label>
-          <input type="date" value={housePurchaseDate} onChange={(e) => onChange({ ...strategy, housePurchaseDate: e.target.value })} />
+        <p className="note" style={{ marginTop: 0 }}>
+          집 매수 예정일과 남은 기간별 목표 비중표는 <strong>리밸런싱 탭</strong>에서 정해. 그 목표에서 ISA·CMA가 맡을 몫이 위에 자동으로 계산돼.
+        </p>
+        <div className="result-line">
+          <span className="k">집 매수 예정일</span>
+          <span className="v">{housePurchaseDate || "-"}</span>
         </div>
-        <p className="note" style={{ marginTop: 0, marginBottom: 12 }}>
-          {yearsLeft === null || todayTarget === null
-            ? "집 매수 예정일을 입력하면 지금 시점의 목표 위험자산 비중을 계산해줘."
-            : `집 매수까지 약 ${yearsLeft.toFixed(1)}년 남았어. 아래 표의 지점 사이를 직선으로 이어서 계산하면 지금 목표 위험자산 비중은 약 ${todayTarget.toFixed(1)}%야.`}
-        </p>
-        <table className="grid">
-          <thead>
-            <tr>
-              <th>집 매수까지 남은 기간(년)</th>
-              <th>목표 위험자산 비중(%)</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {glidePath.map((row, i) => (
-              <tr key={row.id}>
-                <td>
-                  <input
-                    type="number"
-                    min={0}
-                    step={0.5}
-                    value={row.yearsLeft}
-                    onChange={(e) => updateGlideRow(i, { yearsLeft: Math.max(0, parseFloat(e.target.value) || 0) })}
-                  />
-                </td>
-                <td>
-                  <input
-                    type="number"
-                    min={0}
-                    max={100}
-                    value={row.riskPct}
-                    onChange={(e) => updateGlideRow(i, { riskPct: Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)) })}
-                  />
-                </td>
-                <td>
-                  <button className="btn ghost" style={{ padding: "6px 10px", fontSize: 12 }} onClick={() => removeGlideRow(i)}>
-                    삭제
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <p className="note">
-          표에 없는 기간은 양옆 지점을 직선으로 이어서 계산해. 가장 먼 지점보다 멀면 그 지점 비중을, 가장 가까운 지점보다 가까우면 그 지점 비중을 그대로 써.
-        </p>
-        <button className="btn ghost" style={{ marginTop: 10 }} onClick={addGlideRow}>
-          + 지점 추가
-        </button>
+        <div className="result-line">
+          <span className="k">남은 기간</span>
+          <span className="v">{yearsLeft === null ? "-" : `약 ${yearsLeft.toFixed(1)}년`}</span>
+        </div>
+        <div className="result-line">
+          <span className="k">지금 목표 위험 비중 (표 기준)</span>
+          <span className="v">{todayTarget === null ? "-" : `${todayTarget.toFixed(1)}%`}</span>
+        </div>
       </div>
     </section>
   );

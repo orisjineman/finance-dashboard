@@ -23,21 +23,23 @@ interface GroupProps {
   tolerancePct: number;
   targetRiskPct: number | null;
   targetLabel: string;
+  riskAccess: Record<string, "allowed" | "blocked">;
   onChange: (group: RebalanceGroup) => void;
   onToggleAccount: (account: string, on: boolean) => void;
 }
 
 const barPct = (n: number) => `${Math.max(0, Math.min(100, n))}%`;
+const NO_ACCESS: Record<string, "allowed" | "blocked"> = {};
 
-function GroupSection({ group, rows, allAccounts, tolerancePct, targetRiskPct, targetLabel, onChange, onToggleAccount }: GroupProps) {
+function GroupSection({ group, rows, allAccounts, tolerancePct, targetRiskPct, targetLabel, riskAccess, onChange, onToggleAccount }: GroupProps) {
   const result = useMemo(
-    () => (targetRiskPct === null ? null : computeRebalance(rows, group.accounts, targetRiskPct, tolerancePct)),
-    [rows, group.accounts, targetRiskPct, tolerancePct]
+    () => (targetRiskPct === null ? null : computeRebalance(rows, group.accounts, targetRiskPct, tolerancePct, riskAccess)),
+    [rows, group.accounts, targetRiskPct, tolerancePct, riskAccess]
   );
 
   const plan = useMemo(
-    () => (targetRiskPct === null ? null : deriveGroupPlan(rows, group.accounts, targetRiskPct)),
-    [rows, group.accounts, targetRiskPct]
+    () => (targetRiskPct === null ? null : deriveGroupPlan(rows, group.accounts, targetRiskPct, riskAccess)),
+    [rows, group.accounts, targetRiskPct, riskAccess]
   );
 
   const sellLabel = result?.sellCategory === "risk" ? "위험자산" : "안전자산";
@@ -138,19 +140,33 @@ function GroupSection({ group, rows, allAccounts, tolerancePct, targetRiskPct, t
                     <>
                       위험 <strong>{(plan.capableRiskPct ?? 0).toFixed(1)}%</strong> / 안전 {(100 - (plan.capableRiskPct ?? 0)).toFixed(1)}%로 구성
                     </>
+                  ) : plan.tooLow ? (
+                    <>편입 불가 계좌에 이미 있는 위험자산만으로도 목표보다 많아</>
                   ) : (
                     <>전부 위험자산으로 채워도 목표에 모자라</>
                   )}
                 </p>
               )}
+              {plan.capable
+                .filter((a) => !a.holdsRisk)
+                .map((a) => (
+                  <p className="note" key={`norow-${a.account}`} style={{ margin: "4px 0", color: "var(--ink-soft)" }}>
+                    {a.account}는 위험자산 편입 가능으로 설정했지만 스냅샷에 위험 상품이 없어서 추천 거래에는 아직 못 잡혀. 스냅샷에 위험 상품(0원도 괜찮아)을 추가해줘.
+                  </p>
+                ))}
               {plan.safeOnly.map((a) => (
                 <p className="note" key={a.account} style={{ margin: "4px 0", color: "var(--ink)" }}>
-                  <strong>{a.account}</strong> ({fmtWon(a.amount)}원, 묶음의 {((a.amount / plan.total) * 100).toFixed(0)}%): 위험 상품이 없어서 전액 안전으로 둬
+                  <strong>{a.account}</strong> ({fmtWon(a.amount)}원, 묶음의 {((a.amount / plan.total) * 100).toFixed(0)}%):{" "}
+                  {a.policy === "blocked"
+                    ? `위험자산 편입 불가로 설정해서 안전으로 둬${a.riskAmount > 0 ? ` (이미 있는 위험 ${fmtWon(a.riskAmount)}원은 그대로)` : ""}`
+                    : "위험 상품이 없어서 전액 안전으로 둬"}
                 </p>
               ))}
               {!plan.feasible && (
                 <p className="note" style={{ margin: "6px 0 0", color: "var(--risk)", fontWeight: 600 }}>
-                  이 묶음이 낼 수 있는 최대 위험 비중은 약 {plan.maxRiskPct.toFixed(1)}%라서 목표 {plan.targetRiskPct.toFixed(1)}%는 달성할 수 없어. 위쪽 목표 비중표의 값을 낮추거나, 위험 상품을 살 수 있는 계좌에 자금을 더 넣어야 해.
+                  {plan.tooLow
+                    ? `이 묶음의 위험 비중은 최소 약 ${plan.minRiskPct.toFixed(1)}%라서(편입 불가 계좌에 이미 있는 위험자산) 목표 ${plan.targetRiskPct.toFixed(1)}%는 달성할 수 없어. 목표를 올리거나 그 계좌의 위험자산을 옮겨야 해.`
+                    : `이 묶음이 낼 수 있는 최대 위험 비중은 약 ${plan.maxRiskPct.toFixed(1)}%라서 목표 ${plan.targetRiskPct.toFixed(1)}%는 달성할 수 없어. 위쪽 목표 비중표의 값을 낮추거나, 위험자산 편입 가능 계좌를 늘리거나 자금을 더 넣어야 해.`}
                 </p>
               )}
             </div>
@@ -211,6 +227,15 @@ export default function RebalancePanel({ rows, strategy, settings, onChange, onR
   const allAccounts = useMemo(() => Array.from(new Set(rows.map((r) => r.account).filter(Boolean))).sort(), [rows]);
   const yearsLeft = yearsUntil(strategy.housePurchaseDate);
   const glideTarget = yearsLeft === null ? null : glideRiskPct(strategy.glidePath, yearsLeft);
+
+  const riskAccess = settings.riskAccess ?? NO_ACCESS;
+
+  function setAccess(account: string, value: string) {
+    const next = { ...riskAccess };
+    if (value === "allowed" || value === "blocked") next[account] = value;
+    else delete next[account];
+    onChange({ ...settings, riskAccess: next });
+  }
 
   const grouped = new Set(settings.groups.flatMap((g) => g.accounts));
   const ungrouped = allAccounts.filter((a) => !grouped.has(a));
@@ -285,6 +310,44 @@ export default function RebalancePanel({ rows, strategy, settings, onChange, onR
             ? "집 매수 예정일이 아직 없어. ISA·CMA 전략 탭에서 입력해줘."
             : `집 매수 예정일은 ${strategy.housePurchaseDate}이고, 약 ${yearsLeft.toFixed(1)}년 남았어.`}
         </p>
+        <div className="field" style={{ marginTop: 4 }}>
+          <label>계좌별 위험자산 편입</label>
+          <div className="table-scroll">
+            <table className="grid" style={{ minWidth: 520 }}>
+              <thead>
+                <tr>
+                  <th>계좌</th>
+                  <th className="num">지금 들고 있는 위험자산</th>
+                  <th>편입 설정</th>
+                </tr>
+              </thead>
+              <tbody>
+                {allAccounts
+                  .filter((a) => grouped.has(a))
+                  .map((a) => {
+                    const riskNow = rows.filter((r) => r.account === a && r.category === "risk").reduce((sum, r) => sum + r.amount, 0);
+                    const holds = rows.some((r) => r.account === a && r.category === "risk");
+                    return (
+                      <tr key={a}>
+                        <td>{a}</td>
+                        <td className="num">{holds ? `${fmtWon(riskNow)}원` : "없음"}</td>
+                        <td>
+                          <select value={riskAccess[a] ?? ""} onChange={(e) => setAccess(a, e.target.value)} style={{ textAlign: "left" }}>
+                            <option value="">자동 ({holds ? "위험 상품 있음 → 가능" : "위험 상품 없음 → 불가"})</option>
+                            <option value="allowed">위험자산 편입 가능</option>
+                            <option value="blocked">위험자산 편입 불가</option>
+                          </select>
+                        </td>
+                      </tr>
+                    );
+                  })}
+              </tbody>
+            </table>
+          </div>
+          <p className="note">
+            '편입 불가'로 두면 그 계좌에는 위험자산을 새로 사지 않고, 나머지 계좌가 목표 위험 비중을 맡아. '자동'은 위험 상품이 있는 계좌만 가능으로 봐.
+          </p>
+        </div>
         <p className="note">
           자금의 용도별로 묶음을 나눠서 각각 목표 비중을 정해. CMA·예금·주택청약처럼 어느 묶음에도 넣지 않은 계좌는 리밸런싱하지 않아
           {ungrouped.length > 0 ? ` (지금은: ${ungrouped.join(", ")}).` : "."}
@@ -311,6 +374,7 @@ export default function RebalancePanel({ rows, strategy, settings, onChange, onR
             tolerancePct={settings.tolerancePct}
             targetRiskPct={g.targetType === "fixed" ? g.fixedRiskPct : glideTarget}
             targetLabel={g.targetType === "fixed" ? "고정 비중" : "글리드 패스"}
+            riskAccess={riskAccess}
             onChange={updateGroup}
             onToggleAccount={(a, on) => toggleAccount(g.id, a, on)}
           />

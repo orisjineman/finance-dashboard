@@ -32,10 +32,10 @@ export default function IsaPanel({ rows, rebalance, strategy, onChange }: Props)
   // 리밸런싱 탭이 기준: 그 묶음의 목표에서 ISA·CMA가 맡아야 할 몫을 계산한다.
   const isaGroup = rebalance.groups.find((g) => g.accounts.some((a) => /ISA/i.test(a)));
   const isaTarget = isaGroup ? groupTarget(isaGroup, strategy) : null;
-  const isaPlan = isaGroup && isaTarget !== null ? deriveGroupPlan(rows, isaGroup.accounts, isaTarget) : null;
+  const isaPlan = isaGroup && isaTarget !== null ? deriveGroupPlan(rows, isaGroup.accounts, isaTarget, rebalance.riskAccess) : null;
   const cmaGroup = rebalance.groups.find((g) => g.accounts.some((a) => /CMA/i.test(a)));
   const cmaTarget = cmaGroup ? groupTarget(cmaGroup, strategy) : null;
-  const cmaPlan = cmaGroup && cmaTarget !== null ? deriveGroupPlan(rows, cmaGroup.accounts, cmaTarget) : null;
+  const cmaPlan = cmaGroup && cmaTarget !== null ? deriveGroupPlan(rows, cmaGroup.accounts, cmaTarget, rebalance.riskAccess) : null;
   const cmaAccounts = cmaPlan ? cmaPlan.accounts.filter((a) => /CMA/i.test(a.account)) : [];
   const capableRisk = isaPlan?.capableRiskPct ?? null;
 
@@ -117,7 +117,7 @@ export default function IsaPanel({ rows, rebalance, strategy, onChange }: Props)
             ? "이 비중은 리밸런싱 탭에서 자동으로 나와. 리밸런싱 탭에서 ISA가 들어간 묶음을 만들고 목표 비중을 정해줘."
             : isaPlan.feasible
               ? `리밸런싱 탭의 '${isaGroup?.name}' 묶음 목표(위험 ${isaPlan.targetRiskPct.toFixed(1)}%)를 이루려면 ${isaPlan.capable.map((a) => a.account).join(", ")}이(가) 이 비중이어야 해. 숫자는 여기서 고치지 않고 리밸런싱 탭에서 정해.`
-              : `리밸런싱 탭의 목표(위험 ${isaPlan.targetRiskPct.toFixed(1)}%)는 ISA를 전부 위험자산으로 채워도 못 이뤄. 리밸런싱 탭에서 목표를 조정해줘.`}
+              : `리밸런싱 탭의 목표(위험 ${isaPlan.targetRiskPct.toFixed(1)}%)는 ${isaPlan.tooLow ? "편입 불가 계좌에 이미 있는 위험자산 때문에 너무 낮아서" : "위험자산 편입 가능 계좌를 전부 위험자산으로 채워도"} 못 이뤄. 리밸런싱 탭에서 목표나 편입 설정을 조정해줘.`}
         </p>        <div className="field" style={{ marginTop: 14 }}>
           <label>ISA 의무가입 종료일</label>
           <input type="date" value={isaDutyEndDate} onChange={(e) => setDutyEndDate(e.target.value)} />
@@ -140,7 +140,7 @@ export default function IsaPanel({ rows, rebalance, strategy, onChange }: Props)
         <p className="note" style={{ marginTop: 0, marginBottom: 12 }}>
           {cmaPlan === null || cmaAccounts.length === 0
             ? "CMA를 리밸런싱 탭의 묶음에 넣으면 이 자금이 집 자금 전체에서 어떤 역할인지 여기에 나와."
-            : `${cmaAccounts.map((a) => `${a.account} ${fmtWon(a.amount)}원`).join(", ")} — '${cmaGroup?.name}' 묶음의 ${((cmaAccounts.reduce((sum, a) => sum + a.amount, 0) / cmaPlan.total) * 100).toFixed(0)}%이고, ${cmaAccounts.every((a) => !a.holdsRisk) ? "위험 상품이 없어서 전액 안전으로 둬." : "위험 상품도 들고 있어."} 목표 비중은 리밸런싱 탭에서 정해.`}
+            : `${cmaAccounts.map((a) => `${a.account} ${fmtWon(a.amount)}원`).join(", ")} — '${cmaGroup?.name}' 묶음의 ${((cmaAccounts.reduce((sum, a) => sum + a.amount, 0) / cmaPlan.total) * 100).toFixed(0)}%이고, ${cmaAccounts.every((a) => !a.canHoldRisk) ? (cmaAccounts.some((a) => a.policy === "blocked") ? "위험자산 편입 불가로 설정해서 안전으로 둬." : "위험 상품이 없어서 전액 안전으로 둬.") : "위험자산도 담을 수 있는 계좌로 계산돼."} 목표 비중은 리밸런싱 탭에서 정해.`}
         </p>
         <div className="ladder">
           {cmaLadder.rungs.map((r, i) => (

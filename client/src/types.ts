@@ -108,6 +108,7 @@ export interface RebalanceGroup {
 export interface RebalanceSettings {
   tolerancePct: number; // 허용 오차 (%p), 이 안이면 리밸런싱 불필요
   groups: RebalanceGroup[];
+  riskAccess?: Record<string, "allowed" | "blocked">; // 계좌별 위험자산 편입 가능/불가. 없으면 위험 상품이 있는 계좌를 가능으로 자동 판단
 }
 
 export interface DashboardData {

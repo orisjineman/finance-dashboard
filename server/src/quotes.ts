@@ -1,9 +1,9 @@
 // 공공데이터포털 금융위원회 시세 API로 종목코드별 최근 종가를 가져온다 (ETF → 못 찾으면 주식 순서로 조회).
-const BASE = process.env.QUOTE_API_BASE ?? "https://apis.data.go.kr/1160100/service";
+const BASE = process.env.QUOTE_API_BASE ?? "https://apis.data.go.kr/1160100";
 
 const SERVICES = [
-  { service: "GetSecuritiesProductInfoService", op: "getETFPriceInfo", label: "ETF" },
-  { service: "GetStockSecuritiesInfoService", op: "getStockPriceInfo", label: "주식" },
+  { service: "GetSecuritiesProductInfoService_V2", op: "getETFPriceInfo_V2", label: "ETF" },
+  { service: "GetStockSecuritiesInfoService_V2", op: "getStockPriceInfo_V2", label: "주식" },
 ] as const;
 
 export interface QuoteResult {

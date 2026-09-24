@@ -58,6 +58,7 @@ export interface HistoryEntry {
   riskValue: number;
   safeValue: number;
   cashValue: number;
+  housingLiquid?: number; // 만원, 기록 시점의 집 마련 가용자산 (집 마련 진행 그래프용)
   profit: number;
   returnRate: number;
 }

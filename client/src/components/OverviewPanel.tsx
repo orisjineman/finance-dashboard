@@ -1,7 +1,9 @@
 import { useState } from "react";
 import type { AssetRow, BudgetData, HistoryEntry, LoanInput, StrategyData } from "../types";
-import { computeCurrentReturn, computeHousingLiquid, computeLoanEquity, computeReturnTotals, computeTotals, fmtWon } from "../utils";
+import { computeCurrentReturn, computeHousingLiquid, computeLoanEquity, computeReturnTotals, computeTotals, fmtEok, fmtWon } from "../utils";
 import { yearsUntil } from "../rebalance";
+import { projectHousing } from "../housing";
+import LineChart from "./LineChart";
 import BudgetBreakdown from "./BudgetBreakdown";
 import MoneyInput from "./MoneyInput";
 import SectionTitle from "./SectionTitle";
@@ -70,6 +72,17 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
     yearsToGoalWithPension !== null && yearsToGoalNoPension !== null
       ? yearsToGoalWithPension - yearsToGoalNoPension
       : null;
+
+  const houseMonthly = pensionAnnualContribution > 0 ? houseMonthlyWithPension : houseMonthlyNoPension;
+  const now = new Date();
+  const projection = projectHousing({ current: housingLiquid, target: equityNeeded, monthlyAdd: houseMonthly, now, purchaseDate: strategy.housePurchaseDate });
+  const housingPoints = [
+    ...history.filter((h) => h.housingLiquid !== undefined).map((h) => ({ t: new Date(`${h.date}T00:00:00`).getTime(), y: h.housingLiquid as number })),
+    { t: now.getTime(), y: housingLiquid },
+  ].sort((a, b) => a.t - b.t);
+  const purchaseT = strategy.housePurchaseDate ? new Date(`${strategy.housePurchaseDate}T00:00:00`).getTime() : NaN;
+  const monthsDiff =
+    projection.reachDate && Number.isFinite(purchaseT) ? Math.round((purchaseT - projection.reachDate.getTime()) / (30.4375 * 86400000)) : null;
 
   function setPensionContribution(v: number) {
     onBudgetChange({ ...budget, pensionAnnualContribution: v });
@@ -199,6 +212,30 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
           )}
           {housingRemaining > 0 && yearsToGoal === null && " 월급·예산 탭에서 저축 가능액을 입력하면 예상 달성 시기도 볼 수 있어."}
         </p>
+
+        {equityNeeded > 0 && (
+          <div style={{ marginTop: 16 }}>
+            <div className="chart-title">집 마련 진행과 예상 경로</div>
+            <LineChart
+              yFormat={fmtEok}
+              series={[
+                { label: "가용자산(기록·현재)", color: "var(--accent)", points: housingPoints },
+                ...(projection.points.length > 1 ? [{ label: "이대로 모으면(예상)", color: "var(--gold)", dashed: true, dots: false, points: projection.points }] : []),
+              ]}
+              hLines={[{ label: "필요 자기자금", y: equityNeeded, color: "var(--safe)" }]}
+              vLines={Number.isFinite(purchaseT) ? [{ label: "집 매수 예정일", t: purchaseT, color: "var(--ink-soft)" }] : []}
+            />
+            <p className="note" style={{ marginTop: 6 }}>
+              {projection.reachDate === null
+                ? "지금 저축 가능액으로는 목표에 닿지 않아. 월급·예산 탭에서 저축 가능액을 확인해줘."
+                : housingRemaining <= 0
+                  ? "필요 자기자금에 이미 도달했어."
+                  : `수익률 없이 매달 ${fmtWon(houseMonthly)}원씩 모은다고 가정하면 ${projection.reachDate.getFullYear()}년 ${projection.reachDate.getMonth() + 1}월쯤 닿아.`}
+              {monthsDiff !== null && housingRemaining > 0 && (monthsDiff >= 0 ? ` 집 매수 예정일보다 약 ${monthsDiff}개월 빨라.` : ` 집 매수 예정일보다 약 ${-monthsDiff}개월 늦어.`)}
+              {" "}스냅샷 히스토리에 기록을 추가할 때마다 가용자산 점이 하나씩 쌓여.
+            </p>
+          </div>
+        )}
 
         <div
           style={{

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { AssetRow, HistoryEntry } from "../types";
-import { computeCurrentReturn, computeReturnTotals, fmtEok, fmtWon, newId } from "../utils";
+import { computeCurrentReturn, computeHousingLiquid, computeReturnTotals, fmtEok, fmtWon, newId } from "../utils";
+import LineChart from "./LineChart";
 import MoneyInput from "./MoneyInput";
 import SectionTitle from "./SectionTitle";
 
@@ -44,6 +45,7 @@ export default function HistoryPanel({ rows, history, onChange }: Props) {
       riskValue: t.risk,
       safeValue: t.safe,
       cashValue: t.cash,
+      housingLiquid: computeHousingLiquid(rows),
       profit,
       returnRate,
     };
@@ -54,8 +56,6 @@ export default function HistoryPanel({ rows, history, onChange }: Props) {
   function removeEntry(id: string) {
     onChange(history.filter((h) => h.id !== id));
   }
-
-  const maxVal = Math.max(...sorted.map((h) => h.totalValue), 1);
 
   // 신규 납입액은 저장된 값이 아니라 이웃한 기록의 원금 차이로 그때그때 계산한다 (기록을 지워도 어긋나지 않게).
   const contributionOf = new Map<string, number>();
@@ -114,15 +114,29 @@ export default function HistoryPanel({ rows, history, onChange }: Props) {
 
         {sorted.length > 0 && (
           <>
-            <div className="bars" style={{ marginTop: 20 }}>
-              {sorted.map((h) => (
-                <div className="bar-col" key={h.id}>
-                  <div className="bar-value">{fmtEok(h.totalValue)}</div>
-                  <div className="bar" style={{ height: `${Math.max(4, Math.round((h.totalValue / maxVal) * 140))}px` }} />
-                  <div className="bar-label">{h.date.slice(5)}</div>
+            {sorted.length >= 2 ? (
+              <div style={{ marginTop: 20, display: "grid", gap: 18 }}>
+                <div>
+                  <div className="chart-title">총평가금액과 누적 투자원금</div>
+                  <LineChart
+                    yFormat={fmtEok}
+                    series={[
+                      { label: "총평가금액", color: "var(--accent)", points: sorted.map((h) => ({ t: new Date(`${h.date}T00:00:00`).getTime(), y: h.totalValue })) },
+                      { label: "누적 투자원금", color: "var(--ink-soft)", dashed: true, points: sorted.map((h) => ({ t: new Date(`${h.date}T00:00:00`).getTime(), y: h.cumulativePrincipal })) },
+                    ]}
+                  />
                 </div>
-              ))}
-            </div>
+                <div>
+                  <div className="chart-title">투자원금 대비 수익률</div>
+                  <LineChart
+                    yFormat={(v) => `${v.toFixed(0)}%`}
+                    series={[{ label: "수익률", color: "var(--safe)", points: sorted.map((h) => ({ t: new Date(`${h.date}T00:00:00`).getTime(), y: h.returnRate * 100 })) }]}
+                  />
+                </div>
+              </div>
+            ) : (
+              <p className="note" style={{ marginTop: 16 }}>기록이 2개 이상 쌓이면 자산과 수익률 그래프가 그려져.</p>
+            )}
 
             <div className="table-scroll">
 <table className="grid" style={{ marginTop: 16 }}>

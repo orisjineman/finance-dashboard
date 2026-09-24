@@ -17,7 +17,7 @@ const TABS = [
   { key: "budget", label: "월급·예산" },
   { key: "rebalance", label: "리밸런싱" },
   { key: "sim", label: "연도별 시뮬레이션" },
-  { key: "isa", label: "ISA·CMA 전략" },
+  { key: "isa", label: "ISA·CMA 운용 계획" },
   { key: "loan", label: "대출 계산기" },
   { key: "checklist", label: "체크리스트" },
 ] as const;

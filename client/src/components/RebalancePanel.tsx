@@ -99,7 +99,7 @@ function GroupSection({ group, rows, allAccounts, tolerancePct, targetRiskPct, t
 
       {result === null || targetRiskPct === null ? (
         <p className="note" style={{ color: "var(--risk)" }}>
-          목표 비중을 계산할 수 없어. ISA·CMA 전략 탭에서 집 매수 예정일과 글리드 패스 표를 입력해줘.
+          목표 비중을 계산할 수 없어. ISA·CMA 운용 계획 탭에서 집 매수 예정일과 글리드 패스 표를 입력해줘.
         </p>
       ) : (
         <>
@@ -329,7 +329,7 @@ export default function RebalancePanel({ rows, strategy, settings, onChange, onR
         <p className="note" style={{ marginTop: 0 }}>
           목표 비중에서 이 값 이상 벗어났을 때만 팔고 사라고 알려줘.{" "}
           {yearsLeft === null
-            ? "집 매수 예정일이 아직 없어. ISA·CMA 전략 탭에서 입력해줘."
+            ? "집 매수 예정일이 아직 없어. ISA·CMA 운용 계획 탭에서 입력해줘."
             : `집 매수 예정일은 ${strategy.housePurchaseDate}이고, 약 ${yearsLeft.toFixed(1)}년 남았어.`}
         </p>
         <div className="field" style={{ marginTop: 4 }}>

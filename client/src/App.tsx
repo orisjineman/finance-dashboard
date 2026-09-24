@@ -209,7 +209,7 @@ export default function App() {
         </nav>
       </header>
 
-      <main>
+      <main className={tab === "snapshot" || tab === "rebalance" ? "wide" : undefined}>
         {tab === "overview" && (
           <OverviewPanel
             rows={data.rows}

@@ -157,7 +157,8 @@ export default function SnapshotPanel({ rows, onChange, history, onHistoryChange
           <span className="tag cash">현금성</span>
           <span style={{ marginLeft: 8 }}>계좌는 왼쪽 색 띠로 구분하고, 계좌가 바뀌는 곳에는 굵은 선이 그어져.</span>
         </div>
-        <table className="grid" style={{ marginTop: 8 }}>
+        <div className="table-scroll">
+        <table className="grid" style={{ marginTop: 8, minWidth: 820 }}>
           <thead>
             <tr>
               <th style={{ cursor: "pointer" }} onClick={() => toggleSort("account")}>
@@ -268,6 +269,7 @@ export default function SnapshotPanel({ rows, onChange, history, onHistoryChange
             </tr>
           </tfoot>
         </table>
+        </div>
         {filtersActive && (
           <p className="note">
             필터 적용 중 · 전체 합계는 {fmtWon(grandTotal)}원이야.

@@ -85,7 +85,7 @@ export function computeRebalance(rows: AssetRow[], accounts: string[], targetRis
     .map((account) => {
       const inAccount = scope.filter((r) => r.account === account);
       const sellRows = inAccount.filter((r) => r.category === sellCategory && r.amount > 0 && r.rebalanceRule !== "hold");
-      const buyCandidates = inAccount.filter((r) => r.category === buyCategory);
+      const buyCandidates = inAccount.filter((r) => r.category === buyCategory && r.rebalanceRule !== "hold");
       const preferred = buyCandidates.filter((r) => r.rebalanceRule === "preferred");
       const buyRows = preferred.length > 0 ? preferred : buyCandidates;
       return { account, sellRows, buyRows, capacity: sellRows.reduce((s, r) => s + r.amount, 0) };
@@ -96,7 +96,7 @@ export function computeRebalance(rows: AssetRow[], accounts: string[], targetRis
   const sellLabel = sellCategory === "risk" ? "위험" : "안전";
   const skipped = accountList.filter((a) => !plans.some((p) => p.account === a) && scope.some((r) => r.account === a && r.category === sellCategory && r.amount > 0 && r.rebalanceRule !== "hold"));
   if (skipped.length > 0) {
-    result.notes.push(`${skipped.join(", ")}: 같은 계좌 안에 사 둘 상품이 없거나 '매도 안 함'으로 묶여 있어 제외했어 (계좌 밖으로 옮기려면 출금이 필요해).`);
+    result.notes.push(`${skipped.join(", ")}: 같은 계좌 안에 사 둘 상품이 없거나 '매매 안 함'으로 묶여 있어 제외했어 (계좌 밖으로 옮기려면 출금이 필요해).`);
   }
 
   const EPS = 1e-9;

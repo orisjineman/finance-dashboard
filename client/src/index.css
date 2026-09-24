@@ -570,3 +570,15 @@ footer.foot {
   justify-content: flex-end;
   margin-top: 16px;
 }
+
+/* 표가 좁은 화면에서도 머리글·버튼이 줄바꿈되지 않게 하고, 넓은 표는 가로 스크롤 */
+table.grid th,
+table.grid .btn {
+  white-space: nowrap;
+}
+.table-scroll {
+  overflow-x: auto;
+}
+main.wide {
+  max-width: 1100px;
+}

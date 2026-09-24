@@ -250,7 +250,7 @@ export default function RebalancePanel({ rows, strategy, settings, onChange, onR
         <p className="note" style={{ marginTop: 0 }}>
           <strong>1주 가격</strong>을 넣으면 정수 주수로 계산하고, 비워두면 금액 단위(소수점 거래, RP·예수금 등)로 계산해. 가격은 시세에 따라 바뀌니 거래 직전에 다시 확인해줘.
           <br />
-          <strong>매도 안 함</strong>은 만기까지 들고 갈 채권처럼 중간에 팔지 않을 상품에, <strong>매수 우선</strong>은 새로 살 때 그 상품에만 몰아서 사고 싶을 때(예: S&P500만 살 때) 지정해.
+          <strong>매매 안 함</strong>은 만기까지 들고 갈 채권처럼 팔지도 더 사지도 않을 상품에, <strong>매수 우선</strong>은 새로 살 때 그 상품에만 몰아서 사고 싶을 때(예: S&P500만 살 때) 지정해.
         </p>
         <table className="grid" style={{ marginTop: 8 }}>
           <thead>
@@ -278,7 +278,7 @@ export default function RebalancePanel({ rows, strategy, settings, onChange, onR
                     style={{ textAlign: "left" }}
                   >
                     <option value="">기본</option>
-                    <option value="hold">매도 안 함</option>
+                    <option value="hold">매매 안 함</option>
                     <option value="preferred">매수 우선</option>
                   </select>
                 </td>

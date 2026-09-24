@@ -89,10 +89,7 @@ export function newId(prefix: string): string {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
-export function debounce<Args extends unknown[]>(fn: (...args: Args) => void, wait: number) {
-  let timer: ReturnType<typeof setTimeout> | null = null;
-  return (...args: Args) => {
-    if (timer) clearTimeout(timer);
-    timer = setTimeout(() => fn(...args), wait);
-  };
+// 자산 행들에 등장하는 계좌 이름 목록 (가나다순, 빈 값 제외)
+export function uniqueAccounts(rows: AssetRow[]): string[] {
+  return Array.from(new Set(rows.map((r) => r.account).filter(Boolean))).sort();
 }

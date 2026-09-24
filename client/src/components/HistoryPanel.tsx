@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { AssetRow, HistoryEntry } from "../types";
 import { computeCurrentReturn, computeReturnTotals, fmtEok, fmtWon, newId } from "../utils";
 import MoneyInput from "./MoneyInput";
+import SectionTitle from "./SectionTitle";
 
 interface Props {
   rows: AssetRow[];
@@ -62,9 +63,7 @@ export default function HistoryPanel({ rows, history, onChange }: Props) {
 
   return (
     <>
-      <h2 className="section-title">
-        <span className="num">02</span> 지금 투자원금 대비 수익률
-      </h2>
+      <SectionTitle>지금 투자원금 대비 수익률</SectionTitle>
       <div className="card">
         {current ? (
           <>
@@ -91,9 +90,7 @@ export default function HistoryPanel({ rows, history, onChange }: Props) {
         )}
       </div>
 
-      <h2 className="section-title">
-        <span className="num">03</span> 히스토리
-      </h2>
+      <SectionTitle>히스토리</SectionTitle>
       <div className="card">
         <div className="field-row" style={{ alignItems: "end" }}>
           <div className="field" style={{ marginBottom: 0 }}>
@@ -127,7 +124,8 @@ export default function HistoryPanel({ rows, history, onChange }: Props) {
               ))}
             </div>
 
-            <table className="grid" style={{ marginTop: 16 }}>
+            <div className="table-scroll">
+<table className="grid" style={{ marginTop: 16 }}>
               <thead>
                 <tr>
                   <th>날짜</th>
@@ -154,8 +152,7 @@ export default function HistoryPanel({ rows, history, onChange }: Props) {
                     </td>
                     <td>
                       <button
-                        className="btn ghost"
-                        style={{ padding: "6px 10px", fontSize: 12 }}
+                        className="btn ghost sm"
                         onClick={() => removeEntry(h.id)}
                       >
                         삭제
@@ -165,6 +162,7 @@ export default function HistoryPanel({ rows, history, onChange }: Props) {
                 ))}
               </tbody>
             </table>
+</div>
           </>
         )}
       </div>

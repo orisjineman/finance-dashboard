@@ -4,6 +4,7 @@ import { computeCurrentReturn, computeHousingLiquid, computeLoanEquity, computeR
 import { yearsUntil } from "../rebalance";
 import BudgetBreakdown from "./BudgetBreakdown";
 import MoneyInput from "./MoneyInput";
+import SectionTitle from "./SectionTitle";
 
 interface Props {
   rows: AssetRow[];
@@ -85,9 +86,7 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
 
   return (
     <section className="panel active" id="panel-overview">
-      <h2 className="section-title">
-        <span className="num">01</span> 지금 상태
-      </h2>
+      <SectionTitle>지금 상태</SectionTitle>
       <div className="stat-grid">
         <div className="stat">
           <div className="label">전체 자산 합계</div>
@@ -129,9 +128,7 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
         <p className="note">투자원금 대비 수익률은 자산 스냅샷 탭의 히스토리에서 첫 기록을 추가하면 계산돼.</p>
       )}
 
-      <h2 className="section-title">
-        <span className="num">02</span> 위험 / 안전 비중 (투자 항목 기준)
-      </h2>
+      <SectionTitle>위험 / 안전 비중 (투자 항목 기준)</SectionTitle>
       <div className="card">
         <div className="donut-wrap">
           <div
@@ -152,9 +149,7 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
         <p className="note">투자 항목 {fmtWon(inv.total)}원 기준이야. 자산 스냅샷에서 '수익률' 체크를 해제한 항목(입출금 통장, 전세·월세 보증금, 청약 등)은 빠져.</p>
       </div>
 
-      <h2 className="section-title">
-        <span className="num">03</span> 이번 달 월급·예산
-      </h2>
+      <SectionTitle>이번 달 월급·예산</SectionTitle>
       <div className="card">
         <div className="stat-grid" style={{ marginBottom: 14 }}>
           <div className="stat">
@@ -176,9 +171,7 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
         <p className="note">월급·예산 탭에서 실수령액, 상승률, 생활비·주거비 항목을 편집할 수 있어.</p>
       </div>
 
-      <h2 className="section-title">
-        <span className="num">04</span> 집 마련 자금
-      </h2>
+      <SectionTitle>집 마련 자금</SectionTitle>
       <div className="card">
         <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13.5, marginBottom: 6 }}>
           <span>가용자산 {fmtWon(housingLiquid)}원</span>
@@ -256,9 +249,7 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
         </div>
       </div>
 
-      <h2 className="section-title">
-        <span className="num">05</span> 요약
-      </h2>
+      <SectionTitle>요약</SectionTitle>
       <div className="card">
         {!editingSummary ? (
           <>

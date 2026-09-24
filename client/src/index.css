@@ -431,6 +431,10 @@ table.grid select:focus {
 .btn:hover {
   opacity: 0.88;
 }
+.btn.sm {
+  padding: 6px 10px;
+  font-size: 12px;
+}
 .btn.ghost {
   background: none;
   border: 1px solid var(--line);

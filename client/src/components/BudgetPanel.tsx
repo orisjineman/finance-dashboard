@@ -2,6 +2,7 @@ import type { BudgetCategory, BudgetData } from "../types";
 import { fmtWon, newId } from "../utils";
 import MoneyInput from "./MoneyInput";
 import BudgetBreakdown from "./BudgetBreakdown";
+import SectionTitle from "./SectionTitle";
 
 interface Props {
   budget: BudgetData;
@@ -33,9 +34,7 @@ export default function BudgetPanel({ budget, onChange }: Props) {
 
   return (
     <section className="panel active" id="panel-budget">
-      <h2 className="section-title">
-        <span className="num">01</span> 월 소득
-      </h2>
+      <SectionTitle>월 소득</SectionTitle>
       <div className="card">
         <div className="field-row">
           <div className="field">
@@ -50,11 +49,10 @@ export default function BudgetPanel({ budget, onChange }: Props) {
         <p className="note">상승률을 적용하면 1년 뒤 예상 월 실수령액은 약 {fmtWon(nextYearIncome)}원이야.</p>
       </div>
 
-      <h2 className="section-title">
-        <span className="num">02</span> 생활비 · 주거비 예산
-      </h2>
+      <SectionTitle>생활비 · 주거비 예산</SectionTitle>
       <div className="card">
-        <table className="grid">
+        <div className="table-scroll">
+<table className="grid">
           <thead>
             <tr>
               <th>항목</th>
@@ -77,7 +75,7 @@ export default function BudgetPanel({ budget, onChange }: Props) {
                   <MoneyInput value={c.amount} onChange={(v) => updateCategory(i, { amount: v })} />
                 </td>
                 <td>
-                  <button className="btn ghost" style={{ padding: "6px 10px", fontSize: 12 }} onClick={() => removeCategory(i)}>
+                  <button className="btn ghost sm" onClick={() => removeCategory(i)}>
                     삭제
                   </button>
                 </td>
@@ -94,14 +92,13 @@ export default function BudgetPanel({ budget, onChange }: Props) {
             </tr>
           </tfoot>
         </table>
+</div>
         <button className="btn ghost" style={{ marginTop: 10 }} onClick={addCategory}>
           + 항목 추가
         </button>
       </div>
 
-      <h2 className="section-title">
-        <span className="num">03</span> 요약
-      </h2>
+      <SectionTitle>요약</SectionTitle>
       <div className="card">
         <BudgetBreakdown categories={expenseCategories} savings={savings} />
         <div className="result-line" style={{ marginTop: 12 }}>

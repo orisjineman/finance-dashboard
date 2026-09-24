@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import type { AssetRow, SimulationAssumptions } from "../types";
 import { computeReturnTotals, fmtEok, fmtWon } from "../utils";
 import MoneyInput from "./MoneyInput";
+import SectionTitle from "./SectionTitle";
 
 interface Props {
   rows: AssetRow[];
@@ -56,9 +57,7 @@ export default function SimulationPanel({ rows, sim, onChange, annualRaisePct }:
 
   return (
     <section className="panel active" id="panel-sim">
-      <h2 className="section-title">
-        <span className="num">01</span> 가정 입력
-      </h2>
+      <SectionTitle>가정 입력</SectionTitle>
       <div className="card">
         <div className="field">
           <label>현재 투자자산 (원, 자동)</label>
@@ -119,9 +118,7 @@ export default function SimulationPanel({ rows, sim, onChange, annualRaisePct }:
         </div>
       </div>
 
-      <h2 className="section-title">
-        <span className="num">02</span> 연도별 예상 자산
-      </h2>
+      <SectionTitle>연도별 예상 자산</SectionTitle>
       <div className="card">
         <div className="bars">
           {barRows.map((r) => (
@@ -132,7 +129,8 @@ export default function SimulationPanel({ rows, sim, onChange, annualRaisePct }:
             </div>
           ))}
         </div>
-        <table className="grid" style={{ marginTop: 14 }}>
+        <div className="table-scroll">
+<table className="grid" style={{ marginTop: 14 }}>
           <thead>
             <tr>
               <th>연차</th>
@@ -152,6 +150,7 @@ export default function SimulationPanel({ rows, sim, onChange, annualRaisePct }:
             ))}
           </tbody>
         </table>
+</div>
         <p className="note">단리가 아니라 복리로 계산하고, 매년 초 적립금이 들어온다고 가정한 값이야. 실제 수익률은 시장 상황에 따라 크게 달라질 수 있어서, 참고용 시나리오로만 써줘.</p>
       </div>
     </section>

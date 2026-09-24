@@ -1,5 +1,6 @@
 import type { ChecklistItem } from "../types";
 import { newId } from "../utils";
+import SectionTitle from "./SectionTitle";
 
 interface Props {
   items: ChecklistItem[];
@@ -25,9 +26,7 @@ export default function ChecklistPanel({ items, onChange }: Props) {
 
   return (
     <section className="panel active" id="panel-checklist">
-      <h2 className="section-title">
-        <span className="num">01</span> 정기 체크리스트
-      </h2>
+      <SectionTitle>정기 체크리스트</SectionTitle>
       <div className="card">
         {items.map((item, i) => (
           <div className={`check-item${item.done ? " done" : ""}`} key={item.id}>

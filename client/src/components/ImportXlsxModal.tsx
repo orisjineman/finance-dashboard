@@ -69,7 +69,8 @@ export default function ImportXlsxModal({ onClose, onImport }: Props) {
             <p className="note">
               {preview.sheetsExamined.join(", ")} 시트에서 {preview.rows.length}개 항목을 찾았어. 가져올 항목만 체크해줘.
             </p>
-            <table className="grid">
+            <div className="table-scroll">
+<table className="grid">
               <thead>
                 <tr>
                   <th></th>
@@ -99,6 +100,7 @@ export default function ImportXlsxModal({ onClose, onImport }: Props) {
                 ))}
               </tbody>
             </table>
+</div>
           </>
         )}
         <div className="modal-actions">

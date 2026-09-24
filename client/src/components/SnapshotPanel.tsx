@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
 import type { AssetCategory, AssetRow, HistoryEntry, ImportPreviewRow } from "../types";
-import { fmtWon, newId } from "../utils";
+import { fmtWon, newId, uniqueAccounts } from "../utils";
 import ImportXlsxModal from "./ImportXlsxModal";
 import HistoryPanel from "./HistoryPanel";
 import MoneyInput from "./MoneyInput";
+import SectionTitle from "./SectionTitle";
 
 interface Props {
   rows: AssetRow[];
@@ -31,7 +32,7 @@ export default function SnapshotPanel({ rows, onChange, history, onHistoryChange
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
-  const accounts = useMemo(() => Array.from(new Set(rows.map((r) => r.account).filter(Boolean))).sort(), [rows]);
+  const accounts = useMemo(() => uniqueAccounts(rows), [rows]);
 
   // 계좌마다 서로 멀리 떨어진 색상(황금각)을 배정해 계좌끼리 구분이 잘 되게 한다.
   const accountHue = useMemo(() => {
@@ -117,9 +118,7 @@ export default function SnapshotPanel({ rows, onChange, history, onHistoryChange
 
   return (
     <section className="panel active" id="panel-snapshot">
-      <h2 className="section-title">
-        <span className="num">01</span> 계좌별 현재 잔액
-      </h2>
+      <SectionTitle>계좌별 현재 잔액</SectionTitle>
       <div className="card">
         <div className="field-row" style={{ gridTemplateColumns: "1fr 1fr 1.2fr" }}>
           <div className="field" style={{ marginBottom: 0 }}>
@@ -237,8 +236,7 @@ export default function SnapshotPanel({ rows, onChange, history, onHistoryChange
                 </td>
                 <td>
                   <button
-                    className="btn ghost"
-                    style={{ padding: "6px 10px", fontSize: 12 }}
+                    className="btn ghost sm"
                     onClick={() => removeRow(i)}
                     aria-label="행 삭제"
                   >

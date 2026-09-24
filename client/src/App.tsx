@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { AssetRow, BudgetData, ChecklistItem, DashboardData, HistoryEntry, LoanInput, RebalanceSettings, SimulationAssumptions, StrategyData } from "./types";
 import { fetchData, saveBudget, saveRebalance, saveChecklist, saveHistory, saveLoan, saveRows, saveSimulation, saveStrategy } from "./api";
-import { debounce } from "./utils";
 import OverviewPanel from "./components/OverviewPanel";
 import SnapshotPanel from "./components/SnapshotPanel";
 import BudgetPanel from "./components/BudgetPanel";
@@ -19,6 +18,19 @@ const TABS = [
   { key: "loan", label: "대출 계산기" },
   { key: "checklist", label: "체크리스트" },
 ] as const;
+
+const SAVE_DELAY_MS = 400;
+
+const SAVERS: { [K in keyof DashboardData]: (value: DashboardData[K]) => Promise<unknown> } = {
+  rows: saveRows,
+  simulation: saveSimulation,
+  loan: saveLoan,
+  checklist: saveChecklist,
+  strategy: saveStrategy,
+  history: saveHistory,
+  budget: saveBudget,
+  rebalance: saveRebalance,
+};
 
 type TabKey = (typeof TABS)[number]["key"];
 type Theme = "light" | "dark";
@@ -44,6 +56,7 @@ export default function App() {
   const [tab, setTab] = useState<TabKey>("overview");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [saveFailed, setSaveFailed] = useState(false);
   const [theme, setTheme] = useState<Theme>(initialTheme);
 
   useEffect(() => {
@@ -61,114 +74,34 @@ export default function App() {
       .catch((e) => setError(e instanceof Error ? e.message : "데이터를 불러오지 못했어."));
   }, []);
 
-  const debouncedSaveRows = useMemo(
-    () =>
-      debounce((rows: AssetRow[]) => {
-        setSaving(true);
-        saveRows(rows).finally(() => setSaving(false));
-      }, 400),
-    []
-  );
-  const debouncedSaveSim = useMemo(
-    () =>
-      debounce((sim: SimulationAssumptions) => {
-        setSaving(true);
-        saveSimulation(sim).finally(() => setSaving(false));
-      }, 400),
-    []
-  );
-  const debouncedSaveLoan = useMemo(
-    () =>
-      debounce((loan: LoanInput) => {
-        setSaving(true);
-        saveLoan(loan).finally(() => setSaving(false));
-      }, 400),
-    []
-  );
-  const debouncedSaveChecklist = useMemo(
-    () =>
-      debounce((items: ChecklistItem[]) => {
-        setSaving(true);
-        saveChecklist(items).finally(() => setSaving(false));
-      }, 400),
-    []
-  );
-  const debouncedSaveStrategy = useMemo(
-    () =>
-      debounce((strategy: StrategyData) => {
-        setSaving(true);
-        saveStrategy(strategy).finally(() => setSaving(false));
-      }, 400),
-    []
-  );
-  const debouncedSaveHistory = useMemo(
-    () =>
-      debounce((history: HistoryEntry[]) => {
-        setSaving(true);
-        saveHistory(history).finally(() => setSaving(false));
-      }, 400),
-    []
-  );
-  const debouncedSaveRebalance = useMemo(
-    () =>
-      debounce((rebalance: RebalanceSettings) => {
-        setSaving(true);
-        saveRebalance(rebalance).finally(() => setSaving(false));
-      }, 400),
-    []
-  );
-  const debouncedSaveBudget = useMemo(
-    () =>
-      debounce((budget: BudgetData) => {
-        setSaving(true);
-        saveBudget(budget).finally(() => setSaving(false));
-      }, 400),
-    []
-  );
+  // 섹션별로 400ms 뒤 서버에 저장한다. 화면 상태는 함수형 갱신이라 같은 이벤트에서 여러 섹션을 바꿔도 서로 덮어쓰지 않는다.
+  const timers = useRef<Partial<Record<keyof DashboardData, ReturnType<typeof setTimeout>>>>({});
+  const pending = useRef(0);
 
-  const dataRef = useRef(data);
-  dataRef.current = data;
+  function update<K extends keyof DashboardData>(key: K, value: DashboardData[K]) {
+    setData((prev) => (prev ? { ...prev, [key]: value } : prev));
+    clearTimeout(timers.current[key]);
+    timers.current[key] = setTimeout(() => {
+      pending.current += 1;
+      setSaving(true);
+      setSaveFailed(false);
+      (SAVERS[key] as (v: DashboardData[K]) => Promise<unknown>)(value)
+        .catch(() => setSaveFailed(true))
+        .finally(() => {
+          pending.current -= 1;
+          if (pending.current === 0) setSaving(false);
+        });
+    }, SAVE_DELAY_MS);
+  }
 
-  function updateRows(rows: AssetRow[]) {
-    if (!dataRef.current) return;
-    setData({ ...dataRef.current, rows });
-    debouncedSaveRows(rows);
-  }
-  function updateSim(sim: SimulationAssumptions) {
-    if (!dataRef.current) return;
-    setData({ ...dataRef.current, simulation: sim });
-    debouncedSaveSim(sim);
-  }
-  function updateLoan(loan: LoanInput) {
-    if (!dataRef.current) return;
-    setData({ ...dataRef.current, loan });
-    debouncedSaveLoan(loan);
-  }
-  function updateChecklist(items: ChecklistItem[]) {
-    if (!dataRef.current) return;
-    setData({ ...dataRef.current, checklist: items });
-    debouncedSaveChecklist(items);
-  }
-  function updateStrategy(strategy: StrategyData) {
-    if (!dataRef.current) return;
-    setData({ ...dataRef.current, strategy });
-    debouncedSaveStrategy(strategy);
-  }
-  function updateHistory(history: HistoryEntry[]) {
-    if (!dataRef.current) return;
-    setData({ ...dataRef.current, history });
-    debouncedSaveHistory(history);
-  }
-  function updateRebalance(rebalance: RebalanceSettings) {
-    if (!dataRef.current) return;
-    setData({ ...dataRef.current, rebalance });
-    debouncedSaveRebalance(rebalance);
-  }
-  function updateBudget(budget: BudgetData) {
-    if (!dataRef.current) return;
-    setData({ ...dataRef.current, budget });
-    debouncedSaveBudget(budget);
-  }
+  const updateRows = (rows: AssetRow[]) => update("rows", rows);
+  const updateSim = (sim: SimulationAssumptions) => update("simulation", sim);
+  const updateLoan = (loan: LoanInput) => update("loan", loan);
+  const updateChecklist = (items: ChecklistItem[]) => update("checklist", items);
+  const updateStrategy = (strategy: StrategyData) => update("strategy", strategy);
+  const updateHistory = (history: HistoryEntry[]) => update("history", history);
+  const updateRebalance = (rebalance: RebalanceSettings) => update("rebalance", rebalance);
+  const updateBudget = (budget: BudgetData) => update("budget", budget);
 
   if (error) {
     return (
@@ -196,6 +129,7 @@ export default function App() {
             <div className="sub">
               {todayTag()}
               {saving ? " · 저장 중…" : ""}
+              {saveFailed && !saving ? " · 저장 실패 (서버가 켜져 있는지 확인해줘)" : ""}
             </div>
             <button
               className="theme-toggle"

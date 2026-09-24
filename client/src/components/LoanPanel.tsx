@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import type { AssetRow, LoanInput } from "../types";
 import { computeHousingLiquid, computeLoanEquity, fmtWon } from "../utils";
 import MoneyInput from "./MoneyInput";
+import SectionTitle from "./SectionTitle";
 
 interface Props {
   rows: AssetRow[];
@@ -33,9 +34,7 @@ export default function LoanPanel({ rows, loan, onChange }: Props) {
 
   return (
     <section className="panel active" id="panel-loan">
-      <h2 className="section-title">
-        <span className="num">01</span> 조건 입력
-      </h2>
+      <SectionTitle>조건 입력</SectionTitle>
       <div className="card">
         <div className="field-row">
           <div className="field">
@@ -64,9 +63,7 @@ export default function LoanPanel({ rows, loan, onChange }: Props) {
         </div>
       </div>
 
-      <h2 className="section-title">
-        <span className="num">02</span> 결과
-      </h2>
+      <SectionTitle>결과</SectionTitle>
       <div className="card">
         <div className="result-line">
           <span className="k">대출 한도 (LTV 기준)</span>
@@ -83,9 +80,7 @@ export default function LoanPanel({ rows, loan, onChange }: Props) {
         <p className="note">LTV는 지역·규제·소득에 따라 실제 한도가 달라질 수 있어. DSR(총부채원리금상환비율) 규제로 한도가 더 줄어들 수도 있으니 실제 대출 전엔 은행 상담이 꼭 필요해.</p>
       </div>
 
-      <h2 className="section-title">
-        <span className="num">03</span> 집 마련 가용자산 갭
-      </h2>
+      <SectionTitle>집 마련 가용자산 갭</SectionTitle>
       <div className="card">
         <div className="result-line">
           <span className="k">가용자산 (연금저축·IRP 등 제외)</span>

@@ -36,7 +36,8 @@ export default function GlidePathEditor({ strategy, onChange }: Props) {
           ? "집 매수 예정일을 입력하면 지금 시점의 목표 위험 비중을 계산해줘."
           : `집 매수까지 약 ${yearsLeft.toFixed(1)}년 남았어. 아래 표의 지점 사이를 직선으로 이어서 계산하면 지금 목표는 위험 ${todayTarget.toFixed(1)}%야.`}
       </p>
-      <table className="grid">
+      <div className="table-scroll">
+<table className="grid">
         <thead>
           <tr>
             <th>집 매수까지 남은 기간(년)</th>
@@ -63,8 +64,7 @@ export default function GlidePathEditor({ strategy, onChange }: Props) {
               </td>
               <td>
                 <button
-                  className="btn ghost"
-                  style={{ padding: "6px 10px", fontSize: 12 }}
+                  className="btn ghost sm"
                   onClick={() => onChange({ ...strategy, glidePath: glidePath.filter((_, idx) => idx !== i) })}
                 >
                   삭제
@@ -74,6 +74,7 @@ export default function GlidePathEditor({ strategy, onChange }: Props) {
           ))}
         </tbody>
       </table>
+</div>
       <p className="note">표에 없는 기간은 양옆 지점을 직선으로 이어서 계산해. 가장 먼 지점보다 멀면 그 지점 값을, 가장 가까운 지점보다 가까우면 그 지점 값을 그대로 써.</p>
       <button
         className="btn ghost"

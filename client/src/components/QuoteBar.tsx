@@ -68,7 +68,7 @@ export default function QuoteBar({ tickers, onResults }: Props) {
           {hasKey === false && "먼저 공공데이터포털 서비스 키를 등록해줘."}
         </span>
         {hasKey === true && !editingKey && (
-          <button className="btn ghost" style={{ padding: "6px 10px", fontSize: 12 }} onClick={() => setEditingKey(true)}>
+          <button className="btn ghost sm" onClick={() => setEditingKey(true)}>
             키 변경
           </button>
         )}

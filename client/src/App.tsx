@@ -7,7 +7,6 @@ import SnapshotPanel from "./components/SnapshotPanel";
 import BudgetPanel from "./components/BudgetPanel";
 import RebalancePanel from "./components/RebalancePanel";
 import SimulationPanel from "./components/SimulationPanel";
-import IsaPanel from "./components/IsaPanel";
 import LoanPanel from "./components/LoanPanel";
 import ChecklistPanel from "./components/ChecklistPanel";
 
@@ -17,7 +16,6 @@ const TABS = [
   { key: "budget", label: "월급·예산" },
   { key: "rebalance", label: "리밸런싱" },
   { key: "sim", label: "연도별 시뮬레이션" },
-  { key: "isa", label: "ISA·CMA 운용 계획" },
   { key: "loan", label: "대출 계산기" },
   { key: "checklist", label: "체크리스트" },
 ] as const;
@@ -229,7 +227,6 @@ export default function App() {
         {tab === "sim" && (
           <SimulationPanel rows={data.rows} sim={data.simulation} onChange={updateSim} annualRaisePct={data.budget.annualRaisePct} />
         )}
-        {tab === "isa" && <IsaPanel rows={data.rows} rebalance={data.rebalance} strategy={data.strategy} onChange={updateStrategy} />}
         {tab === "loan" && <LoanPanel rows={data.rows} loan={data.loan} onChange={updateLoan} />}
         {tab === "checklist" && <ChecklistPanel items={data.checklist} onChange={updateChecklist} />}
       </main>

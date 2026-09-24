@@ -56,6 +56,10 @@ export default function HistoryPanel({ rows, history, onChange }: Props) {
 
   const maxVal = Math.max(...sorted.map((h) => h.totalValue), 1);
 
+  // 신규 납입액은 저장된 값이 아니라 이웃한 기록의 원금 차이로 그때그때 계산한다 (기록을 지워도 어긋나지 않게).
+  const contributionOf = new Map<string, number>();
+  sorted.forEach((h, i) => contributionOf.set(h.id, h.cumulativePrincipal - (i > 0 ? sorted[i - 1].cumulativePrincipal : 0)));
+
   return (
     <>
       <h2 className="section-title">
@@ -139,7 +143,7 @@ export default function HistoryPanel({ rows, history, onChange }: Props) {
                 {[...sorted].reverse().map((h) => (
                   <tr key={h.id}>
                     <td>{h.date}</td>
-                    <td className="num">{fmtWon(h.newContribution)}</td>
+                    <td className="num">{fmtWon(contributionOf.get(h.id) ?? 0)}</td>
                     <td className="num">{fmtWon(h.cumulativePrincipal)}</td>
                     <td className="num">{fmtWon(h.totalValue)}</td>
                     <td className="num" style={{ color: h.profit >= 0 ? "var(--safe)" : "var(--risk)" }}>

@@ -20,15 +20,17 @@ function pct(n: number): string {
 
 export default function HistoryPanel({ rows, history, onChange }: Props) {
   const [date, setDate] = useState(todayIso());
-  const [newContribution, setNewContribution] = useState(0);
+  const [principalInput, setPrincipalInput] = useState<number | null>(null);
 
   const t = computeTotals(rows);
   const sorted = [...history].sort((a, b) => a.date.localeCompare(b.date));
   const current = computeCurrentReturn(rows, history);
+  const latestPrincipal = sorted[sorted.length - 1]?.cumulativePrincipal ?? 0;
+  const principal = principalInput ?? latestPrincipal;
+  const newContribution = principal - latestPrincipal;
 
   function addEntry() {
-    const prev = sorted[sorted.length - 1];
-    const cumulativePrincipal = (prev?.cumulativePrincipal ?? 0) + newContribution;
+    const cumulativePrincipal = principal;
     const totalValue = t.total;
     const profit = totalValue - cumulativePrincipal;
     const returnRate = cumulativePrincipal !== 0 ? profit / cumulativePrincipal : 0;
@@ -45,7 +47,7 @@ export default function HistoryPanel({ rows, history, onChange }: Props) {
       returnRate,
     };
     onChange([...history, entry]);
-    setNewContribution(0);
+    setPrincipalInput(null);
   }
 
   function removeEntry(id: string) {
@@ -81,7 +83,7 @@ export default function HistoryPanel({ rows, history, onChange }: Props) {
             </p>
           </>
         ) : (
-          <p className="note">아직 기록된 투자원금이 없어. 아래에서 첫 기록을 추가하면(신규 납입액 = 지금까지 실제로 넣은 돈 전체) 수익률이 계산돼.</p>
+          <p className="note">아직 기록된 투자원금이 없어. 아래에서 첫 기록을 추가하면(현재 총 투자원금 = 지금까지 실제로 넣은 돈 전체) 수익률이 계산돼.</p>
         )}
       </div>
 
@@ -95,12 +97,15 @@ export default function HistoryPanel({ rows, history, onChange }: Props) {
             <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           </div>
           <div className="field" style={{ marginBottom: 0 }}>
-            <label>이번 기록의 신규 납입액 (원)</label>
-            <MoneyInput value={newContribution} onChange={setNewContribution} />
+            <label>현재 총 투자원금 (원)</label>
+            <MoneyInput value={principal} onChange={setPrincipalInput} />
           </div>
         </div>
         <p className="note">
-          지금 자산 스냅샷 합계({fmtWon(t.total)}원)를 오늘 기준 총평가금액으로 기록해. 누적원금은 직전 기록에 신규 납입액을 더해서 자동 계산돼.
+          지금 자산 스냅샷 합계({fmtWon(t.total)}원)를 총평가금액으로 기록해. 투자원금은 지금까지 내가 실제로 넣은 돈의 합계야. 직전 기록 이후 새로 넣은 돈이
+          없으면 그대로 두면 돼. 새로 넣었다면 그만큼 늘린 값으로 고쳐줘
+          {newContribution !== 0 ? ` (직전보다 ${newContribution > 0 ? "+" : ""}${fmtWon(newContribution)}원)` : ""}.
+          증권사 앱 계좌 화면의 "투자원금"이나 "매입금액"을 더해서 넣어도 돼.
         </p>
         <button className="btn" style={{ marginTop: 10 }} onClick={addEntry}>
           + 기록 추가

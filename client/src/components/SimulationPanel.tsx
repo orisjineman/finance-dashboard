@@ -12,9 +12,10 @@ interface Props {
   onChange: (sim: SimulationAssumptions) => void;
   annualRaisePct: number;
   loan: LoanInput;
+  closingCost: number; // 만원, 내 집 마련 탭의 부대비용
 }
 
-export default function SimulationPanel({ rows, sim, onChange, annualRaisePct, loan }: Props) {
+export default function SimulationPanel({ rows, sim, onChange, annualRaisePct, loan, closingCost }: Props) {
   const t = computeReturnTotals(rows);
   const riskPct0 = t.investBase > 0 ? t.risk / t.investBase : 0.5;
   const results = useMemo(() => runSimulation(t.total, riskPct0, sim, annualRaisePct), [t.total, riskPct0, sim, annualRaisePct]);
@@ -28,13 +29,13 @@ export default function SimulationPanel({ rows, sim, onChange, annualRaisePct, l
     riskPct0,
     housingBase: computeHousingLiquid(rows),
     housingRiskPct0: hRisk + hSafe > 0 ? hRisk / (hRisk + hSafe) : 0.5,
-    equityNeeded: computeLoanEquity(loan),
+    equityNeeded: computeLoanEquity(loan, closingCost),
     raisePct: annualRaisePct,
   };
   const outcomes = useMemo(
     () => [evaluateScenario(evalCtx, sim, null), ...scenarios.map((sc) => evaluateScenario(evalCtx, sim, sc))],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [t.total, riskPct0, sim, annualRaisePct, loan, rows]
+    [t.total, riskPct0, sim, annualRaisePct, loan, rows, closingCost]
   );
   const names = ["현재 입력값", ...scenarios.map((sc) => sc.name || "이름 없음")];
   const palette = ["var(--accent)", "var(--gold)", "var(--safe)", "var(--ink-soft)", "var(--risk)"];
@@ -253,7 +254,7 @@ export default function SimulationPanel({ rows, sim, onChange, annualRaisePct, l
           />
         </div>
         <p className="note">
-          '집 자기자금 도달'은 연금저축·IRP를 뺀 집 마련 가용자산에 같은 수익률·적립 가정을 적용했을 때, 대출 계산기의 필요 자기자금에 처음 닿는 해야. 미래 수익률은 알 수 없으니 여러 가정을 비교해 보는 용도로만 써줘.
+          '집 자기자금 도달'은 연금저축·IRP를 뺀 집 마련 가용자산에 같은 수익률·적립 가정을 적용했을 때, '내 집 마련' 탭 목표 집값의 필요 자기자금(부대비용 포함)에 처음 닿는 해야. 미래 수익률은 알 수 없으니 여러 가정을 비교해 보는 용도로만 써줘.
         </p>
       </div>
     </section>

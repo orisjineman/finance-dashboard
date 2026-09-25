@@ -200,6 +200,8 @@ export default function App() {
             loan={data.loan}
             history={data.history}
             alerts={alerts}
+            home={data.home}
+            rebalance={data.rebalance}
             onNavigate={setTab}
           />
         )}
@@ -209,7 +211,7 @@ export default function App() {
         {tab === "rebalance" && <RebalancePanel rows={data.rows} strategy={data.strategy} settings={data.rebalance} onChange={updateRebalance} onRowsChange={updateRows} onStrategyChange={updateStrategy} />}
         {tab === "budget" && <BudgetPanel budget={data.budget} onChange={updateBudget} />}
         {tab === "sim" && (
-          <SimulationPanel rows={data.rows} sim={data.simulation} onChange={updateSim} annualRaisePct={data.budget.annualRaisePct} loan={data.loan} />
+          <SimulationPanel rows={data.rows} sim={data.simulation} onChange={updateSim} annualRaisePct={data.budget.annualRaisePct} loan={data.loan} closingCost={data.home.closingCost} />
         )}
         {tab === "loan" && (
           <LoanPanel
@@ -222,6 +224,7 @@ export default function App() {
             strategy={data.strategy}
             onStrategyChange={updateStrategy}
             budget={data.budget}
+            onBudgetChange={updateBudget}
           />
         )}
         {tab === "checklist" && <ChecklistPanel items={data.checklist} onChange={updateChecklist} />}

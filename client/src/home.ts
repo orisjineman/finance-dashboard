@@ -1,4 +1,4 @@
-import type { AssetRow, HomePolicy, HomeSimInput, RebalanceGroup } from "./types";
+import type { AssetRow, DashboardData, HomePolicy, HomeSimInput, RebalanceGroup } from "./types";
 
 // 내 집 마련 시뮬레이터 계산. 금액은 모두 만원 단위.
 
@@ -141,11 +141,11 @@ export interface HomeResult {
   rows: PriceRow[];
 }
 
-export function computeHome(input: HomeSimInput, equity: number, ratePct: number, purchaseDate: string, now: Date): HomeResult {
+export function computeHome(input: HomeSimInput, equity: number, ratePct: number, purchaseDate: string, now: Date, raisePct: number): HomeResult {
   const currentYear = now.getFullYear();
   const d = purchaseDate ? new Date(`${purchaseDate}T00:00:00`) : null;
   const purchaseYear = d && !Number.isNaN(d.getTime()) ? d.getFullYear() : currentYear;
-  const incomeAtPurchase = incomeAt(input.currentIncome, input.raisePct, currentYear, purchaseYear);
+  const incomeAtPurchase = incomeAt(input.currentIncome, raisePct, currentYear, purchaseYear);
   const afterTaxMonthly = monthlyAfterTax(input.policy.afterTaxRatioTable, incomeAtPurchase);
   const maxMonthly = (afterTaxMonthly * input.targetRatioPct) / 100;
   const ratio = (m: number) => (afterTaxMonthly > 0 ? m / afterTaxMonthly : Infinity);
@@ -187,4 +187,19 @@ export function policyStale(updatedAt: string, now: Date): boolean {
   const yearLater = new Date(d);
   yearLater.setFullYear(d.getFullYear() + 1);
   return now.getTime() > yearLater.getTime();
+}
+
+// 개요·알림용: 지금 목표 집값(loan.price) 한 채에 대한 판정. 목표 집값이나 연봉이 없으면 null.
+export interface TargetCheck {
+  result: HomeResult;
+  row: PriceRow;
+  equity: number;
+}
+
+export function evaluateTarget(data: Pick<DashboardData, "rows" | "rebalance" | "home" | "loan" | "strategy" | "budget">, now: Date): TargetCheck | null {
+  const { home, loan } = data;
+  if (!home || !(loan.price > 0) || !(home.currentIncome > 0)) return null;
+  const assets = computeHomeAssets(data.rows, data.rebalance.groups, home);
+  const result = computeHome({ ...home, prices: [loan.price] }, assets.equity, loan.ratePct, data.strategy.housePurchaseDate, now, data.budget.annualRaisePct);
+  return result.rows[0] ? { result, row: result.rows[0], equity: assets.equity } : null;
 }

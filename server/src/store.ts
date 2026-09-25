@@ -24,6 +24,8 @@ export function migrate(parsed: Partial<DashboardData> & Record<string, unknown>
   const strategy = { ...d.strategy, ...(parsed.strategy ?? {}) } as DashboardData["strategy"] & Record<string, unknown>;
   delete strategy.isaPortfolio; // 삭제된 'ISA·CMA 운용 계획' 탭의 데이터
   delete strategy.cmaLadder;
+  const home = { ...d.home, ...(parsed.home ?? {}) } as DashboardData["home"] & Record<string, unknown>;
+  delete home.raisePct; // 인상률은 월급·예산 탭(budget.annualRaisePct) 하나로 통일
   return {
     ...d,
     ...parsed,
@@ -34,8 +36,7 @@ export function migrate(parsed: Partial<DashboardData> & Record<string, unknown>
     strategy,
     rebalance: { ...d.rebalance, ...(parsed.rebalance ?? {}) },
     home: {
-      ...d.home,
-      ...(parsed.home ?? {}),
+      ...home,
       policy: {
         ...d.home.policy,
         ...(parsed.home?.policy ?? {}),

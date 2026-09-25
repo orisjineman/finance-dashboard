@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { AssetRow, BudgetData, HomePolicy, HomeSimInput, LoanInput, RebalanceGroup, StrategyData } from "../types";
-import { fmtWon } from "../utils";
+import { fmtWon, monthlyHouseSavings } from "../utils";
+import { monthlyAfterTax } from "../home";
 import { computeHome, computeHomeAssets, policyStale, totalInterest, yearExceeding, type Eligibility, type Judge } from "../home";
 import MoneyInput from "./MoneyInput";
 import SectionTitle from "./SectionTitle";
@@ -15,6 +16,7 @@ interface Props {
   strategy: StrategyData;
   onStrategyChange: (strategy: StrategyData) => void;
   budget: BudgetData;
+  onBudgetChange: (budget: BudgetData) => void;
 }
 
 const JUDGE_LABEL: Record<Judge, { text: string; tag: string }> = {
@@ -34,12 +36,13 @@ function Badge({ label, e }: { label: string; e: Eligibility }) {
   );
 }
 
-// 대출 계산기 탭의 '내 집 마련 시뮬레이터'. 집값 후보별로 필요 대출, 월 상환액, 상환 비중, 대출 자격을 비교한다.
-export default function HomeSimulator({ rows, groups, home, onChange, loan, onLoanChange, strategy, onStrategyChange, budget }: Props) {
+// '내 집 마련' 탭의 시뮬레이터. 집값 후보별로 필요 대출, 월 상환액, 상환 비중, 대출 자격을 비교한다.
+export default function HomeSimulator({ rows, groups, home, onChange, loan, onLoanChange, strategy, onStrategyChange, budget, onBudgetChange }: Props) {
   const now = new Date();
   const [newPrice, setNewPrice] = useState(0);
   const assets = computeHomeAssets(rows, groups, home);
-  const r = computeHome(home, assets.equity, loan.ratePct, strategy.housePurchaseDate, now);
+  const raisePct = budget.annualRaisePct || 0;
+  const r = computeHome(home, assets.equity, loan.ratePct, strategy.housePurchaseDate, now, raisePct);
   const stale = policyStale(home.policy.updatedAt, now);
   const currentYear = now.getFullYear();
 
@@ -52,10 +55,11 @@ export default function HomeSimulator({ rows, groups, home, onChange, loan, onLo
     if (!d || Number.isNaN(d.getTime())) return 0;
     return Math.max(0, (d.getFullYear() - now.getFullYear()) * 12 + (d.getMonth() - now.getMonth()));
   })();
-  const monthlySavings = budget.monthlyNetIncome - budget.expenseCategories.reduce((s, c) => s + c.amount, 0);
+  const monthlySavings = monthlyHouseSavings(budget); // 개요의 집 마련 예상 경로와 같은 값 (연금 납입·환급 반영)
   const savingsUntilPurchase = Math.max(0, monthlySavings) * monthsLeft;
 
-  const raiseCases = Array.from(new Set([2, 2.5, 3, home.raisePct])).sort((a, b) => a - b);
+  const raiseCases = Array.from(new Set([2, 2.5, 3, raisePct])).sort((a, b) => a - b);
+  const estNowMonthly = monthlyAfterTax(home.policy.afterTaxRatioTable, home.currentIncome);
   const purchaseYear = r.purchaseYear;
 
   return (
@@ -98,8 +102,8 @@ export default function HomeSimulator({ rows, groups, home, onChange, loan, onLo
           <div className="field">
             <label>가용자산 기준</label>
             <select value={home.assetSource} onChange={(e) => set("assetSource", e.target.value as HomeSimInput["assetSource"])}>
+              <option value="housing">자산 스냅샷에서 '집자금' 체크한 전체 (개요·시뮬레이션과 같음)</option>
               <option value="group">리밸런싱 '{assets.groupName ?? "집 자금"}' 묶음 계좌 합계</option>
-              <option value="housing">자산 스냅샷에서 '집자금' 체크한 전체</option>
             </select>
           </div>
           <div className="field">
@@ -119,7 +123,7 @@ export default function HomeSimulator({ rows, groups, home, onChange, loan, onLo
             <MoneyInput value={home.extraAssets} onChange={(v) => set("extraAssets", v)} />
             {savingsUntilPurchase > 0 && (
               <button className="btn ghost sm" style={{ marginTop: 6 }} onClick={() => set("extraAssets", Math.round(savingsUntilPurchase))}>
-                월 저축 가능액 {fmtWon(monthlySavings)}원 × {monthsLeft}개월 = {fmtWon(savingsUntilPurchase)}원으로 채우기
+                집 마련 월 저축액 {fmtWon(monthlySavings)}원 × {monthsLeft}개월 = {fmtWon(savingsUntilPurchase)}원으로 채우기
               </button>
             )}
           </div>
@@ -134,8 +138,8 @@ export default function HomeSimulator({ rows, groups, home, onChange, loan, onLo
             <MoneyInput value={home.currentIncome} onChange={(v) => set("currentIncome", v)} />
           </div>
           <div className="field">
-            <label>연 인상률 (%)</label>
-            <input type="number" step={0.5} value={home.raisePct} onChange={(e) => set("raisePct", parseFloat(e.target.value) || 0)} />
+            <label>연봉 상승률 (%, 월급·예산 탭과 같은 값)</label>
+            <input type="number" step={0.5} value={raisePct} onChange={(e) => onBudgetChange({ ...budget, annualRaisePct: parseFloat(e.target.value) || 0 })} />
           </div>
         </div>
         <div className="field-row">
@@ -158,6 +162,12 @@ export default function HomeSimulator({ rows, groups, home, onChange, loan, onLo
             <input type="number" value={home.areaM2 || ""} placeholder="예: 59" onChange={(e) => set("areaM2", parseFloat(e.target.value) || 0)} />
           </div>
         </div>
+        {home.currentIncome > 0 && budget.monthlyNetIncome > 0 && (
+          <p className="note" style={{ marginTop: 0 }}>
+            참고: 총보수 {fmtWon(home.currentIncome)}원을 비율표로 환산한 지금 세후 월급은 약 {fmtWon(estNowMonthly)}원이고, 월급·예산 탭의 월 실수령액은 {fmtWon(budget.monthlyNetIncome)}원이야.
+            총보수에는 상여·과세 복지가 들어가서 매달 받는 돈보다 클 수 있어. 차이가 크면 비율표나 총보수를 확인해줘.
+          </p>
+        )}
         <p className="note" style={{ marginTop: 0 }}>
           실투입금 = 기준 자산 {fmtWon(assets.base)}원{home.includeDeposit ? ` + 보증금 ${fmtWon(assets.deposit)}원` : ""} + 추가 {fmtWon(home.extraAssets)}원 − 부대비용 {fmtWon(home.closingCost)}원. 매수 예정일과 대출 금리는 리밸런싱·목표 집값 계산과 같은 값을 써.
         </p>
@@ -260,7 +270,7 @@ export default function HomeSimulator({ rows, groups, home, onChange, loan, onLo
               return (
                 <tr key={rate}>
                   <td>
-                    {rate}%{rate === home.raisePct ? " (입력값)" : ""}
+                    {rate}%{rate === raisePct ? " (월급·예산 탭 값)" : ""}
                   </td>
                   <td>{home.currentIncome <= 0 ? "-" : y === null ? "넘지 않음" : `${y}년`}</td>
                   <td>{fmtWon(home.currentIncome * Math.pow(1 + rate / 100, Math.max(0, purchaseYear - currentYear)))}원</td>

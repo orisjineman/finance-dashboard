@@ -15,14 +15,15 @@ interface Props {
   strategy: StrategyData;
   onStrategyChange: (strategy: StrategyData) => void;
   budget: BudgetData;
+  onBudgetChange: (budget: BudgetData) => void;
 }
 
-function calcLoan(loan: LoanInput) {
+function calcLoan(loan: LoanInput, closingCost: number) {
   const rate = (loan.ratePct || 0) / 100 / 12;
   const term = (loan.termYears || 1) * 12;
 
-  const equity = computeLoanEquity(loan);
-  const limit = loan.price - equity;
+  const equity = computeLoanEquity(loan, closingCost);
+  const limit = (loan.price * (loan.ltvPct || 0)) / 100;
   let monthly: number;
   if (rate === 0) monthly = limit / term;
   else monthly = (limit * rate * Math.pow(1 + rate, term)) / (Math.pow(1 + rate, term) - 1);
@@ -30,8 +31,8 @@ function calcLoan(loan: LoanInput) {
   return { limit, equity, monthly };
 }
 
-export default function LoanPanel({ rows, loan, onChange, groups, home, onHomeChange, strategy, onStrategyChange, budget }: Props) {
-  const result = useMemo(() => calcLoan(loan), [loan]);
+export default function LoanPanel({ rows, loan, onChange, groups, home, onHomeChange, strategy, onStrategyChange, budget, onBudgetChange }: Props) {
+  const result = useMemo(() => calcLoan(loan, home.closingCost), [loan, home.closingCost]);
   const housingLiquid = computeHousingLiquid(rows);
   const remaining = result.equity - housingLiquid;
 
@@ -51,6 +52,7 @@ export default function LoanPanel({ rows, loan, onChange, groups, home, onHomeCh
         strategy={strategy}
         onStrategyChange={onStrategyChange}
         budget={budget}
+        onBudgetChange={onBudgetChange}
       />
 
       <SectionTitle>목표 집값 (개요·시뮬레이션 기준)</SectionTitle>
@@ -92,7 +94,7 @@ export default function LoanPanel({ rows, loan, onChange, groups, home, onHomeCh
           <span className="v">{fmtWon(result.limit)}원</span>
         </div>
         <div className="result-line">
-          <span className="k">필요 자기자금</span>
+          <span className="k">필요 자기자금 (부대비용 {fmtWon(home.closingCost)}원 포함)</span>
           <span className="v">{fmtWon(result.equity)}원</span>
         </div>
         <div className="result-line total">

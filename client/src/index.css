@@ -675,3 +675,12 @@ table.grid .btn {
   padding-top: 14px;
   border-top: 1px solid var(--line);
 }
+.home-verdict {
+  margin-top: 14px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  font-size: 13.5px;
+  line-height: 1.7;
+}

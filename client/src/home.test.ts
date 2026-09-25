@@ -8,6 +8,7 @@ import {
   computeHomeAssets,
   incomeAt,
   judgeRatio,
+  evaluateTarget,
   maxPrincipal,
   totalInterest,
   monthlyAfterTax,
@@ -37,7 +38,6 @@ const input = (p: Partial<HomeSimInput> = {}): HomeSimInput => ({
   extraAssets: 0,
   closingCost: 1500,
   currentIncome: 5500,
-  raisePct: 2.5,
   targetRatioPct: 34,
   areaM2: 0,
   prices: [50000, 55000, 60000],
@@ -171,7 +171,7 @@ describe("가용자산", () => {
 describe("computeHome", () => {
   const now = new Date("2026-09-25T00:00:00");
   it("매수 연도 연봉, 세후 월급, 집값별 표, 최대 적정 집값", () => {
-    const r = computeHome(input({ currentIncome: 5000, raisePct: 3 }), 20000, 4, "2030-06-30", now);
+    const r = computeHome(input({ currentIncome: 5000 }), 20000, 4, "2030-06-30", now, 3);
     expect(r.purchaseYear).toBe(2030);
     expect(r.incomeAtPurchase).toBeCloseTo(5627.5, 0);
     expect(r.rows.map((x) => x.price)).toEqual([50000, 55000, 60000]);
@@ -185,16 +185,42 @@ describe("computeHome", () => {
     expect(atMax).toBeCloseTo(0.34, 9);
   });
   it("실투입금이 집값보다 크면 대출 0", () => {
-    const r = computeHome(input({ prices: [20000] }), 25000, 4, "2030-06-30", now);
+    const r = computeHome(input({ prices: [20000] }), 25000, 4, "2030-06-30", now, 2.5);
     expect(r.rows[0].loan).toBe(0);
     expect(r.rows[0].judge30).toBe("ok");
   });
   it("LTV를 넘는 대출이면 표시한다", () => {
-    const r = computeHome(input({ prices: [50000] }), 10000, 4, "2030-06-30", now);
+    const r = computeHome(input({ prices: [50000] }), 10000, 4, "2030-06-30", now, 2.5);
     expect(r.rows[0].overLtv).toBe(true); // 대출 4억 > 5억 × 70%
   });
   it("연봉이 0이면 비중은 무한대(부담)로 본다", () => {
-    const r = computeHome(input({ currentIncome: 0 }), 20000, 4, "2030-06-30", now);
+    const r = computeHome(input({ currentIncome: 0 }), 20000, 4, "2030-06-30", now, 2.5);
     expect(r.rows[0].judge30).toBe("heavy");
+  });
+});
+
+describe("evaluateTarget", () => {
+  const now = new Date("2026-09-25T00:00:00");
+  const base = {
+    rows: [
+      { id: "1", account: "ISA", item: "S&P", category: "risk" as const, amount: 15000, housingEligible: true },
+      { id: "2", account: "기타", item: "월세보증금", category: "cash" as const, amount: 3000, housingEligible: true },
+    ],
+    rebalance: { tolerancePct: 5, groups: [] },
+    home: input({ assetSource: "housing", currentIncome: 5000 }),
+    loan: { price: 40000, ltvPct: 70, ratePct: 4, termYears: 30 },
+    strategy: { housePurchaseDate: "2030-06-30", isaDutyEndDate: "", overviewSummary: [], glidePath: [] },
+    budget: { monthlyNetIncome: 0, annualRaisePct: 3, expenseCategories: [], pensionAnnualContribution: 0, pensionTaxCreditRate: 16.5 },
+  };
+  it("목표 집값 한 채를 월급·예산 탭 인상률로 판정한다", () => {
+    const t = evaluateTarget(base, now)!;
+    expect(t.equity).toBe(15000 + 3000 - 1500);
+    expect(t.row.price).toBe(40000);
+    expect(t.row.loan).toBe(40000 - 16500);
+    expect(t.result.incomeAtPurchase).toBeCloseTo(5627.5, 0); // 5000 × 1.03^4
+  });
+  it("목표 집값이나 연봉이 없으면 null", () => {
+    expect(evaluateTarget({ ...base, loan: { ...base.loan, price: 0 } }, now)).toBeNull();
+    expect(evaluateTarget({ ...base, home: { ...base.home, currentIncome: 0 } }, now)).toBeNull();
   });
 });

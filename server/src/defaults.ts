@@ -66,12 +66,11 @@ export function defaultData(): DashboardData {
       ]
     },
     home: {
-      assetSource: "group",
+      assetSource: "housing",
       includeDeposit: true,
       extraAssets: 0,
       closingCost: 1500,
       currentIncome: 0,
-      raisePct: 2.5,
       targetRatioPct: 34,
       areaM2: 0,
       prices: [40000, 50000, 60000],

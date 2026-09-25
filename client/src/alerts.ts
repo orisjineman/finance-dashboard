@@ -1,7 +1,7 @@
 import type { DashboardData } from "./types";
 import { computeRebalance, groupTarget } from "./rebalance";
 import { computePensionCredit } from "./pension";
-import { incomeAt, policyStale } from "./home";
+import { evaluateTarget, incomeAt, policyStale } from "./home";
 
 export interface Alert {
   id: string;
@@ -91,15 +91,35 @@ export function computeAlerts(data: DashboardData, now: Date = new Date()): Aler
     }
     const d = data.strategy.housePurchaseDate ? new Date(`${data.strategy.housePurchaseDate}T00:00:00`) : null;
     if (home.currentIncome > 0 && d && !Number.isNaN(d.getTime())) {
-      const at = incomeAt(home.currentIncome, home.raisePct, now.getFullYear(), d.getFullYear());
+      const raise = data.budget.annualRaisePct || 0;
+      const at = incomeAt(home.currentIncome, raise, now.getFullYear(), d.getFullYear());
       if (at > home.policy.bogeumjari.maxIncome) {
         out.push({
           id: "home-income",
           level: "warn",
-          text: `인상률 ${home.raisePct}%로 보면 ${d.getFullYear()}년 매수 때 연봉이 보금자리론 소득 기준(${Math.round(home.policy.bogeumjari.maxIncome * 10000).toLocaleString("ko-KR")}원)을 넘어. 집을 먼저 사고 이직하는 순서를 고려해줘.`,
+          text: `연봉 상승률 ${raise}%(월급·예산 탭)로 보면 ${d.getFullYear()}년 매수 때 연봉이 보금자리론 소득 기준(${Math.round(home.policy.bogeumjari.maxIncome * 10000).toLocaleString("ko-KR")}원)을 넘어. 집을 먼저 사고 이직하는 순서를 고려해줘.`,
           tab: "loan",
         });
       }
+    }
+  }
+
+  // 7) 목표 집값(내 집 마련 탭 '목표로')이 상환 부담·LTV·대출 자격에 걸리는지
+  const target = evaluateTarget(data, now);
+  if (target) {
+    const { row } = target;
+    const price = `${(row.price / 10000).toFixed(row.price % 1000 === 0 ? 1 : 2)}억`;
+    const ratio40 = `${(row.ratio40 * 100).toFixed(1)}%`;
+    if (row.judge40 === "heavy") {
+      out.push({ id: "home-target-heavy", level: "warn", text: `목표 집값 ${price}은 40년 만기로도 월 상환이 세후 월급의 ${ratio40}라 부담이야.`, tab: "loan" });
+    } else if (row.judge40 === "tight") {
+      out.push({ id: "home-target-tight", level: "info", text: `목표 집값 ${price}은 40년 만기 기준 월 상환이 세후 월급의 ${ratio40}라 빠듯해.`, tab: "loan" });
+    }
+    if (row.overLtv) {
+      out.push({ id: "home-target-ltv", level: "warn", text: `목표 집값 ${price}은 필요 대출이 집값의 LTV 한도를 넘어. 자기자금을 더 모으거나 집값을 낮춰야 해.`, tab: "loan" });
+    }
+    if (!row.bogeumjari.ok) {
+      out.push({ id: "home-target-bogeumjari", level: "info", text: `목표 집값 ${price}은 보금자리론 조건에 안 맞아 (${row.bogeumjari.reasons.join(", ")}).`, tab: "loan" });
     }
   }
 

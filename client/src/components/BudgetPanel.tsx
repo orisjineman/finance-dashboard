@@ -55,7 +55,10 @@ export default function BudgetPanel({ budget, onChange }: Props) {
             <input type="number" step={0.1} value={annualRaisePct} onChange={(e) => setRaise(parseFloat(e.target.value) || 0)} />
           </div>
         </div>
-        <p className="note">상승률을 적용하면 1년 뒤 예상 월 실수령액은 약 {fmtWon(nextYearIncome)}원이야.</p>
+        <p className="note">
+          상승률을 적용하면 1년 뒤 예상 월 실수령액은 약 {fmtWon(nextYearIncome)}원이야. 이 상승률은 시뮬레이션의 적립액 증가와 '내 집 마련' 탭의 매수 시점 연봉 계산에도 같이 쓰여.
+          대출 심사에 쓰는 연 총보수(상여·과세 복지 포함)는 '내 집 마련' 탭에서 따로 입력해.
+        </p>
       </div>
 
       <SectionTitle>생활비 · 주거비 예산</SectionTitle>

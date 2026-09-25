@@ -6,6 +6,7 @@ import {
   computeLoanEquity,
   computeReturnTotals,
   computeTotals,
+  monthlyHouseSavings,
   fmt,
   fmtEok,
   fmtWon,
@@ -80,6 +81,13 @@ describe("합계 계산", () => {
     const loan = { price: 100000, ltvPct: 70, ratePct: 4, termYears: 30 } as LoanInput;
     expect(computeLoanEquity(loan)).toBeCloseTo(30000, 6);
     expect(computeLoanEquity({ ...loan, ltvPct: 0 })).toBe(100000);
+    expect(computeLoanEquity(loan, 1500)).toBeCloseTo(31500, 6); // 부대비용 포함
+  });
+
+  it("집 마련 월 저축액은 연금 납입을 빼고 세액공제 환급을 더한다", () => {
+    const budget = { monthlyNetIncome: 400, annualRaisePct: 0, expenseCategories: [{ id: "a", name: "생활", amount: 150 }], pensionAnnualContribution: 0, pensionTaxCreditRate: 16.5 };
+    expect(monthlyHouseSavings(budget)).toBe(250);
+    expect(monthlyHouseSavings({ ...budget, pensionAnnualContribution: 600 })).toBeCloseTo(250 - 50 + 8.25, 9);
   });
 });
 

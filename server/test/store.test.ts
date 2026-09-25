@@ -41,6 +41,8 @@ describe("migrate", () => {
     expect(d.home.policy.bogeumjari.maxHousePrice).toBe(60000);
     expect(d.home.policy.afterTaxRatioTable.length).toBeGreaterThan(0);
     expect(store.migrate({}).home.prices.length).toBeGreaterThan(0);
+    expect(store.migrate({ home: { raisePct: 3 } as never }).home).not.toHaveProperty("raisePct"); // 인상률은 budget 하나로
+    expect(store.migrate({}).home.assetSource).toBe("housing");
   });
 
   it("없어진 ISA·CMA 탭 데이터는 버린다", () => {

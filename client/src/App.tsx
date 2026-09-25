@@ -10,11 +10,13 @@ import SimulationPanel from "./components/SimulationPanel";
 import LoanPanel from "./components/LoanPanel";
 import ChecklistPanel from "./components/ChecklistPanel";
 import DataPanel from "./components/DataPanel";
+import TaxPanel from "./components/TaxPanel";
 
 const TABS = [
   { key: "overview", label: "개요" },
   { key: "snapshot", label: "자산 스냅샷" },
   { key: "budget", label: "월급·예산" },
+  { key: "tax", label: "연말정산" },
   { key: "rebalance", label: "리밸런싱" },
   { key: "sim", label: "연도별 시뮬레이션" },
   { key: "loan", label: "내 집 마련" },
@@ -209,7 +211,8 @@ export default function App() {
           <SnapshotPanel rows={data.rows} onChange={updateRows} history={data.history} onHistoryChange={updateHistory} />
         )}
         {tab === "rebalance" && <RebalancePanel rows={data.rows} strategy={data.strategy} settings={data.rebalance} onChange={updateRebalance} onRowsChange={updateRows} onStrategyChange={updateStrategy} />}
-        {tab === "budget" && <BudgetPanel budget={data.budget} onChange={updateBudget} grossIncome={data.home.currentIncome} />}
+        {tab === "budget" && <BudgetPanel budget={data.budget} onChange={updateBudget} />}
+        {tab === "tax" && <TaxPanel budget={data.budget} onChange={updateBudget} grossIncome={data.home.currentIncome} />}
         {tab === "sim" && (
           <SimulationPanel rows={data.rows} sim={data.simulation} onChange={updateSim} annualRaisePct={data.budget.annualRaisePct} loan={data.loan} closingCost={data.home.closingCost} ltv={data.home.policy.bogeumjari.ltv} />
         )}

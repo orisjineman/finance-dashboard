@@ -34,8 +34,8 @@ function PctInput({ value, onChange }: { value: number; onChange: (v: number) =>
   return <input type="number" step={0.1} value={value} onChange={(e) => onChange(parseFloat(e.target.value) || 0)} />;
 }
 
-// 월급·예산 탭의 '연말정산 준비' 카드. 환급액 전체가 아니라 올해 행동으로 바꿀 수 있는 항목의 세금 절감만 추정한다.
-export default function TaxPrepCard({ budget, onChange, grossIncome }: Props) {
+// '연말정산' 탭. 환급액 전체가 아니라 올해 행동으로 바꿀 수 있는 항목의 세금 절감만 추정한다.
+export default function TaxPanel({ budget, onChange, grossIncome }: Props) {
   const tp = budget.taxPrep;
   if (!tp) return null;
   const now = new Date();
@@ -55,7 +55,7 @@ export default function TaxPrepCard({ budget, onChange, grossIncome }: Props) {
   const v = tp.year === year ? tp : { ...tp, rentPaid: 0, subscriptionPaid: 0, creditCardUsed: 0, debitCardUsed: 0 };
 
   return (
-    <>
+    <section className="panel active" id="panel-tax">
       <SectionTitle>연말정산 준비 ({year}년)</SectionTitle>
       <div className="card">
         <Line k="총급여 (내 집 마련 탭의 연 총보수)" v={grossIncome > 0 ? won(grossIncome) : "입력 필요"} />
@@ -99,6 +99,11 @@ export default function TaxPrepCard({ budget, onChange, grossIncome }: Props) {
           <div className="field">
             <label>올해 이미 낸 월세 (원)</label>
             <MoneyInput value={v.rentPaid} onChange={(val) => setYearly({ rentPaid: val })} />
+            {tp.rentMonthly > 0 && v.rentPaid !== tp.rentMonthly * (now.getMonth() + 1) && (
+              <button className="btn ghost sm" style={{ marginTop: 6 }} onClick={() => setYearly({ rentPaid: tp.rentMonthly * (now.getMonth() + 1) })}>
+                1월~{now.getMonth() + 1}월 {now.getMonth() + 1}달치({won(tp.rentMonthly * (now.getMonth() + 1))})로 채우기
+              </button>
+            )}
           </div>
         </div>
         {r.rent.eligible ? (
@@ -233,6 +238,6 @@ export default function TaxPrepCard({ budget, onChange, grossIncome }: Props) {
           </button>
         </details>
       </div>
-    </>
+    </section>
   );
 }

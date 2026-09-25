@@ -8,7 +8,7 @@ export interface Alert {
   id: string;
   level: "warn" | "info";
   text: string;
-  tab?: "snapshot" | "rebalance" | "budget" | "overview" | "loan";
+  tab?: "snapshot" | "rebalance" | "budget" | "tax" | "overview" | "loan";
 }
 
 const DAY = 86400000;
@@ -80,7 +80,7 @@ export function computeAlerts(data: DashboardData, now: Date = new Date()): Aler
       id: "pension-limit",
       level: "info",
       text: `연말까지 ${pension.daysToYearEnd}일 남았고 연금저축·IRP 세액공제 한도가 ${Math.round(pension.remaining * 10000).toLocaleString("ko-KR")}원 남았어.`,
-      tab: "budget",
+      tab: "tax",
     });
   }
 
@@ -109,7 +109,7 @@ export function computeAlerts(data: DashboardData, now: Date = new Date()): Aler
   const tp = data.budget.taxPrep;
   if (tp) {
     if (policyStale(tp.policy.updatedAt, now)) {
-      out.push({ id: "tax-policy-stale", level: "info", text: `연말정산 공제 기준 숫자를 마지막으로 확인한 날(${tp.policy.updatedAt})이 1년 넘게 지났어. 월급·예산 탭에서 다시 확인해줘.`, tab: "budget" });
+      out.push({ id: "tax-policy-stale", level: "info", text: `연말정산 공제 기준 숫자를 마지막으로 확인한 날(${tp.policy.updatedAt})이 1년 넘게 지났어. 연말정산 탭에서 다시 확인해줘.`, tab: "tax" });
     }
     const income = data.home?.currentIncome ?? 0;
     const sub = computeSubscription(thisYearValues(tp, now), income);
@@ -119,7 +119,7 @@ export function computeAlerts(data: DashboardData, now: Date = new Date()): Aler
         id: "tax-subscription",
         level: "info",
         text: `주택청약 소득공제 한도까지 ${Math.round(sub.remaining * 10000).toLocaleString("ko-KR")}원 더 넣을 수 있어 (연말까지 ${pension.daysToYearEnd}일).`,
-        tab: "budget",
+        tab: "tax",
       });
     }
   }

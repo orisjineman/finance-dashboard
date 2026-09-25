@@ -3,15 +3,13 @@ import { fmtWon, newId } from "../utils";
 import MoneyInput from "./MoneyInput";
 import BudgetBreakdown from "./BudgetBreakdown";
 import SectionTitle from "./SectionTitle";
-import TaxPrepCard from "./TaxPrepCard";
 
 interface Props {
   budget: BudgetData;
   onChange: (budget: BudgetData) => void;
-  grossIncome: number; // 만원, 내 집 마련 탭의 연 총보수 (연말정산 준비 카드의 총급여)
 }
 
-export default function BudgetPanel({ budget, onChange, grossIncome }: Props) {
+export default function BudgetPanel({ budget, onChange }: Props) {
   const { monthlyNetIncome, annualRaisePct, expenseCategories } = budget;
   const totalBudget = expenseCategories.reduce((sum, c) => sum + c.amount, 0);
   const savings = monthlyNetIncome - totalBudget;
@@ -121,7 +119,6 @@ export default function BudgetPanel({ budget, onChange, grossIncome }: Props) {
         <p className="note">저축률 {savingsRate.toFixed(1)}%</p>
       </div>
 
-      <TaxPrepCard budget={budget} onChange={onChange} grossIncome={grossIncome} />
     </section>
   );
 }

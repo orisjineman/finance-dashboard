@@ -1,16 +1,19 @@
 import { useState } from "react";
-import type { ChecklistItem } from "../types";
-import { newId } from "../utils";
-import { moveUndone, normalizeOrder, toggleItem } from "../checklist";
+import type { BudgetData, ChecklistItem } from "../types";
+import { fmtWon, newId } from "../utils";
+import { autoAmount, moveUndone, normalizeOrder, toggleItem } from "../checklist";
 import SectionTitle from "./SectionTitle";
 
 interface Props {
   items: ChecklistItem[];
   onChange: (items: ChecklistItem[]) => void;
+  budget: BudgetData; // 자동 금액(남은 한도·환급 몫) 계산용
+  income: number; // 만원, 연 총보수
 }
 
 // 안 한 항목은 끌어서(또는 ↑↓ 버튼으로) 순서를 바꾸고, 완료한 항목은 맨 아래에 모인다.
-export default function ChecklistPanel({ items, onChange }: Props) {
+export default function ChecklistPanel({ items, onChange, budget, income }: Props) {
+  const now = new Date();
   const ordered = normalizeOrder(items);
   const undone = ordered.filter((i) => !i.done);
   const done = ordered.filter((i) => i.done);
@@ -22,6 +25,7 @@ export default function ChecklistPanel({ items, onChange }: Props) {
 
   function row(item: ChecklistItem, index: number) {
     const movable = !item.done;
+    const auto = item.done ? null : autoAmount(item.auto, budget, income, now);
     return (
       <div
         key={item.id}
@@ -56,6 +60,11 @@ export default function ChecklistPanel({ items, onChange }: Props) {
         )}
         <input type="checkbox" checked={item.done} onChange={() => onChange(toggleItem(ordered, item.id))} id={`chk-${item.id}`} aria-label="완료" />
         <input type="text" className="check-text" value={item.text} onChange={(e) => update(item.id, { text: e.target.value })} />
+        {auto && (
+          <span className={`tag ${auto.filled ? "safe" : "cash"}`} style={{ whiteSpace: "nowrap" }}>
+            {auto.filled ? "한도 채움" : auto.kind === "remaining" ? `남은 ${fmtWon(auto.amount)}원` : `약 ${fmtWon(auto.amount)}원`}
+          </span>
+        )}
         {movable && (
           <span className="check-move">
             <button className="btn ghost sm" disabled={index === 0} onClick={() => onChange(moveUndone(ordered, item.id, index - 1))} aria-label="위로">

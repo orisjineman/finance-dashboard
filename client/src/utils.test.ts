@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { AssetRow, HistoryEntry } from "./types";
+import type { AssetRow, BudgetData, HistoryEntry } from "./types";
 import {
   computeCurrentReturn,
   computeHousingLiquid,
@@ -9,6 +9,8 @@ import {
   autoAnnualContribution,
   monthlyHouseSavings,
   pensionFromSalary,
+  pensionAccountTotal,
+  expectedRefund,
   fmt,
   fmtEok,
   fmtWon,
@@ -139,5 +141,26 @@ describe("기타", () => {
   it("uniqueAccounts는 빈 값을 빼고 중복 없이 가나다순으로 준다", () => {
     const rows = [row({ category: "cash", amount: 1, account: "나" }), row({ category: "cash", amount: 1, account: "가" }), row({ category: "cash", amount: 1, account: "나" }), row({ category: "cash", amount: 1, account: "" })];
     expect(uniqueAccounts(rows)).toEqual(["가", "나"]);
+  });
+});
+
+describe("환급 내 몫과 연금 납입 방식", () => {
+  const b = (p: Partial<BudgetData> = {}): BudgetData => ({
+    monthlyNetIncome: 300, annualRaisePct: 0, expenseCategories: [], pensionAnnualContribution: 600, pensionTaxCreditRate: 16.5,
+    refundExpected: 150, refundOtherShare: 30, ...p,
+  });
+  it("환급 내 몫 = 환급 예상액 − 분담자 몫", () => {
+    expect(expectedRefund(b())).toBe(120);
+    expect(expectedRefund(b({ refundOtherShare: undefined }))).toBe(150);
+  });
+  it("한도 안에 포함하면 월급 몫이 내 몫만큼 줄고, 위에 추가하면 월급 몫은 그대로", () => {
+    expect(pensionFromSalary(b())).toBe(480);
+    expect(pensionAccountTotal(b())).toBe(600);
+    expect(pensionFromSalary(b({ refundPensionMode: "onTop" }))).toBe(600);
+    expect(pensionAccountTotal(b({ refundPensionMode: "onTop" }))).toBe(720);
+  });
+  it("환급을 연금에 안 보태면 방식과 상관없이 월급에서 전액", () => {
+    expect(pensionFromSalary(b({ refundTo: "retirement", refundPensionMode: "onTop" }))).toBe(600);
+    expect(pensionAccountTotal(b({ refundTo: "retirement", refundPensionMode: "onTop" }))).toBe(600);
   });
 });

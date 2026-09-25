@@ -132,7 +132,7 @@ describe("computeAlerts", () => {
         bogeumjari: { maxHousePrice: 60000, maxIncome: 7000, maxLoanFirstTime: 42000, ltv: 0.7 },
         didimdolSingle: { maxHousePrice: 30000, maxAreaM2: 60, maxLoanFirstTime: 20000 },
         afterTaxRatioTable: [[6000, 0.86]],
-        judge: { okMax: 0.34, tightMax: 0.4 },
+        judge: { tightMax: 0.4 },
         updatedAt: "2026-09-25",
       },
     },

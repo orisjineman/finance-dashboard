@@ -2,8 +2,7 @@ import { useState } from "react";
 import type { AssetRow, BudgetData, HomePolicy, HomeSimInput, LoanInput, RebalanceGroup, SimulationAssumptions, StrategyData } from "../types";
 import { fmtWon } from "../utils";
 import { planHousing } from "../housing";
-import { monthlyAfterTax } from "../home";
-import { computeHome, computeHomeAssets, policyStale, totalInterest, yearExceeding, type Eligibility, type Judge } from "../home";
+import { computeHome, computeHomeAssets, monthlyAfterTax, netPayFactor, policyStale, totalInterest, yearExceeding, type Eligibility, type Judge } from "../home";
 import MoneyInput from "./MoneyInput";
 import SectionTitle from "./SectionTitle";
 import { InfoValue } from "./InfoLink";
@@ -51,13 +50,13 @@ export default function HomeSimulator({ rows, groups, home, onChange, loan, onLo
   // 비교 목록에 목표 집값이 없으면(예전에 따로 입력한 값) 표에 함께 보여준다
   const targetInList = home.prices.includes(loan.price);
   const shownPrices = loan.price > 0 && !targetInList ? [...home.prices, loan.price] : home.prices;
-  const r = computeHome({ ...home, prices: shownPrices }, assets.equity, loan.ratePct, strategy.housePurchaseDate, now, raisePct);
+  const netFactor = netPayFactor(home, budget.monthlyNetIncome);
+  const r = computeHome({ ...home, prices: shownPrices }, assets.equity, loan.ratePct, strategy.housePurchaseDate, now, raisePct, netFactor);
   const stale = policyStale(home.policy.updatedAt, now);
   const currentYear = now.getFullYear();
 
   const set = <K extends keyof HomeSimInput>(key: K, value: HomeSimInput[K]) => onChange({ ...home, [key]: value });
   const setPolicy = (patch: Partial<HomePolicy>) => onChange({ ...home, policy: { ...home.policy, ...patch } });
-
 
   const raiseCases = Array.from(new Set([2, 2.5, 3, raisePct])).sort((a, b) => a - b);
   const estNowMonthly = monthlyAfterTax(home.policy.afterTaxRatioTable, home.currentIncome);
@@ -87,6 +86,7 @@ export default function HomeSimulator({ rows, groups, home, onChange, loan, onLo
             {fmtWon(r.afterTaxMonthly)}
             <small> 원</small>
           </div>
+          {r.netFactor !== 1 && <div className="sub">실수령 기준 보정 ×{r.netFactor.toFixed(2)}</div>}
         </div>
         <div className="stat">
           <div className="label">최대 적정 집값 (상환 {home.targetRatioPct}%)</div>
@@ -167,7 +167,7 @@ export default function HomeSimulator({ rows, groups, home, onChange, loan, onLo
         </div>
         <div className="field-row">
           <div className="field">
-            <label>목표 상환 비중 (세후 월급 대비 %)</label>
+            <label>목표 상환 비중 (세후 월급 대비 %, 이하면 '적정')</label>
             <input type="number" step={1} value={home.targetRatioPct} onChange={(e) => set("targetRatioPct", parseFloat(e.target.value) || 0)} />
           </div>
           <div className="field">
@@ -176,9 +176,16 @@ export default function HomeSimulator({ rows, groups, home, onChange, loan, onLo
           </div>
         </div>
         {home.currentIncome > 0 && budget.monthlyNetIncome > 0 && (
-          <p className="note" style={{ marginTop: 0 }}>
-            추정 세후 월급 {fmtWon(estNowMonthly)}원 · 실수령액 {fmtWon(budget.monthlyNetIncome)}원 (차이가 크면 비율표 확인)
-          </p>
+          <>
+            <label className="toggle" htmlFor="home-netpay">
+              <input id="home-netpay" type="checkbox" checked={home.netPayCorrection !== false} onChange={(e) => set("netPayCorrection", e.target.checked)} />
+              세후 월급을 실수령액 기준으로 보정
+            </label>
+            <p className="note" style={{ marginTop: 4 }}>
+              지금 비율표 추정 {fmtWon(estNowMonthly)}원 · 실수령액 {fmtWon(budget.monthlyNetIncome)}원 → ×{netPayFactor({ ...home, netPayCorrection: true }, budget.monthlyNetIncome).toFixed(3)}
+              {home.netPayCorrection === false ? " (보정 끔)" : ""}
+            </p>
+          </>
         )}
         <p className="note" style={{ marginTop: 0 }}>
           실투입금 = 기준 {fmtWon(assets.base)}{home.includeDeposit ? ` + 보증금 ${fmtWon(assets.deposit)}` : ""} + 더 모을 돈 {fmtWon(assets.extra)} − 부대비용 {fmtWon(home.closingCost)}원
@@ -269,7 +276,7 @@ export default function HomeSimulator({ rows, groups, home, onChange, loan, onLo
           </button>
         </div>
         <p className="note">
-          세후 월급 대비 월 상환 {Math.round(home.policy.judge.okMax * 100)}% 이하 적정 · {Math.round(home.policy.judge.tightMax * 100)}% 이하 빠듯 · 초과 부담. 보금자리론은 매수 시점 총보수로 판정.
+          세후 월급 대비 월 상환 {home.targetRatioPct}% 이하 적정 · {Math.round(home.policy.judge.tightMax * 1000) / 10}% 이하 빠듯 · 초과 부담. 보금자리론은 매수 시점 총보수로 판정.
         </p>
       </div>
 
@@ -323,7 +330,7 @@ export default function HomeSimulator({ rows, groups, home, onChange, loan, onLo
             같은 대출을 30년과 40년으로 갚을 때 총이자 차이는 대출 1억원당 약{" "}
             {fmtWon(totalInterest(10000, loan.ratePct, 40) - totalInterest(10000, loan.ratePct, 30))}원이야 (금리 {loan.ratePct}% 기준).
           </li>
-          <li>세후 월급은 비율표 추정치야. 정확한 한도는 매수 1년 전 은행·HF 상담으로 확인해.</li>
+          <li>세후 월급은 비율표 × 실수령 보정 추정치야. 정확한 한도는 매수 1년 전 은행·HF 상담으로 확인해.</li>
         </ul>
       </div>
 
@@ -373,19 +380,12 @@ export default function HomeSimulator({ rows, groups, home, onChange, loan, onLo
             <input type="number" value={home.policy.didimdolSingle.maxAreaM2} onChange={(e) => setPolicy({ didimdolSingle: { ...home.policy.didimdolSingle, maxAreaM2: parseFloat(e.target.value) || 0 } })} />
           </div>
           <div className="field">
-            <label>판정: 적정 / 빠듯 상한 (%)</label>
-            <div style={{ display: "flex", gap: 8 }}>
-              <input
-                type="number"
-                value={Math.round(home.policy.judge.okMax * 1000) / 10}
-                onChange={(e) => setPolicy({ judge: { ...home.policy.judge, okMax: (parseFloat(e.target.value) || 0) / 100 } })}
-              />
-              <input
-                type="number"
-                value={Math.round(home.policy.judge.tightMax * 1000) / 10}
-                onChange={(e) => setPolicy({ judge: { ...home.policy.judge, tightMax: (parseFloat(e.target.value) || 0) / 100 } })}
-              />
-            </div>
+            <label>판정: 빠듯 상한 (%, 적정은 목표 상환 비중 {home.targetRatioPct}%)</label>
+            <input
+              type="number"
+              value={Math.round(home.policy.judge.tightMax * 1000) / 10}
+              onChange={(e) => setPolicy({ judge: { tightMax: (parseFloat(e.target.value) || 0) / 100 } })}
+            />
           </div>
         </div>
         <label style={{ fontSize: 13 }}>연봉 구간별 세후 비율</label>

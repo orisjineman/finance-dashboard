@@ -8,6 +8,7 @@ export function defaultTaxPrep(): TaxPrepInput {
     subscriptionPaid: 0,
     creditCardUsed: 0,
     debitCardUsed: 0,
+    rentSplit: [],
     policy: {
       pension: { lowIncomeMax: 5500, rateLowPct: 16.5, ratePct: 13.2 },
       rent: { incomeMax: 8000, lowIncomeMax: 5500, rateLowPct: 17, ratePct: 15, limit: 1000 },
@@ -77,6 +78,7 @@ export function defaultData(): DashboardData {
       pensionTaxCreditRate: 16.5,
       refundTo: "pension",
       refundBasis: "pension",
+      refundPensionMode: "withinLimit",
       taxPrep: defaultTaxPrep()
     },
     rebalance: {
@@ -94,6 +96,7 @@ export function defaultData(): DashboardData {
       extraAssets: 0,
       closingCost: 1500,
       currentIncome: 0,
+      netPayCorrection: true,
       targetRatioPct: 34,
       areaM2: 0,
       prices: [40000, 50000, 60000],
@@ -109,7 +112,7 @@ export function defaultData(): DashboardData {
           [9000, 0.807],
           [10000, 0.79]
         ],
-        judge: { okMax: 0.34, tightMax: 0.4 },
+        judge: { tightMax: 0.4 },
         updatedAt: "2026-09-25"
       }
     }

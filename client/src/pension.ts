@@ -1,6 +1,7 @@
 import type { BudgetData } from "./types";
 
 export const DEFAULT_PENSION_LIMIT = 900; // 만원 (연금저축+IRP 합산 세액공제 대상 한도). 제도가 바뀌면 화면에서 고칠 수 있다.
+export const PENSION_ACCOUNT_LIMIT = 1800; // 만원 (연금저축+IRP 합산 연간 납입 한도, ISA 만기 전환분 제외)
 
 export interface PensionCredit {
   limit: number; // 만원

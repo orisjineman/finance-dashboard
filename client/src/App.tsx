@@ -245,7 +245,7 @@ export default function App() {
             onEditInfo={() => setTab("budget")}
           />
         )}
-        {tab === "checklist" && <ChecklistPanel items={data.checklist} onChange={updateChecklist} />}
+        {tab === "checklist" && <ChecklistPanel items={data.checklist} onChange={updateChecklist} budget={data.budget} income={data.home.currentIncome} />}
         {tab === "data" && <DataPanel />}
       </main>
 

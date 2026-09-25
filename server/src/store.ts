@@ -67,7 +67,8 @@ export function migrate(parsed: Partial<DashboardData> & Record<string, unknown>
         ...(parsed.home?.policy ?? {}),
         bogeumjari: { ...d.home.policy.bogeumjari, ...ltvFromOld, ...(parsed.home?.policy?.bogeumjari ?? {}) },
         didimdolSingle: { ...d.home.policy.didimdolSingle, ...(parsed.home?.policy?.didimdolSingle ?? {}) },
-        judge: { ...d.home.policy.judge, ...(parsed.home?.policy?.judge ?? {}) },
+        // '적정' 상한은 목표 상환 비중(targetRatioPct) 하나로 통일. 예전 judge.okMax는 버린다
+        judge: { tightMax: parsed.home?.policy?.judge?.tightMax ?? d.home.policy.judge.tightMax },
       },
     },
   };

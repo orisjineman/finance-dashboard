@@ -1,5 +1,6 @@
 import type { BudgetCategory, BudgetData, HomeSimInput, LoanInput, StrategyData } from "../types";
-import { expectedRefund, fmtWon, monthlyHouseSavings, newId, pensionFromSalary } from "../utils";
+import { expectedRefund, fmtWon, monthlyHouseSavings, newId, pensionAccountTotal, pensionFromSalary } from "../utils";
+import { DEFAULT_PENSION_LIMIT, PENSION_ACCOUNT_LIMIT } from "../pension";
 import { pensionRateFor } from "../derive";
 import MoneyInput from "./MoneyInput";
 import BudgetBreakdown from "./BudgetBreakdown";
@@ -28,7 +29,12 @@ export default function InfoPanel({ budget, onBudgetChange, home, onHomeChange, 
   const pensionRate = pensionRateFor(home.currentIncome, budget.taxPrep?.policy.pension) ?? budget.pensionTaxCreditRate;
   const tp = budget.taxPrep;
   const refundTo = budget.refundTo ?? "pension";
-  const refund = expectedRefund(budget);
+  const refund = expectedRefund(budget); // 내 몫
+  const otherShare = budget.refundOtherShare ?? 0;
+  const otherName = tp?.rentSplitName || "분담자";
+  const onTop = refundTo === "pension" && budget.refundPensionMode === "onTop";
+  const creditLimit = budget.pensionCreditLimit ?? DEFAULT_PENSION_LIMIT;
+  const accountTotal = pensionAccountTotal(budget);
   const salaryPension = pensionFromSalary(budget);
 
   const setBudget = (patch: Partial<BudgetData>) => onBudgetChange({ ...budget, ...patch });
@@ -125,7 +131,7 @@ export default function InfoPanel({ budget, onBudgetChange, home, onHomeChange, 
       <div className="card">
         <div className="field-row">
           <div className="field">
-            <label>{refundTo === "pension" ? "연간 납입 목표 (월급 + 환급 합계, 원)" : "연간 납입액 (원)"}</label>
+            <label>{refundTo === "pension" && !onTop ? "연간 납입 목표 (월급 + 환급 합계, 원)" : "월급에서 낼 연간 납입액 (원)"}</label>
             <MoneyInput value={budget.pensionAnnualContribution} onChange={(v) => setBudget({ pensionAnnualContribution: v })} />
             <Uses where={["집 마련 월 저축액", "시뮬레이션 적립액", "개요 연금 비교"]} />
           </div>
@@ -154,20 +160,52 @@ export default function InfoPanel({ budget, onBudgetChange, home, onHomeChange, 
             <select value={budget.refundBasis ?? "pension"} onChange={(e) => setBudget({ refundBasis: e.target.value as NonNullable<BudgetData["refundBasis"]> })}>
               <option value="pension">연금 세액공제분만 (가장 확실)</option>
               <option value="estimate">연말정산 탭 추정 합계</option>
-              <option value="manual">직접 입력</option>
+              <option value="manual">직접 입력 (내 몫)</option>
             </select>
             {budget.refundBasis === "manual" && (
               <MoneyInput value={budget.refundManual ?? 0} onChange={(v) => setBudget({ refundManual: v })} />
             )}
           </div>
         </div>
+        {refundTo === "pension" && (
+          <div className="field">
+            <label>환급 넣는 방식</label>
+            <select value={onTop ? "onTop" : "withinLimit"} onChange={(e) => setBudget({ refundPensionMode: e.target.value as NonNullable<BudgetData["refundPensionMode"]> })}>
+              <option value="withinLimit">{fmtWon(creditLimit)}원 안에 포함 (월급 부담 ↓, 전액 세액공제)</option>
+              <option value="onTop">{fmtWon(creditLimit)}원 위에 추가 (초과분은 과세이연만)</option>
+            </select>
+          </div>
+        )}
+        {otherShare > 0 && (
+          <div className="result-line">
+            <span className="k">환급 예상액 − {otherName} 몫 (월세 공제분)</span>
+            <span className="v">
+              {fmtWon(refund + otherShare)} − {fmtWon(otherShare)}원
+            </span>
+          </div>
+        )}
         <div className="result-line">
-          <span className="k">환급 예상액</span>
+          <span className="k">{otherShare > 0 ? "환급 내 몫" : "환급 예상액"}</span>
           <span className="v">{fmtWon(refund)}원/년</span>
         </div>
+        {onTop && (
+          <div className="result-line">
+            <span className="k">연금계좌 연간 납입 (월급 + 환급)</span>
+            <span className="v" style={accountTotal > PENSION_ACCOUNT_LIMIT ? { color: "var(--risk)" } : undefined}>
+              {fmtWon(accountTotal)}원
+            </span>
+          </div>
+        )}
+        {onTop && (
+          <p className="note" style={accountTotal > PENSION_ACCOUNT_LIMIT ? { color: "var(--risk)" } : undefined}>
+            {accountTotal > PENSION_ACCOUNT_LIMIT
+              ? `연금계좌 연 납입 한도 ${fmtWon(PENSION_ACCOUNT_LIMIT)}원을 넘어.`
+              : `${fmtWon(creditLimit)}원 초과분은 세액공제 없이 과세이연 효과만 있어.`}
+          </p>
+        )}
         {refundTo === "pension" && (
           <div className="result-line">
-            <span className="k">매달 월급에서 넣을 연금 (목표 − 환급)</span>
+            <span className="k">매달 월급에서 넣을 연금{onTop ? "" : " (목표 − 환급)"}</span>
             <span className="v">
               월 {fmtWon(salaryPension / 12)}원 <small style={{ color: "var(--ink-soft)" }}>(연 {fmtWon(salaryPension)}원)</small>
             </span>
@@ -178,7 +216,7 @@ export default function InfoPanel({ budget, onBudgetChange, home, onHomeChange, 
           <span className="v">{fmtWon(monthlyHouseSavings(budget))}원</span>
         </div>
         <p className="note">
-          환급은 다음 해 2월쯤 들어와. 확실하지 않으면 '연금 세액공제분만'이나 낮게 직접 입력해 보수적으로 잡아줘. 올해 실제 납입액은 연말정산 탭에서.
+          환급은 다음 해 2월쯤 들어와. 확실하지 않으면 '연금 세액공제분만'이나 낮게 직접 입력(내 몫)해 보수적으로. 월세 분담·올해 납입액은 연말정산 탭에서.
         </p>
       </div>
 

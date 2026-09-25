@@ -41,10 +41,14 @@ export interface LoanInput {
   ratePct: number;
 }
 
+// 체크리스트 항목 옆에 자동으로 계산해 보여줄 금액: 연금·청약 한도까지 남은 납입액, 연말정산 환급의 분담자 몫·내 몫
+export type ChecklistAuto = "pensionFill" | "subscriptionFill" | "refundOther" | "refundMine";
+
 export interface ChecklistItem {
   id: string;
   text: string;
   done: boolean;
+  auto?: ChecklistAuto;
 }
 
 export interface GlidePathRow {
@@ -97,7 +101,16 @@ export interface TaxPrepInput {
   subscriptionPaid: number; // 만원, 올해 주택청약 납입액
   creditCardUsed: number; // 만원, 올해 신용카드 사용액
   debitCardUsed: number; // 만원, 올해 체크카드·현금영수증 사용액
+  rentSplit?: RentShare[]; // 월세를 누군가와 나눠 낼 때 구간별 분담액. 월세 세액공제 중 상대 몫은 환급 후 돌려준다고 본다
+  rentSplitName?: string; // 화면에 보일 분담자 이름
   policy: TaxPrepPolicy;
+}
+
+export interface RentShare {
+  from: string; // YYYY-MM
+  to: string; // YYYY-MM (포함)
+  mine: number; // 만원/월, 내가 내는 몫
+  other: number; // 만원/월, 분담자가 내는 몫
 }
 
 export interface BudgetData {
@@ -110,7 +123,10 @@ export interface BudgetData {
   refundTo?: "pension" | "retirement" | "house";
   refundBasis?: "pension" | "estimate" | "manual"; // 환급 예상액 기준: 연금 세액공제분만(가장 확실) / 연말정산 탭 추정 합계 / 직접 입력
   refundManual?: number; // 만원, refundBasis가 manual일 때
+  // 환급을 연금에 보탤 때: withinLimit = 세액공제 한도(900) 안에 포함해 월급 몫을 줄임, onTop = 한도 위에 추가 (초과분은 과세이연만)
+  refundPensionMode?: "withinLimit" | "onTop";
   refundExpected?: number; // 만원, 위 기준으로 계산한 연간 환급 예상액 (화면에서 계산해서 채움, 저장값은 참고용)
+  refundOtherShare?: number; // 만원, 그중 월세 분담자에게 돌려줄 몫 (화면에서 계산해서 채움)
   pensionCreditLimit?: number; // 만원, 세액공제 대상 납입 한도 (연금저축+IRP 합산). 없으면 900
   pensionPaidThisYear?: number; // 만원, 올해 실제로 납입한 금액
   taxPrep?: TaxPrepInput; // 연말정산 준비 카드
@@ -139,7 +155,7 @@ export interface HomePolicy {
   bogeumjari: { maxHousePrice: number; maxIncome: number; maxLoanFirstTime: number; ltv: number }; // 만원, ltv는 0~1 (목표 집값의 필요 자기자금 계산에도 이 값 하나만 쓴다)
   didimdolSingle: { maxHousePrice: number; maxAreaM2: number; maxLoanFirstTime: number };
   afterTaxRatioTable: [number, number][]; // [연 총보수(만원), 세후 비율]
-  judge: { okMax: number; tightMax: number }; // 상환비중(0~1) 판정 기준
+  judge: { tightMax: number }; // 상환비중(0~1) '빠듯' 상한. '적정' 상한은 목표 상환 비중(targetRatioPct) 하나로 쓴다
   updatedAt: string; // 정책 숫자를 마지막으로 확인한 날 (YYYY-MM-DD)
 }
 
@@ -151,7 +167,8 @@ export interface HomeSimInput {
   extraAssets: number; // 만원, 매수 시점까지 더 모을 금액 (extraMode가 manual일 때)
   closingCost: number; // 만원, 취득세·중개수수료·법무·이사
   currentIncome: number; // 만원, 대출 심사용 현재 연 총보수
-  targetRatioPct: number; // %, 세후 월급 대비 목표 월 상환 비중
+  netPayCorrection?: boolean; // 세후 월급 추정을 실수령액 기준으로 보정할지 (기본: 보정)
+  targetRatioPct: number; // %, 세후 월급 대비 목표 월 상환 비중 = '적정' 판정 상한
   areaM2: number; // 예상 전용면적(㎡), 0이면 미입력
   prices: number[]; // 만원, 비교할 집값
   incomeThreshold: number; // 만원, 도달 연도를 볼 연봉 기준 (보금자리론 소득 기준과 같게 두면 됨)

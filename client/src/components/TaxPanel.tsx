@@ -1,7 +1,7 @@
-import type { BudgetData, TaxPrepInput, TaxPrepPolicy } from "../types";
-import { fmtWon } from "../utils";
+import type { BudgetData, RentShare, TaxPrepInput, TaxPrepPolicy } from "../types";
+import { expectedRefund, fmtWon } from "../utils";
 import { DEFAULT_PENSION_LIMIT } from "../pension";
-import { computeTaxPrep } from "../tax";
+import { computeRefundSplit, computeTaxPrep } from "../tax";
 import { policyStale } from "../home";
 import MoneyInput from "./MoneyInput";
 import ProgressBar from "./ProgressBar";
@@ -35,6 +35,12 @@ export default function TaxPanel({ budget, onChange, grossIncome, onEditInfo }: 
   const now = new Date();
   const year = now.getFullYear();
   const r = computeTaxPrep(budget, tp, grossIncome, now);
+  const split = computeRefundSplit(budget, tp, grossIncome, now);
+  const otherName = tp.rentSplitName || "분담자";
+  const rentSplit = tp.rentSplit ?? [];
+  const refundTo = budget.refundTo ?? "pension";
+  const dest = refundTo === "house" ? "집 마련 자금" : refundTo === "retirement" ? "노후 자금" : "연금저축 재투자";
+  const basis = budget.refundBasis ?? "pension";
   const stale = policyStale(tp.policy.updatedAt, now);
   const won = (m: number) => `${fmtWon(m)}원`;
 
@@ -45,6 +51,7 @@ export default function TaxPanel({ budget, onChange, grossIncome, onEditInfo }: 
   };
   const setTp = (patch: Partial<TaxPrepInput>) => onChange({ ...budget, taxPrep: { ...tp, ...patch } });
   const setPolicy = (patch: Partial<TaxPrepPolicy>) => setTp({ policy: { ...tp.policy, ...patch } });
+  const setSplit = (i: number, patch: Partial<RentShare>) => setTp({ rentSplit: rentSplit.map((x, j) => (j === i ? { ...x, ...patch } : x)) });
   const p = tp.policy;
   const v = tp.year === year ? tp : { ...tp, rentPaid: 0, subscriptionPaid: 0, creditCardUsed: 0, debitCardUsed: 0 };
 
@@ -54,8 +61,14 @@ export default function TaxPanel({ budget, onChange, grossIncome, onEditInfo }: 
       <div className="card">
         <InfoValue label="총급여 (내 정보의 연 총보수)" onEdit={onEditInfo}>{grossIncome > 0 ? won(grossIncome) : "입력 필요"}</InfoValue>
         <Line k="지금까지 기준 줄어드는 세금 (추정 합계)" v={won(r.totalTaxSaved)} total />
+        <Line k="연말 기준 예상 환급액 (전체)" v={won(split.total)} />
+        {split.other > 0 && (
+          <Line k={`${otherName}에게 돌려줄 금액 (월세 공제 ${won(split.rentCredit)} × ${(split.otherRatio * 100).toFixed(1)}%)`} v={won(split.other)} />
+        )}
+        <Line k={`내 몫 → ${dest}`} v={won(split.mine)} total />
         <p className="note">
-          네 항목으로 줄어드는 세금만 추정한 값이야. 정확한 환급액은 11월 홈택스 '연말정산 미리보기'에서 확인해.
+          네 항목으로 줄어드는 세금만 추정한 값이야. 연금은 계획 납입액, 월세는 연말까지 낼 금액 기준. 정확한 환급액은 11월 홈택스 '연말정산 미리보기'에서.
+          {basis !== "estimate" && ` 계획(내 정보)에는 '${basis === "manual" ? "직접 입력" : "연금 세액공제분만"}' 기준 ${won(expectedRefund(budget))}을 써.`}
           {grossIncome <= 0 && " 내 정보에서 연 총보수를 먼저 넣어줘."}
         </p>
 
@@ -106,6 +119,64 @@ export default function TaxPanel({ budget, onChange, grossIncome, onEditInfo }: 
           grossIncome > 0 && <p className="note">총급여가 {won(p.rent.incomeMax)}를 넘어서 월세 세액공제 대상이 아니야.</p>
         )}
         <p className="note">무주택 세대주 + 계약서 주소 전입신고 필요. 이체 내역을 챙겨둬.</p>
+
+        <div className="field" style={{ maxWidth: 280 }}>
+          <label>월세 분담자 (공제 중 그 몫은 환급 후 돌려줌)</label>
+          <input type="text" value={tp.rentSplitName ?? ""} placeholder="분담자" onChange={(e) => setTp({ rentSplitName: e.target.value })} />
+        </div>
+        {rentSplit.length > 0 && (
+          <div className="table-scroll">
+            <table className="grid">
+              <thead>
+                <tr>
+                  <th>시작 월</th>
+                  <th>끝 월</th>
+                  <th className="num">내 몫 (원/월)</th>
+                  <th className="num">{otherName} 몫 (원/월)</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {rentSplit.map((x, i) => (
+                  <tr key={i}>
+                    <td>
+                      <input type="month" className="cell-input" value={x.from} onChange={(e) => setSplit(i, { from: e.target.value })} />
+                    </td>
+                    <td>
+                      <input type="month" className="cell-input" value={x.to} onChange={(e) => setSplit(i, { to: e.target.value })} />
+                    </td>
+                    <td className="num">
+                      <MoneyInput value={x.mine} onChange={(val) => setSplit(i, { mine: val })} />
+                    </td>
+                    <td className="num">
+                      <MoneyInput value={x.other} onChange={(val) => setSplit(i, { other: val })} />
+                    </td>
+                    <td>
+                      <button className="btn ghost sm" onClick={() => setTp({ rentSplit: rentSplit.filter((_, j) => j !== i) })}>
+                        삭제
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <button
+          className="btn ghost sm"
+          style={{ marginTop: 8 }}
+          onClick={() => setTp({ rentSplit: [...rentSplit, { from: `${year}-01`, to: `${year}-12`, mine: tp.rentMonthly, other: 0 }] })}
+        >
+          + 분담 구간 추가
+        </button>
+        {split.otherRatio > 0 && (
+          <Line k={`올해 ${otherName} 부담 ${(split.otherRatio * 100).toFixed(1)}% → 돌려줄 금액`} v={won(split.other)} />
+        )}
+        {tp.rentMonthly > 0 && rentSplit.some((x) => Math.abs(x.mine + x.other - tp.rentMonthly) > 0.001) && (
+          <p className="note" style={{ color: "var(--risk)" }}>
+            내 몫 + {otherName} 몫이 계약 월세({won(tp.rentMonthly)})와 다른 구간이 있어.
+          </p>
+        )}
 
         <h3 className="sub-title">주택청약 소득공제</h3>
         <div className="field" style={{ maxWidth: 280 }}>

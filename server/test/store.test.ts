@@ -46,6 +46,10 @@ describe("migrate", () => {
     expect(store.migrate({ home: { extraAssets: 5 } as never }).home.extraMode).toBe("auto"); // 더 모을 돈은 기본 자동 계산
     expect(store.migrate({ simulation: { annualContribution: 2000 } as never }).simulation.contributionMode).toBe("auto");
     expect(store.migrate({}).home.projectWithReturns).toBe(false);
+    // '적정' 판정은 목표 상환 비중 하나로: 예전 judge.okMax는 버리고 빠듯 상한은 유지
+    const judge = store.migrate({ home: { policy: { judge: { okMax: 0.3, tightMax: 0.45 } } } as never }).home.policy.judge;
+    expect(judge).toEqual({ tightMax: 0.45 });
+    expect(store.migrate({}).home.netPayCorrection).toBe(true);
   });
 
   it("예전 loan.ltvPct는 정책 LTV로 옮기고 지운다 (정책 LTV가 이미 있으면 그대로)", () => {

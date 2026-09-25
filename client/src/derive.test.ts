@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { BudgetData, DashboardData } from "./types";
-import { deriveData, pensionRateFor, refundFor } from "./derive";
+import { deriveData, otherShareFor, pensionRateFor, refundFor } from "./derive";
 
 describe("pensionRateFor", () => {
   it("총급여 5,500 이하 16.5%, 초과 13.2%, 모르면 null", () => {
@@ -42,7 +42,7 @@ describe("refundFor (환급 예상액)", () => {
   });
   it("추정 합계는 연금 계획분 + 연말까지 월세 + 청약·카드", () => {
     const taxPrep = {
-      year: 2026, rentMonthly: 80, rentPaid: 720, subscriptionPaid: 0, creditCardUsed: 0, debitCardUsed: 0,
+      year: 2026, rentMonthly: 60, rentPaid: 540, subscriptionPaid: 0, creditCardUsed: 0, debitCardUsed: 0,
       policy: {
         rent: { incomeMax: 8000, lowIncomeMax: 5500, rateLowPct: 17, ratePct: 15, limit: 1000 },
         subscription: { incomeMax: 7000, limit: 300, ratePct: 40 },
@@ -50,7 +50,25 @@ describe("refundFor (환급 예상액)", () => {
         marginalRatePct: 16.5, updatedAt: "2026-09-25",
       },
     };
-    // 연금 900 × 13.2% = 118.8, 월세 (720 + 80 × 3) × 15% = 144
-    expect(refundFor(budget({ refundBasis: "estimate", taxPrep }), 6000, now)).toBeCloseTo(118.8 + 144, 9);
+    // 연금 900 × 13.2% = 118.8, 월세 (540 + 60 × 3) × 15% = 108
+    expect(refundFor(budget({ refundBasis: "estimate", taxPrep }), 6000, now)).toBeCloseTo(118.8 + 108, 9);
+  });
+  it("월세 분담자 몫은 추정 합계 기준일 때만 뺀다", () => {
+    const taxPrep = {
+      year: 2026, rentMonthly: 60, rentPaid: 540, subscriptionPaid: 0, creditCardUsed: 0, debitCardUsed: 0,
+      rentSplit: [{ from: "2026-01", to: "2026-12", mine: 40, other: 20 }],
+      policy: {
+        rent: { incomeMax: 8000, lowIncomeMax: 5500, rateLowPct: 17, ratePct: 15, limit: 1000 },
+        subscription: { incomeMax: 7000, limit: 300, ratePct: 40 },
+        card: { thresholdPct: 25, creditRatePct: 15, debitRatePct: 30, limitLow: 300, limitHigh: 250, limitIncome: 7000 },
+        marginalRatePct: 16.5, updatedAt: "2026-09-25",
+      },
+    };
+    // 월세 공제 108 × 분담 1/3 = 36
+    expect(otherShareFor(budget({ refundBasis: "estimate", taxPrep }), 6000, now)).toBeCloseTo(36, 9);
+    expect(otherShareFor(budget({ refundBasis: "pension", taxPrep }), 6000, now)).toBe(0);
+    expect(otherShareFor(budget({ refundBasis: "manual", refundManual: 100, taxPrep }), 6000, now)).toBe(0);
+    const derived = deriveData({ home: { currentIncome: 6000 }, budget: budget({ refundBasis: "estimate", taxPrep }) } as unknown as DashboardData, now);
+    expect(derived.budget.refundOtherShare).toBeCloseTo(36, 9);
   });
 });

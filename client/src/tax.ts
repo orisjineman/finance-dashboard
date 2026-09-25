@@ -1,4 +1,4 @@
-import type { BudgetData, TaxPrepInput } from "./types";
+import type { BudgetData, RentShare, TaxPrepInput } from "./types";
 import { computePensionCredit, type PensionCredit } from "./pension";
 
 // 연말정산 준비 카드: 올해 안에 행동으로 바꿀 수 있는 항목만 추정한다. 환급액 전체가 아니라 "각 항목으로 줄어드는 세금"이다.
@@ -125,4 +125,44 @@ export function estimateAnnualRefund(budget: BudgetData, taxPrep: TaxPrepInput, 
   const r = computeTaxPrep(budget, taxPrep, income, now);
   const pensionPlanned = (Math.min(budget.pensionAnnualContribution || 0, r.pension.limit) * (budget.pensionTaxCreditRate || 0)) / 100;
   return pensionPlanned + r.rent.projectedCredit + r.subscription.taxSaved + r.card.taxSaved;
+}
+
+// "YYYY-MM" → 달 번호 (연 × 12 + 월 − 1). 형식이 틀리면 null
+function monthIndex(s: string): number | null {
+  const m = /^(\d{4})-(\d{1,2})$/.exec(s?.trim() ?? "");
+  if (!m) return null;
+  const month = Number(m[2]);
+  return month >= 1 && month <= 12 ? Number(m[1]) * 12 + month - 1 : null;
+}
+
+// 올해 월세 중 분담자가 낸 비율 = Σ(상대 몫 × 개월수) ÷ Σ((내 몫 + 상대 몫) × 개월수). 구간은 올해 안으로 잘라서 센다.
+export function rentOtherRatio(split: RentShare[] | undefined, year: number): number {
+  let other = 0;
+  let total = 0;
+  for (const s of split ?? []) {
+    const a = monthIndex(s.from);
+    const b = monthIndex(s.to);
+    if (a === null || b === null) continue;
+    const months = Math.min(b, year * 12 + 11) - Math.max(a, year * 12) + 1;
+    if (months <= 0) continue;
+    other += Math.max(0, s.other) * months;
+    total += (Math.max(0, s.mine) + Math.max(0, s.other)) * months;
+  }
+  return total > 0 ? other / total : 0;
+}
+
+export interface RefundSplit {
+  total: number; // 1년 전체 기준 환급 예상액
+  rentCredit: number; // 그중 월세 세액공제 (연말까지 낼 월세 기준)
+  otherRatio: number; // 월세 중 분담자 비율 (0~1)
+  other: number; // 분담자에게 돌려줄 몫 = 월세 세액공제 × 분담자 비율
+  mine: number; // 내 몫 = 전체 − 분담자 몫
+}
+
+export function computeRefundSplit(budget: BudgetData, taxPrep: TaxPrepInput, income: number, now: Date): RefundSplit {
+  const total = estimateAnnualRefund(budget, taxPrep, income, now);
+  const rentCredit = computeTaxPrep(budget, taxPrep, income, now).rent.projectedCredit;
+  const otherRatio = rentOtherRatio(taxPrep.rentSplit, now.getFullYear());
+  const other = rentCredit * otherRatio;
+  return { total, rentCredit, otherRatio, other, mine: total - other };
 }

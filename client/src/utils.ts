@@ -41,17 +41,30 @@ export function computeLoanEquity(price: number, ltv: number, closingCost = 0): 
   return price * (1 - Math.min(1, Math.max(0, ltv || 0))) + Math.max(0, closingCost);
 }
 
-// 연간 연말정산 환급 예상액 (만원). 저장된 계산값이 없으면 연금 세액공제분(납입액 × 공제율)으로 본다.
+// 연간 연말정산 환급 중 내 몫 (만원) = 환급 예상액 − 월세 분담자에게 돌려줄 몫.
+// 저장된 계산값이 없으면 연금 세액공제분(납입액 × 공제율)으로 본다.
 export function expectedRefund(budget: BudgetData): number {
-  if (budget.refundExpected !== undefined) return Math.max(0, budget.refundExpected);
+  if (budget.refundExpected !== undefined) return Math.max(0, budget.refundExpected - (budget.refundOtherShare ?? 0));
   return ((budget.pensionAnnualContribution || 0) * (budget.pensionTaxCreditRate || 0)) / 100;
 }
 
-// 연금 연간 납입액 중 월급에서 내는 몫 (만원/년). 환급을 연금에 보태면 그만큼 월급에서 덜 낸다.
+// 환급(내 몫)을 연금 납입 계획 '안에' 넣는지 (월급에서 그만큼 덜 냄). 한도 위에 추가하면 false
+function refundWithinPension(budget: BudgetData): boolean {
+  return (budget.refundTo ?? "pension") === "pension" && budget.refundPensionMode !== "onTop";
+}
+
+// 연금 연간 납입액 중 월급에서 내는 몫 (만원/년). 환급을 계획 안에 보태면 그만큼 월급에서 덜 낸다.
 export function pensionFromSalary(budget: BudgetData): number {
   const pension = budget.pensionAnnualContribution || 0;
-  const offset = (budget.refundTo ?? "pension") === "pension" ? Math.min(pension, expectedRefund(budget)) : 0;
+  const offset = refundWithinPension(budget) ? Math.min(pension, expectedRefund(budget)) : 0;
   return pension - offset;
+}
+
+// 연금계좌에 1년 동안 넣는 돈 합계 (만원) = 계획 납입액 (+ 환급을 한도 위에 추가하면 그 환급)
+export function pensionAccountTotal(budget: BudgetData): number {
+  const pension = budget.pensionAnnualContribution || 0;
+  const onTop = (budget.refundTo ?? "pension") === "pension" && budget.refundPensionMode === "onTop";
+  return pension + (onTop ? expectedRefund(budget) : 0);
 }
 
 // 집 마련에 매달 모을 수 있는 돈 = 월 저축 가능액 − 월급에서 내는 연금(월) (+ 환급을 집 자금에 쓰면 환급/12)
@@ -114,7 +127,7 @@ export function uniqueAccounts(rows: AssetRow[]): string[] {
   return Array.from(new Set(rows.map((r) => r.account).filter(Boolean))).sort();
 }
 
-// 연도별 시뮬레이션의 연간 신규 적립액(자동) = 월 저축 가능액 × 12 + 연말정산 환급 예상액. 월급을 쓰고 남는 돈을 모두 투자한다고 본다.
+// 연도별 시뮬레이션의 연간 신규 적립액(자동) = 월 저축 가능액 × 12 + 연말정산 환급 내 몫. 월급을 쓰고 남는 돈을 모두 투자한다고 본다.
 export function autoAnnualContribution(budget: BudgetData): number {
   const savings = budget.monthlyNetIncome - budget.expenseCategories.reduce((sum, c) => sum + c.amount, 0);
   return Math.max(0, savings * 12 + expectedRefund(budget));

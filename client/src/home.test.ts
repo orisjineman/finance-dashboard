@@ -8,6 +8,8 @@ import {
   computeHomeAssets,
   incomeAt,
   judgeRatio,
+  judgeRule,
+  netPayFactor,
   assetsNeededAffordable,
   evaluateTarget,
   monthsUntil,
@@ -30,7 +32,7 @@ const policy: HomePolicy = {
     [9000, 0.807],
     [10000, 0.79],
   ],
-  judge: { okMax: 0.34, tightMax: 0.4 },
+  judge: { tightMax: 0.4 },
   updatedAt: "2026-09-25",
 };
 
@@ -72,7 +74,7 @@ describe("검증 케이스 (널리 알려진 값과 비교)", () => {
   it("집값 4억, 실투입 1.5억, 세후 400만, 4% 40년 → 상환비중 약 26%, 적정", () => {
     const ratio = monthlyPayment(40000 - 15000, 4, 40) / 400;
     expect(ratio).toBeCloseTo(0.261, 2);
-    expect(judgeRatio(ratio, policy.judge)).toBe("ok");
+    expect(judgeRatio(ratio, judgeRule(input()))).toBe("ok");
   });
 });
 
@@ -117,11 +119,17 @@ describe("연봉·세후", () => {
 });
 
 describe("판정·자격", () => {
-  it("34% 이하 적정, 40% 이하 빠듯, 초과 부담", () => {
-    expect(judgeRatio(0.34, policy.judge)).toBe("ok");
-    expect(judgeRatio(0.35, policy.judge)).toBe("tight");
-    expect(judgeRatio(0.4, policy.judge)).toBe("tight");
-    expect(judgeRatio(0.41, policy.judge)).toBe("heavy");
+  it("목표 상환 비중(34%) 이하 적정, 40% 이하 빠듯, 초과 부담", () => {
+    const rule = judgeRule(input());
+    expect(rule.okMax).toBeCloseTo(0.34, 9);
+    expect(judgeRatio(0.34, rule)).toBe("ok");
+    expect(judgeRatio(0.35, rule)).toBe("tight");
+    expect(judgeRatio(0.4, rule)).toBe("tight");
+    expect(judgeRatio(0.41, rule)).toBe("heavy");
+  });
+  it("목표 상환 비중을 바꾸면 '적정' 기준도 같이 바뀐다", () => {
+    expect(judgeRatio(0.32, judgeRule(input({ targetRatioPct: 30 })))).toBe("tight");
+    expect(judgeRatio(0.32, judgeRule(input({ targetRatioPct: 35 })))).toBe("ok");
   });
   it("보금자리론은 사유를 모두 모아 보여준다", () => {
     expect(checkBogeumjari(55000, 30000, 6500, policy).ok).toBe(true);
@@ -261,5 +269,44 @@ describe("assetsNeededAffordable", () => {
     // 가용자산이 need면 실투입금 = need − 부대비용, 대출 = 집값 − 실투입금
     const loan = 50000 - (need - 1000);
     expect(monthlyPayment(loan, 4, 40) / t.result.afterTaxMonthly).toBeCloseTo(0.34, 9);
+  });
+});
+
+describe("실수령 보정", () => {
+  const now = new Date("2026-09-25T00:00:00");
+  it("보정계수 = 실제 세후 비율 ÷ 비율표 값", () => {
+    // 총보수 5,000 → 비율표 0.87, 실수령 300 × 12 / 5,000 = 0.72
+    expect(netPayFactor(input({ currentIncome: 5000 }), 300)).toBeCloseTo(0.72 / 0.87, 9);
+  });
+  it("실수령액을 모르거나 보정을 끄면 1", () => {
+    expect(netPayFactor(input({ currentIncome: 5000 }), 0)).toBe(1);
+    expect(netPayFactor(input({ currentIncome: 0 }), 300)).toBe(1);
+    expect(netPayFactor(input({ currentIncome: 5000, netPayCorrection: false }), 300)).toBe(1);
+  });
+  it("보정계수만큼 세후 월급이 줄고, 최대 적정 집값에서 상환 비중은 여전히 목표 비중", () => {
+    const plain = computeHome(input(), 20000, 4, "2030-06-30", now, 2.5);
+    const r = computeHome(input(), 20000, 4, "2030-06-30", now, 2.5, 0.9);
+    expect(r.netFactor).toBe(0.9);
+    expect(r.afterTaxMonthly).toBeCloseTo(plain.afterTaxMonthly * 0.9, 9);
+    expect(r.maxPrice40).toBeLessThan(plain.maxPrice40);
+    expect(monthlyPayment(r.maxPrice40 - 20000, 4, 40) / r.afterTaxMonthly).toBeCloseTo(0.34, 9);
+  });
+  it("최대 적정 집값을 그대로 넣으면 '적정'으로 판정한다", () => {
+    const r = computeHome(input(), 20000, 4, "2030-06-30", now, 2.5, 0.9);
+    const atMax = computeHome(input({ prices: [r.maxPrice40] }), 20000, 4, "2030-06-30", now, 2.5, 0.9);
+    expect(atMax.rows[0].judge40).toBe("ok");
+  });
+  it("evaluateTarget도 내 정보의 실수령액으로 보정한다", () => {
+    const data = {
+      rows: [{ id: "1", account: "ISA", item: "S&P", category: "risk" as const, amount: 15000, housingEligible: true }],
+      rebalance: { tolerancePct: 5, groups: [] },
+      home: input({ assetSource: "housing", currentIncome: 5000, extraMode: "manual" }),
+      loan: { price: 40000, ratePct: 4 },
+      strategy: { housePurchaseDate: "2030-06-30", isaDutyEndDate: "", overviewSummary: [], glidePath: [] },
+      budget: { monthlyNetIncome: 300, annualRaisePct: 0, expenseCategories: [], pensionAnnualContribution: 0, pensionTaxCreditRate: 16.5 },
+      simulation: { annualContribution: 0, years: 10, riskRate: 8, safeRate: 3, contributionRiskRatio: 50, applySalaryRaise: false },
+    };
+    expect(evaluateTarget(data, now)!.result.afterTaxMonthly).toBeCloseTo(300, 9); // 인상률 0이면 매수 때도 실수령액 그대로
+    expect(evaluateTarget({ ...data, home: { ...data.home, netPayCorrection: false } }, now)!.result.afterTaxMonthly).toBeCloseTo((5000 * 0.87) / 12, 9);
   });
 });

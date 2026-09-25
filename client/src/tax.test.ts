@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { BudgetData, TaxPrepInput } from "./types";
-import { computeCardDeduction, computeRentCredit, computeSubscription, computeTaxPrep, thisYearValues } from "./tax";
+import { computeCardDeduction, computeRefundSplit, computeRentCredit, computeSubscription, computeTaxPrep, rentOtherRatio, thisYearValues } from "./tax";
 
 const policy: TaxPrepInput["policy"] = {
   rent: { incomeMax: 8000, lowIncomeMax: 5500, rateLowPct: 17, ratePct: 15, limit: 1000 },
@@ -116,5 +116,31 @@ describe("computeTaxPrep", () => {
   });
   it("12월이면 남은 달 0", () => {
     expect(computeTaxPrep(budget, input(), 6000, new Date("2026-12-10T00:00:00")).monthsLeft).toBe(0);
+  });
+});
+
+describe("월세 분담 (환급 중 분담자 몫)", () => {
+  it("구간별 개월수로 가중한 분담자 비율", () => {
+    const split = [
+      { from: "2026-01", to: "2026-06", mine: 30, other: 20 },
+      { from: "2026-07", to: "2026-12", mine: 25, other: 25 },
+    ];
+    // (20 × 6 + 25 × 6) / (50 × 12) = 0.45
+    expect(rentOtherRatio(split, 2026)).toBeCloseTo(0.45, 9);
+  });
+  it("올해 밖의 달은 빼고, 형식이 틀린 구간은 무시한다", () => {
+    expect(rentOtherRatio([{ from: "2025-07", to: "2026-03", mine: 10, other: 10 }], 2026)).toBeCloseTo(0.5, 9);
+    expect(rentOtherRatio([{ from: "2025-01", to: "2025-12", mine: 10, other: 10 }], 2026)).toBe(0);
+    expect(rentOtherRatio([{ from: "", to: "2026-12", mine: 10, other: 10 }], 2026)).toBe(0);
+    expect(rentOtherRatio(undefined, 2026)).toBe(0);
+  });
+  it("분담자 몫 = 연말 기준 월세 공제 × 비율, 내 몫 = 전체 − 분담자 몫", () => {
+    const budget = { monthlyNetIncome: 0, annualRaisePct: 0, expenseCategories: [], pensionAnnualContribution: 600, pensionTaxCreditRate: 16.5 } as BudgetData;
+    const t = input({ rentMonthly: 50, rentPaid: 450, rentSplit: [{ from: "2026-01", to: "2026-12", mine: 30, other: 20 }] });
+    const s = computeRefundSplit(budget, t, 5000, now);
+    expect(s.rentCredit).toBeCloseTo(600 * 0.17, 9); // (450 + 50 × 3) × 17%
+    expect(s.other).toBeCloseTo(600 * 0.17 * 0.4, 9);
+    expect(s.total).toBeCloseTo(600 * 0.165 + 600 * 0.17, 9);
+    expect(s.mine).toBeCloseTo(s.total - s.other, 9);
   });
 });

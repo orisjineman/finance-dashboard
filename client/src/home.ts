@@ -65,9 +65,27 @@ export function monthlyAfterTax(table: [number, number][], income: number): numb
   return (income * afterTaxRatio(table, income)) / 12;
 }
 
+// 실수령 보정계수 = 실제 세후 비율(실수령액 × 12 ÷ 총보수) ÷ 비율표 값.
+// 총보수에 현금으로 안 들어오는 복지 등이 섞여 있으면 비율표만으로는 세후 월급이 부풀려진다. 실수령액을 모르거나 보정을 끄면 1.
+export function netPayFactor(input: Pick<HomeSimInput, "currentIncome" | "netPayCorrection" | "policy">, monthlyNetIncome: number): number {
+  if (input.netPayCorrection === false || !(monthlyNetIncome > 0) || !(input.currentIncome > 0)) return 1;
+  const tableRatio = afterTaxRatio(input.policy.afterTaxRatioTable, input.currentIncome);
+  return tableRatio > 0 ? (monthlyNetIncome * 12) / input.currentIncome / tableRatio : 1;
+}
+
 export type Judge = "ok" | "tight" | "heavy";
 
-export function judgeRatio(ratio: number, judge: HomePolicy["judge"]): Judge {
+export interface JudgeRule {
+  okMax: number; // 0~1, 이하면 적정
+  tightMax: number; // 0~1, 이하면 빠듯, 넘으면 부담
+}
+
+// 판정 기준: '적정' 상한은 목표 상환 비중, '빠듯' 상한은 정책 설정 값
+export function judgeRule(input: Pick<HomeSimInput, "targetRatioPct" | "policy">): JudgeRule {
+  return { okMax: (input.targetRatioPct || 0) / 100, tightMax: input.policy.judge.tightMax };
+}
+
+export function judgeRatio(ratio: number, judge: JudgeRule): Judge {
   if (ratio <= judge.okMax) return "ok";
   if (ratio <= judge.tightMax) return "tight";
   return "heavy";
@@ -141,18 +159,23 @@ export interface PriceRow {
 export interface HomeResult {
   purchaseYear: number;
   incomeAtPurchase: number;
-  afterTaxMonthly: number;
+  afterTaxMonthly: number; // 보정계수까지 반영한 매수 시점 세후 월급
+  netFactor: number; // 실수령 보정계수 (보정 안 하면 1)
   maxPrice30: number;
   maxPrice40: number;
   rows: PriceRow[];
 }
 
-export function computeHome(input: HomeSimInput, equity: number, ratePct: number, purchaseDate: string, now: Date, raisePct: number): HomeResult {
+// netFactor: 실수령 보정계수 (netPayFactor)
+export function computeHome(input: HomeSimInput, equity: number, ratePct: number, purchaseDate: string, now: Date, raisePct: number, netFactor = 1): HomeResult {
   const currentYear = now.getFullYear();
   const d = purchaseDate ? new Date(`${purchaseDate}T00:00:00`) : null;
   const purchaseYear = d && !Number.isNaN(d.getTime()) ? d.getFullYear() : currentYear;
   const incomeAtPurchase = incomeAt(input.currentIncome, raisePct, currentYear, purchaseYear);
-  const afterTaxMonthly = monthlyAfterTax(input.policy.afterTaxRatioTable, incomeAtPurchase);
+  const afterTaxMonthly = monthlyAfterTax(input.policy.afterTaxRatioTable, incomeAtPurchase) * netFactor;
+  const judge = judgeRule(input);
+  // 목표 비중에 딱 맞춘 집값이 반올림 오차로 '빠듯'이 되지 않게 판정은 아주 작은 여유를 둔다
+  const judgeOf = (r: number) => judgeRatio(r - 1e-9, judge);
   const maxMonthly = (afterTaxMonthly * input.targetRatioPct) / 100;
   const ratio = (m: number) => (afterTaxMonthly > 0 ? m / afterTaxMonthly : Infinity);
   const rows = [...input.prices]
@@ -169,8 +192,8 @@ export function computeHome(input: HomeSimInput, equity: number, ratePct: number
         monthly40,
         ratio30: ratio(monthly30),
         ratio40: ratio(monthly40),
-        judge30: judgeRatio(ratio(monthly30), input.policy.judge),
-        judge40: judgeRatio(ratio(monthly40), input.policy.judge),
+        judge30: judgeOf(ratio(monthly30)),
+        judge40: judgeOf(ratio(monthly40)),
         bogeumjari: checkBogeumjari(price, loan, incomeAtPurchase, input.policy),
         didimdol: checkDidimdolSingle(price, loan, input.areaM2, input.policy),
         overLtv: loan > price * input.policy.bogeumjari.ltv,
@@ -180,6 +203,7 @@ export function computeHome(input: HomeSimInput, equity: number, ratePct: number
     purchaseYear,
     incomeAtPurchase,
     afterTaxMonthly,
+    netFactor,
     maxPrice30: maxPrincipal(maxMonthly, ratePct, 30) + equity,
     maxPrice40: maxPrincipal(maxMonthly, ratePct, 40) + equity,
     rows,
@@ -208,7 +232,8 @@ export function evaluateTarget(data: Pick<DashboardData, "rows" | "rebalance" | 
   // '더 모을 돈'(자동)은 개요 예상 경로와 같은 계산 (수익률 반영 토글 포함)
   const autoExtra = planHousing(data.rows, data.budget, data.simulation, data.strategy.housePurchaseDate, now, !!home.projectWithReturns).extra;
   const assets = computeHomeAssets(data.rows, data.rebalance.groups, home, autoExtra);
-  const result = computeHome({ ...home, prices: [loan.price] }, assets.equity, loan.ratePct, data.strategy.housePurchaseDate, now, data.budget.annualRaisePct);
+  const factor = netPayFactor(home, data.budget.monthlyNetIncome);
+  const result = computeHome({ ...home, prices: [loan.price] }, assets.equity, loan.ratePct, data.strategy.housePurchaseDate, now, data.budget.annualRaisePct, factor);
   return result.rows[0] ? { result, row: result.rows[0], equity: assets.equity } : null;
 }
 

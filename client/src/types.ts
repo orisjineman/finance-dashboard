@@ -104,7 +104,11 @@ export interface BudgetData {
   expenseCategories: BudgetCategory[];
   pensionAnnualContribution: number; // 만원, 연금저축+IRP 연간 납입 계획액
   pensionTaxCreditRate: number; // %, 세액공제율 (13.2 또는 16.5)
-  refundTo?: "retirement" | "house"; // 연말정산 환급을 어디에 넣는지. retirement(기본): 연금저축 등 노후 자금, house: 집 마련 자금
+  // 연말정산 환급을 어디에 쓰는지. pension: 연금 납입에 보탬(연간 납입액 = 월급 몫 + 환급 몫), retirement: 노후 자금에 따로, house: 집 마련 자금
+  refundTo?: "pension" | "retirement" | "house";
+  refundBasis?: "pension" | "estimate" | "manual"; // 환급 예상액 기준: 연금 세액공제분만(가장 확실) / 연말정산 탭 추정 합계 / 직접 입력
+  refundManual?: number; // 만원, refundBasis가 manual일 때
+  refundExpected?: number; // 만원, 위 기준으로 계산한 연간 환급 예상액 (화면에서 계산해서 채움, 저장값은 참고용)
   pensionCreditLimit?: number; // 만원, 세액공제 대상 납입 한도 (연금저축+IRP 합산). 없으면 900
   pensionPaidThisYear?: number; // 만원, 올해 실제로 납입한 금액
   taxPrep?: TaxPrepInput; // 연말정산 준비 카드

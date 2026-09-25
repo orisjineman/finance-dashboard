@@ -74,7 +74,7 @@ export default function SimulationPanel({ rows, sim: stored, onChange, annualRai
               <>
                 <MoneyInput value={Math.round(autoContribution)} readOnly />
                 <p className="note" style={{ margin: "4px 0 0" }}>
-                  월 저축 가능액 × 12 + 연금 세액공제 환급(환급도 어딘가에 투자한다고 봐). 월급에서 쓰고 남는 돈을 모두 투자한다고 봐. 생활 예비비로 따로 떼어 두는 돈이 있으면 직접 입력으로 바꿔줘.
+                  월 저축 가능액 × 12 + 연금 환급 (남는 돈을 모두 투자한다고 봄)
                 </p>
               </>
             ) : (
@@ -163,13 +163,13 @@ export default function SimulationPanel({ rows, sim: stored, onChange, annualRai
           </tbody>
         </table>
 </div>
-        <p className="note">단리가 아니라 복리로 계산하고, 매년 초 적립금이 들어온다고 가정한 값이야. 1년차는 지금부터 1년 뒤(내년 이맘때)를 뜻해. 실제 수익률은 시장 상황에 따라 크게 달라질 수 있어서, 참고용 시나리오로만 써줘.</p>
+        <p className="note">복리 · 매년 초 적립 · 1년차 = 지금부터 1년 뒤. 참고용 시나리오야.</p>
       </div>
 
       <SectionTitle>시나리오 비교</SectionTitle>
       <div className="card">
         <p className="note" style={{ marginTop: 0 }}>
-          위쪽 가정(현재 입력값)과 나란히 놓고 볼 다른 가정을 추가해. 수익률·연간 적립액·신규 적립금의 위험 비중만 다르게 하고, 기간·연봉 상승률·시작 자산은 위쪽 값을 그대로 써.
+          수익률·적립액·적립 위험 비중만 바꿔서 위쪽 가정과 비교해.
         </p>
         <div className="table-scroll">
           <table className="grid" style={{ minWidth: 640 }}>
@@ -261,7 +261,7 @@ export default function SimulationPanel({ rows, sim: stored, onChange, annualRai
           />
         </div>
         <p className="note">
-          전체 투자자산(연금저축·IRP 포함)의 장기 성장을 보는 화면이야. 집 마련 시점과 자금은 개요의 '집 마련 자금'과 '내 집 마련' 탭에서 봐줘(수익률 반영 여부도 거기서 고를 수 있어). 미래 수익률은 알 수 없으니 여러 가정을 비교해 보는 용도로만 써줘.
+          전체 투자자산(연금 포함)의 장기 성장용. 집 마련은 개요·내 집 마련 탭에서 봐.
         </p>
       </div>
     </section>

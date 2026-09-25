@@ -91,8 +91,7 @@ export default function QuoteBar({ tickers, onResults }: Props) {
             )}
           </div>
           <p className="note">
-            data.go.kr에서 <strong>금융위원회_증권상품시세정보</strong>(ETF)와 <strong>금융위원회_주식시세정보</strong>(삼성전자 같은 개별 주식)를 각각 활용신청하면 같은 키로 둘 다 쓸 수 있어.
-            키는 이 컴퓨터의 data 폴더에만 저장되고 GitHub에는 올라가지 않아.
+            data.go.kr에서 <strong>증권상품시세정보</strong>(ETF)와 <strong>주식시세정보</strong>를 활용신청하면 같은 키로 둘 다 써. 키는 이 컴퓨터에만 저장돼.
           </p>
         </div>
       )}

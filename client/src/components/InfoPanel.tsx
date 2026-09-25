@@ -1,5 +1,5 @@
 import type { BudgetCategory, BudgetData, HomeSimInput, LoanInput, StrategyData } from "../types";
-import { fmtWon, monthlyHouseSavings, newId } from "../utils";
+import { expectedRefund, fmtWon, monthlyHouseSavings, newId, pensionFromSalary } from "../utils";
 import { pensionRateFor } from "../derive";
 import MoneyInput from "./MoneyInput";
 import BudgetBreakdown from "./BudgetBreakdown";
@@ -27,6 +27,9 @@ export default function InfoPanel({ budget, onBudgetChange, home, onHomeChange, 
   const nextYearIncome = monthlyNetIncome * (1 + (annualRaisePct || 0) / 100);
   const pensionRate = pensionRateFor(home.currentIncome, budget.taxPrep?.policy.pension) ?? budget.pensionTaxCreditRate;
   const tp = budget.taxPrep;
+  const refundTo = budget.refundTo ?? "pension";
+  const refund = expectedRefund(budget);
+  const salaryPension = pensionFromSalary(budget);
 
   const setBudget = (patch: Partial<BudgetData>) => onBudgetChange({ ...budget, ...patch });
   function updateCategory(i: number, patch: Partial<BudgetCategory>) {
@@ -36,7 +39,7 @@ export default function InfoPanel({ budget, onBudgetChange, home, onHomeChange, 
   return (
     <section className="panel active" id="panel-budget">
       <p className="note" style={{ marginTop: 0 }}>
-        여러 화면이 같이 쓰는 금액과 날짜는 이 탭에서만 입력해. 여기서 바꾸면 '쓰이는 곳'에 적힌 화면이 모두 함께 바뀌어. 다른 탭에서는 이 값들이 읽기 전용으로 보이고 '내 정보에서 수정' 버튼으로 이리 올 수 있어.
+        여러 화면이 같이 쓰는 값은 여기서만 입력해. 칸 아래 '쓰이는 곳'이 함께 바뀌어.
       </p>
 
       <SectionTitle>소득</SectionTitle>
@@ -59,7 +62,7 @@ export default function InfoPanel({ budget, onBudgetChange, home, onHomeChange, 
           <Uses where={["내 집 마련(매수 시점 연봉)", "시뮬레이션 적립액 증가", "알림"]} />
         </div>
         <p className="note">
-          1년 뒤 예상 월 실수령액은 약 {fmtWon(nextYearIncome)}원이야. 연 총보수는 매달 받는 실수령액과 달리 상여·과세 복지까지 포함한 세전 금액이라 대출 심사와 연말정산에 쓰여.
+          1년 뒤 실수령액 약 {fmtWon(nextYearIncome)}원. 연 총보수는 상여·과세 복지 포함 세전 금액(대출 심사·연말정산용).
         </p>
       </div>
 
@@ -115,16 +118,16 @@ export default function InfoPanel({ budget, onBudgetChange, home, onHomeChange, 
             {fmtWon(savings)}원 <small style={{ color: "var(--ink-soft)" }}>저축률 {savingsRate.toFixed(1)}%</small>
           </span>
         </div>
-        <p className="note">예산의 월세는 내가 실제로 내는 몫이야. 연말정산 공제에 쓰는 계약상 월세는 아래 '집·주거'에서 따로 입력해.</p>
+        <p className="note">예산의 월세 = 내가 내는 몫 · 공제용 계약 월세는 '집·주거'에서</p>
       </div>
 
       <SectionTitle>연금저축·IRP 납입 계획</SectionTitle>
       <div className="card">
         <div className="field-row">
           <div className="field">
-            <label>연간 납입액 (원)</label>
+            <label>{refundTo === "pension" ? "연간 납입 목표 (월급 + 환급 합계, 원)" : "연간 납입액 (원)"}</label>
             <MoneyInput value={budget.pensionAnnualContribution} onChange={(v) => setBudget({ pensionAnnualContribution: v })} />
-            <Uses where={["집 마련 월 저축액(납입만큼 빠짐)", "시뮬레이션 적립액", "개요 연금 비교"]} />
+            <Uses where={["집 마련 월 저축액", "시뮬레이션 적립액", "개요 연금 비교"]} />
           </div>
           <div className="field">
             <label>세액공제율 (자동)</label>
@@ -132,24 +135,51 @@ export default function InfoPanel({ budget, onBudgetChange, home, onHomeChange, 
               <span>{pensionRate}%</span>
             </div>
             <p className="uses">
-              연 총보수 {fmtWon(home.currentIncome)}원 기준으로 자동 결정 (총급여 {fmtWon(budget.taxPrep?.policy.pension?.lowIncomeMax ?? 5500)}원 이하{" "}
-              {budget.taxPrep?.policy.pension?.rateLowPct ?? 16.5}%, 초과 {budget.taxPrep?.policy.pension?.ratePct ?? 13.2}%)
+              총급여 {fmtWon(budget.taxPrep?.policy.pension?.lowIncomeMax ?? 5500)}원 이하 {budget.taxPrep?.policy.pension?.rateLowPct ?? 16.5}%, 초과{" "}
+              {budget.taxPrep?.policy.pension?.ratePct ?? 13.2}%
             </p>
           </div>
         </div>
-        <div className="field" style={{ maxWidth: 420 }}>
-          <label>연말정산 환급은 어디에 넣나요?</label>
-          <select value={budget.refundTo === "house" ? "house" : "retirement"} onChange={(e) => setBudget({ refundTo: e.target.value as "retirement" | "house" })}>
-            <option value="retirement">연금저축 등 노후 자금 (집 자금에 안 더함)</option>
-            <option value="house">집 마련 자금 (월로 나눠 더함)</option>
-          </select>
-          <Uses where={["집 마련 월 저축액", "개요 집 마련 예상 경로", "내 집 마련 '더 모을 돈'"]} />
+        <div className="field-row">
+          <div className="field">
+            <label>연말정산 환급은</label>
+            <select value={refundTo} onChange={(e) => setBudget({ refundTo: e.target.value as NonNullable<BudgetData["refundTo"]> })}>
+              <option value="pension">연금 납입에 보탬 (목표에 포함)</option>
+              <option value="retirement">노후 자금에 따로 넣음</option>
+              <option value="house">집 마련 자금에 더함</option>
+            </select>
+          </div>
+          <div className="field">
+            <label>환급 예상액 기준</label>
+            <select value={budget.refundBasis ?? "pension"} onChange={(e) => setBudget({ refundBasis: e.target.value as NonNullable<BudgetData["refundBasis"]> })}>
+              <option value="pension">연금 세액공제분만 (가장 확실)</option>
+              <option value="estimate">연말정산 탭 추정 합계</option>
+              <option value="manual">직접 입력</option>
+            </select>
+            {budget.refundBasis === "manual" && (
+              <MoneyInput value={budget.refundManual ?? 0} onChange={(v) => setBudget({ refundManual: v })} />
+            )}
+          </div>
         </div>
         <div className="result-line">
-          <span className="k">집 마련 월 저축액 (저축 가능액 − 연금 납입{budget.refundTo === "house" ? " + 환급" : ""})</span>
-          <span className="v">{fmtWon(monthlyHouseSavings({ ...budget, pensionTaxCreditRate: pensionRate }))}원</span>
+          <span className="k">환급 예상액</span>
+          <span className="v">{fmtWon(refund)}원/년</span>
         </div>
-        <p className="note">올해 실제로 납입한 금액은 연말정산 탭에서 입력해 (올해 누적값이라 해가 바뀌면 0부터 시작).</p>
+        {refundTo === "pension" && (
+          <div className="result-line">
+            <span className="k">월급에서 낼 연금 (목표 − 환급)</span>
+            <span className="v">
+              {fmtWon(salaryPension)}원/년 · 월 {fmtWon(salaryPension / 12)}원
+            </span>
+          </div>
+        )}
+        <div className="result-line total">
+          <span className="k">집 마련 월 저축액</span>
+          <span className="v">{fmtWon(monthlyHouseSavings(budget))}원</span>
+        </div>
+        <p className="note">
+          환급은 다음 해 2월쯤 들어와. 확실하지 않으면 '연금 세액공제분만'이나 낮게 직접 입력해 보수적으로 잡아줘. 올해 실제 납입액은 연말정산 탭에서.
+        </p>
       </div>
 
       <SectionTitle>집·주거</SectionTitle>
@@ -180,7 +210,7 @@ export default function InfoPanel({ budget, onBudgetChange, home, onHomeChange, 
             </div>
           )}
         </div>
-        <p className="note">목표 집값은 '내 집 마련' 탭 비교표의 '목표로' 버튼으로도 바꿀 수 있어 (같은 값).</p>
+        <p className="note">내 집 마련 비교표의 '목표로'로도 바꿀 수 있어</p>
       </div>
 
       <SectionTitle>주요 날짜</SectionTitle>

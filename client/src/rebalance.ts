@@ -106,11 +106,11 @@ export function computeRebalance(
   const sellLabel = sellCategory === "risk" ? "위험" : "안전";
   const blockedSkipped = buyCategory === "risk" ? accountList.filter((a) => riskAccess[a] === "blocked" && scope.some((r) => r.account === a && r.category === "safe" && r.amount > 0)) : [];
   if (blockedSkipped.length > 0) {
-    result.notes.push(`${blockedSkipped.join(", ")}: 위험자산 편입 불가로 설정돼 있어서 위험자산을 사는 거래에서 제외했어.`);
+    result.notes.push(`${blockedSkipped.join(", ")}: 위험자산 편입 불가라 매수에서 제외.`);
   }
   const skipped = accountList.filter((a) => !blockedSkipped.includes(a) && !plans.some((p) => p.account === a) && scope.some((r) => r.account === a && r.category === sellCategory && r.amount > 0 && r.rebalanceRule !== "hold"));
   if (skipped.length > 0) {
-    result.notes.push(`${skipped.join(", ")}: 같은 계좌 안에 사 둘 상품이 없거나 '매매 안 함'으로 묶여 있어 제외했어 (계좌 밖으로 옮기려면 출금이 필요해).`);
+    result.notes.push(`${skipped.join(", ")}: 계좌 안에 살 상품이 없거나 '매매 안 함'이라 제외.`);
   }
 
   const EPS = 1e-9;
@@ -143,7 +143,7 @@ export function computeRebalance(
     });
     let proceeds = sells.reduce((sum, t) => sum + t.amount, 0);
     if (proceeds <= EPS) {
-      result.notes.push(`${plan.account}: 팔아야 할 금액이 1주 가격보다 작아서 이 계좌는 거래를 건너뛰었어.`);
+      result.notes.push(`${plan.account}: 팔 금액이 1주 가격보다 작아서 건너뜀.`);
       continue;
     }
 
@@ -173,7 +173,7 @@ export function computeRebalance(
       }
     }
     if (leftover * 10000 >= 1) {
-      result.notes.push(`${plan.account}: 1주 단위로 맞추다 보니 ${won(leftover)}원은 쓰지 못하고 매도 대금으로 계좌에 남아.`);
+      result.notes.push(`${plan.account}: 1주 단위라 ${won(leftover)}원은 예수금으로 남음.`);
     }
 
     for (const t of sells) {
@@ -185,7 +185,7 @@ export function computeRebalance(
       result.trades.push({ rowId: t.r.id, account: plan.account, item: t.r.item, action: "buy", amount: t.amount, shares: t.shares, unitPrice: priceOf(t.r), taxAdvantaged });
     }
     if (!taxAdvantaged) {
-      result.notes.push(`${plan.account}는 일반 과세 계좌라 ${sellLabel}자산을 팔면 양도소득세·배당세가 생길 수 있어.`);
+      result.notes.push(`${plan.account}는 일반 과세 계좌라 ${sellLabel}자산 매도 시 세금이 생길 수 있어.`);
     }
     sumSells += sells.reduce((sum, t) => sum + t.amount, 0);
     sumBuys += buys.reduce((sum, t) => sum + t.amount, 0);
@@ -251,11 +251,11 @@ export function computeRebalance(
           left = 0;
         }
         if (spent <= EPS) {
-          result.notes.push(`${dest.a}로 옮길 금액(${won(x)}원)이 1주 가격보다 작아서 계좌 간 이동은 하지 않았어.`);
+          result.notes.push(`${dest.a}로 옮길 ${won(x)}원이 1주 가격보다 작아서 이동 안 함.`);
           break;
         }
         if (left * 10000 >= 1) {
-          result.notes.push(`${dest.a}: 1주 단위로 맞추다 보니 옮겨 온 돈 중 ${won(left)}원은 쓰지 못하고 예수금으로 남아.`);
+          result.notes.push(`${dest.a}: 1주 단위라 옮겨 온 돈 중 ${won(left)}원은 예수금으로 남음.`);
         }
 
         result.trades.push({ rowId: src.r.id, account: src.r.account, item: src.r.item, action: "sell", amount: x, shares: sellShares, unitPrice: priceOf(src.r), taxAdvantaged: false, crossAccount: true });
@@ -266,7 +266,7 @@ export function computeRebalance(
         const key = `${src.r.account}\u0000${dest.a}`;
         moved.set(key, (moved.get(key) ?? 0) + x);
         if (!taxNoted.has(src.r.account) && !result.notes.some((n) => n.startsWith(`${src.r.account}는 일반 과세`))) {
-          result.notes.push(`${src.r.account}는 일반 과세 계좌라 ${sellLabel}자산을 팔면 양도소득세·배당세가 생길 수 있어.`);
+          result.notes.push(`${src.r.account}는 일반 과세 계좌라 ${sellLabel}자산 매도 시 세금이 생길 수 있어.`);
         }
         taxNoted.add(src.r.account);
         limitLeft.set(dest.a, (limitLeft.get(dest.a) ?? 0) - x);
@@ -288,7 +288,7 @@ export function computeRebalance(
   if (remaining * 10000 > 1000) {
     const buyLabel = buyCategory === "risk" ? "위험자산" : "안전자산";
     result.notes.push(
-      `계좌 안 대체 상품이 부족하거나, 1주 단위로 맞추느라, 또는 계좌 간 이동 한도(입금 가능 금액)가 없어서 ${won(remaining)}원은 못 맞췄어. 남는 부족분은 신규 납입금으로 ${buyLabel}을 추가 매수하거나, 입금 가능 금액을 늘려야 해.`
+      `${won(remaining)}원은 못 맞췄어 (살 상품·1주 단위·입금 한도 제약). 새 돈으로 ${buyLabel}을 사거나 입금 가능 금액을 늘려줘.`
     );
   }
   return result;

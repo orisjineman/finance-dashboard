@@ -31,7 +31,7 @@ export default function LoanPanel({ rows, loan, onChange, groups, home, onHomeCh
         onEditInfo={onEditInfo}
       />
       <p className="note">
-        지금 기준으로 가용자산이 필요 자기자금(목표 집값 × (1 − LTV) + 부대비용)에 얼마나 찼는지, 이대로 모으면 언제 닿는지는 개요의 '집 마련 자금' 카드에서 볼 수 있어.
+        지금 진행 상황과 도달 시점은 개요의 '집 마련 자금'에서 봐.
       </p>
     </section>
   );

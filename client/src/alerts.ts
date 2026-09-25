@@ -31,11 +31,11 @@ export function computeAlerts(data: DashboardData, now: Date = new Date()): Aler
   // 1) 스냅샷 기록이 오래됐는지
   const latest = [...data.history].sort((a, b) => b.date.localeCompare(a.date))[0];
   if (!latest) {
-    out.push({ id: "snapshot-none", level: "info", text: "히스토리 기록이 아직 없어. 자산 스냅샷 탭에서 첫 기록을 남기면 수익률과 그래프가 생겨.", tab: "snapshot" });
+    out.push({ id: "snapshot-none", level: "info", text: "히스토리 기록이 없어. 스냅샷 탭에서 첫 기록을 남겨줘.", tab: "snapshot" });
   } else {
     const age = daysBetween(latest.date, now);
     if (age !== null && age >= SNAPSHOT_STALE_DAYS) {
-      out.push({ id: "snapshot-stale", level: "warn", text: `마지막 스냅샷 기록이 ${age}일 전이야. 잔액을 갱신하고 새 기록을 남겨줘.`, tab: "snapshot" });
+      out.push({ id: "snapshot-stale", level: "warn", text: `마지막 스냅샷 기록이 ${age}일 전이야. 잔액 갱신 후 기록해줘.`, tab: "snapshot" });
     }
   }
 
@@ -48,7 +48,7 @@ export function computeAlerts(data: DashboardData, now: Date = new Date()): Aler
       out.push({
         id: `rebalance-${g.id}`,
         level: "warn",
-        text: `${g.name}: 위험 비중 ${r.riskPct.toFixed(1)}%가 목표 ${target.toFixed(1)}%에서 ${Math.abs(r.driftPct).toFixed(1)}%p 벗어났어 (허용 ±${data.rebalance.tolerancePct}%p).`,
+        text: `${g.name}: 위험 ${r.riskPct.toFixed(1)}% (목표 ${target.toFixed(1)}%, ${Math.abs(r.driftPct).toFixed(1)}%p 벗어남)`,
         tab: "rebalance",
       });
     }
@@ -58,7 +58,7 @@ export function computeAlerts(data: DashboardData, now: Date = new Date()): Aler
   if (data.strategy.isaDutyEndDate) {
     const left = daysBetween(data.strategy.isaDutyEndDate, now);
     if (left !== null && left <= 0 && left >= -ISA_DUTY_WARN_DAYS) {
-      out.push({ id: "isa-duty", level: "info", text: `ISA 의무가입 종료까지 D-${-left}일 남았어.`, tab: "overview" });
+      out.push({ id: "isa-duty", level: "info", text: `ISA 의무가입 종료 D-${-left}`, tab: "overview" });
     }
   }
 
@@ -70,7 +70,7 @@ export function computeAlerts(data: DashboardData, now: Date = new Date()): Aler
     if (age !== null && age >= PRICE_STALE_DAYS) stale.add(r.item);
   }
   if (stale.size > 0) {
-    out.push({ id: "price-stale", level: "info", text: `1주 가격 기준일이 ${PRICE_STALE_DAYS}일 넘게 지난 상품이 ${stale.size}개 있어. 거래 전에 가격을 다시 불러와줘.`, tab: "rebalance" });
+    out.push({ id: "price-stale", level: "info", text: `1주 가격이 ${PRICE_STALE_DAYS}일 넘은 상품 ${stale.size}개. 거래 전에 다시 불러와줘.`, tab: "rebalance" });
   }
 
   // 5) 연말이 가까운데 세액공제 한도가 남았는지
@@ -79,7 +79,7 @@ export function computeAlerts(data: DashboardData, now: Date = new Date()): Aler
     out.push({
       id: "pension-limit",
       level: "info",
-      text: `연말까지 ${pension.daysToYearEnd}일 남았고 연금저축·IRP 세액공제 한도가 ${Math.round(pension.remaining * 10000).toLocaleString("ko-KR")}원 남았어.`,
+      text: `연금 세액공제 한도 ${Math.round(pension.remaining * 10000).toLocaleString("ko-KR")}원 남음 (연말까지 ${pension.daysToYearEnd}일)`,
       tab: "tax",
     });
   }
@@ -88,7 +88,7 @@ export function computeAlerts(data: DashboardData, now: Date = new Date()): Aler
   const home = data.home;
   if (home) {
     if (policyStale(home.policy.updatedAt, now)) {
-      out.push({ id: "home-policy-stale", level: "info", text: `대출 정책 숫자를 마지막으로 확인한 날(${home.policy.updatedAt})이 1년 넘게 지났어. 내 집 마련 탭에서 다시 확인해줘.`, tab: "loan" });
+      out.push({ id: "home-policy-stale", level: "info", text: `대출 정책 숫자 확인 1년 경과 (${home.policy.updatedAt})`, tab: "loan" });
     }
     const d = data.strategy.housePurchaseDate ? new Date(`${data.strategy.housePurchaseDate}T00:00:00`) : null;
     if (home.currentIncome > 0 && d && !Number.isNaN(d.getTime())) {
@@ -98,7 +98,7 @@ export function computeAlerts(data: DashboardData, now: Date = new Date()): Aler
         out.push({
           id: "home-income",
           level: "warn",
-          text: `연봉 상승률 ${raise}%(내 정보 탭)로 보면 ${d.getFullYear()}년 매수 때 연봉이 보금자리론 소득 기준(${Math.round(home.policy.bogeumjari.maxIncome * 10000).toLocaleString("ko-KR")}원)을 넘어. 집을 먼저 사고 이직하는 순서를 고려해줘.`,
+          text: `${d.getFullYear()}년 매수 때 연봉이 보금자리론 소득 기준(${Math.round(home.policy.bogeumjari.maxIncome * 10000).toLocaleString("ko-KR")}원)을 넘어 (상승률 ${raise}%). 집 먼저, 이직은 나중에.`,
           tab: "loan",
         });
       }
@@ -109,7 +109,7 @@ export function computeAlerts(data: DashboardData, now: Date = new Date()): Aler
   const tp = data.budget.taxPrep;
   if (tp) {
     if (policyStale(tp.policy.updatedAt, now)) {
-      out.push({ id: "tax-policy-stale", level: "info", text: `연말정산 공제 기준 숫자를 마지막으로 확인한 날(${tp.policy.updatedAt})이 1년 넘게 지났어. 연말정산 탭에서 다시 확인해줘.`, tab: "tax" });
+      out.push({ id: "tax-policy-stale", level: "info", text: `연말정산 공제 기준 확인 1년 경과 (${tp.policy.updatedAt})`, tab: "tax" });
     }
     const income = data.home?.currentIncome ?? 0;
     const sub = computeSubscription(thisYearValues(tp, now), income);
@@ -118,7 +118,7 @@ export function computeAlerts(data: DashboardData, now: Date = new Date()): Aler
       out.push({
         id: "tax-subscription",
         level: "info",
-        text: `주택청약 소득공제 한도까지 ${Math.round(sub.remaining * 10000).toLocaleString("ko-KR")}원 더 넣을 수 있어 (연말까지 ${pension.daysToYearEnd}일).`,
+        text: `주택청약 공제 한도 ${Math.round(sub.remaining * 10000).toLocaleString("ko-KR")}원 남음 (연말까지 ${pension.daysToYearEnd}일)`,
         tab: "tax",
       });
     }
@@ -131,15 +131,15 @@ export function computeAlerts(data: DashboardData, now: Date = new Date()): Aler
     const price = `${(row.price / 10000).toFixed(row.price % 1000 === 0 ? 1 : 2)}억`;
     const ratio40 = `${(row.ratio40 * 100).toFixed(1)}%`;
     if (row.judge40 === "heavy") {
-      out.push({ id: "home-target-heavy", level: "warn", text: `목표 집값 ${price}은 40년 만기로도 월 상환이 세후 월급의 ${ratio40}라 부담이야.`, tab: "loan" });
+      out.push({ id: "home-target-heavy", level: "warn", text: `목표 ${price}: 40년 월 상환이 세후 월급의 ${ratio40} (부담)`, tab: "loan" });
     } else if (row.judge40 === "tight") {
-      out.push({ id: "home-target-tight", level: "info", text: `목표 집값 ${price}은 40년 만기 기준 월 상환이 세후 월급의 ${ratio40}라 빠듯해.`, tab: "loan" });
+      out.push({ id: "home-target-tight", level: "info", text: `목표 ${price}: 40년 월 상환이 세후 월급의 ${ratio40} (빠듯)`, tab: "loan" });
     }
     if (row.overLtv) {
-      out.push({ id: "home-target-ltv", level: "warn", text: `목표 집값 ${price}은 필요 대출이 집값의 LTV 한도를 넘어. 자기자금을 더 모으거나 집값을 낮춰야 해.`, tab: "loan" });
+      out.push({ id: "home-target-ltv", level: "warn", text: `목표 ${price}: 필요 대출이 LTV 한도 초과`, tab: "loan" });
     }
     if (!row.bogeumjari.ok) {
-      out.push({ id: "home-target-bogeumjari", level: "info", text: `목표 집값 ${price}은 보금자리론 조건에 안 맞아 (${row.bogeumjari.reasons.join(", ")}).`, tab: "loan" });
+      out.push({ id: "home-target-bogeumjari", level: "info", text: `목표 ${price}: 보금자리론 불가 (${row.bogeumjari.reasons.join(", ")})`, tab: "loan" });
     }
   }
 

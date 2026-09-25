@@ -62,7 +62,7 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
   const housingLiquid = computeHousingLiquid(rows);
   const equityNeeded = computeLoanEquity(loan.price, home.policy.bogeumjari.ltv, home.closingCost);
 
-  const { pensionAnnualContribution, pensionTaxCreditRate } = budget;
+  const { pensionAnnualContribution } = budget;
   const now = new Date();
   const withReturns = !!home.projectWithReturns;
   // 집 마련 예상 경로 (내 집 마련 탭의 '더 모을 돈'과 같은 계산). 수익률 반영은 토글로 고른다.
@@ -271,7 +271,7 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
               vLines={purchase ? [{ label: "매수 예정일", t: purchaseT, color: "var(--ink-soft)" }] : []}
             />
             <p className="note" style={{ marginTop: 6 }}>
-              매달 {fmtWon(plan.monthly)}원 모으는 가정 · {withReturns ? "기대수익률 반영(보증금·통장 0%)" : "수익률 없이(보수적)"}. 부대비용 {fmtWon(home.closingCost)}원 포함.
+              월 {fmtWon(plan.monthly)}원 · {withReturns ? "기대수익률 반영" : "수익률 없이"} · 부대비용 {fmtWon(home.closingCost)}원 포함
             </p>
           </div>
         )}
@@ -296,11 +296,11 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
 
         {pensionAnnualContribution > 0 && (
           <p className="note" style={{ marginTop: 12 }}>
-            연금저축·IRP {fmtWon(pensionAnnualContribution)}원/년 납입 중 (환급 {fmtWon((pensionAnnualContribution * (pensionTaxCreditRate || 0)) / 100)}원/년은{" "}
-            {budget.refundTo === "house" ? "집 자금에 더함" : "노후 자금으로"})
-            {pensionDelayMonths !== null && pensionDelayMonths > 0 ? ` → 최소 자기자금 도달이 ${pensionDelayMonths}개월 늦어져.` : "."}{" "}
+            연금 {fmtWon(pensionAnnualContribution)}원/년 납입
+            {pensionDelayMonths !== null && pensionDelayMonths > 0 ? ` → 최소 자기자금 도달 ${pensionDelayMonths}개월 늦어짐` : ""} · 환급은{" "}
+            {budget.refundTo === "house" ? "집 자금에" : budget.refundTo === "retirement" ? "노후 자금에" : "연금 납입에"}{" "}
             <button className="link-btn" onClick={() => onNavigate("budget")}>
-              내 정보에서 수정
+              수정
             </button>
           </p>
         )}

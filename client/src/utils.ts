@@ -41,13 +41,24 @@ export function computeLoanEquity(price: number, ltv: number, closingCost = 0): 
   return price * (1 - Math.min(1, Math.max(0, ltv || 0))) + Math.max(0, closingCost);
 }
 
-// 집 마련에 매달 모을 수 있는 돈 = 월 저축 가능액 − 연금 납입(월).
-// 연금 세액공제 환급은 '환급 사용처'가 집 마련(house)일 때만 더한다 (기본은 연금저축 등 노후 자금으로 넣는다고 본다).
+// 연간 연말정산 환급 예상액 (만원). 저장된 계산값이 없으면 연금 세액공제분(납입액 × 공제율)으로 본다.
+export function expectedRefund(budget: BudgetData): number {
+  if (budget.refundExpected !== undefined) return Math.max(0, budget.refundExpected);
+  return ((budget.pensionAnnualContribution || 0) * (budget.pensionTaxCreditRate || 0)) / 100;
+}
+
+// 연금 연간 납입액 중 월급에서 내는 몫 (만원/년). 환급을 연금에 보태면 그만큼 월급에서 덜 낸다.
+export function pensionFromSalary(budget: BudgetData): number {
+  const pension = budget.pensionAnnualContribution || 0;
+  const offset = (budget.refundTo ?? "pension") === "pension" ? Math.min(pension, expectedRefund(budget)) : 0;
+  return pension - offset;
+}
+
+// 집 마련에 매달 모을 수 있는 돈 = 월 저축 가능액 − 월급에서 내는 연금(월) (+ 환급을 집 자금에 쓰면 환급/12)
 export function monthlyHouseSavings(budget: BudgetData): number {
   const savings = budget.monthlyNetIncome - budget.expenseCategories.reduce((sum, c) => sum + c.amount, 0);
-  const pension = budget.pensionAnnualContribution || 0;
-  const refund = budget.refundTo === "house" ? (pension * (budget.pensionTaxCreditRate || 0)) / 100 / 12 : 0;
-  return savings - pension / 12 + refund;
+  const toHouse = budget.refundTo === "house" ? expectedRefund(budget) / 12 : 0;
+  return savings - pensionFromSalary(budget) / 12 + toHouse;
 }
 
 export interface CurrentReturn {
@@ -103,9 +114,8 @@ export function uniqueAccounts(rows: AssetRow[]): string[] {
   return Array.from(new Set(rows.map((r) => r.account).filter(Boolean))).sort();
 }
 
-// 연도별 시뮬레이션의 연간 신규 적립액(자동) = 월 저축 가능액 × 12 + 연금 세액공제 환급. 월급을 쓰고 남는 돈을 모두 투자한다고 본다.
+// 연도별 시뮬레이션의 연간 신규 적립액(자동) = 월 저축 가능액 × 12 + 연말정산 환급 예상액. 월급을 쓰고 남는 돈을 모두 투자한다고 본다.
 export function autoAnnualContribution(budget: BudgetData): number {
   const savings = budget.monthlyNetIncome - budget.expenseCategories.reduce((sum, c) => sum + c.amount, 0);
-  const refund = ((budget.pensionAnnualContribution || 0) * (budget.pensionTaxCreditRate || 0)) / 100;
-  return Math.max(0, savings * 12 + refund);
+  return Math.max(0, savings * 12 + expectedRefund(budget));
 }

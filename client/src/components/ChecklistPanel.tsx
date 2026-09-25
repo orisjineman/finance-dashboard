@@ -54,7 +54,7 @@ export default function ChecklistPanel({ items, onChange }: Props) {
           + 항목 추가
         </button>
       </div>
-      <p className="note">체크 상태는 로컬 파일에 저장돼서 브라우저를 지워도 유지돼.</p>
+      <p className="note">체크 상태는 이 컴퓨터에 저장돼.</p>
     </section>
   );
 }

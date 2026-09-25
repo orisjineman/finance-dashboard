@@ -133,7 +133,7 @@ export default function HomeSimulator({ rows, groups, home, onChange, loan, onLo
               <>
                 <MoneyInput value={Math.round(assets.extra)} readOnly />
                 <p className="note" style={{ margin: "4px 0 0" }}>
-                  월 {fmtWon(monthlySavings)}원(연금 납입분 제외{budget.refundTo === "house" ? ", 환급 포함" : ""}) × {monthsLeft}달{home.projectWithReturns ? " + 기대수익" : ""}. 스냅샷 잔액이 늘면 남은 달이 줄어서 이중으로 세지 않아.
+                  월 {fmtWon(monthlySavings)}원 × {monthsLeft}달{home.projectWithReturns ? " + 기대수익" : ""}
                 </p>
                 <label className="toggle" htmlFor="home-returns" style={{ marginTop: 6 }}>
                   <input id="home-returns" type="checkbox" checked={!!home.projectWithReturns} onChange={(e) => set("projectWithReturns", e.target.checked)} />
@@ -177,12 +177,11 @@ export default function HomeSimulator({ rows, groups, home, onChange, loan, onLo
         </div>
         {home.currentIncome > 0 && budget.monthlyNetIncome > 0 && (
           <p className="note" style={{ marginTop: 0 }}>
-            참고: 총보수 {fmtWon(home.currentIncome)}원을 비율표로 환산한 지금 세후 월급은 약 {fmtWon(estNowMonthly)}원이고, 내 정보 탭의 월 실수령액은 {fmtWon(budget.monthlyNetIncome)}원이야.
-            총보수에는 상여·과세 복지가 들어가서 매달 받는 돈보다 클 수 있어. 차이가 크면 비율표나 총보수를 확인해줘.
+            추정 세후 월급 {fmtWon(estNowMonthly)}원 · 실수령액 {fmtWon(budget.monthlyNetIncome)}원 (차이가 크면 비율표 확인)
           </p>
         )}
         <p className="note" style={{ marginTop: 0 }}>
-          실투입금 = 기준 자산 {fmtWon(assets.base)}원{home.includeDeposit ? ` + 보증금 ${fmtWon(assets.deposit)}원` : ""} + 더 모을 돈 {fmtWon(assets.extra)}원 − 부대비용 {fmtWon(home.closingCost)}원. 연 총보수·상승률·매수 예정일·금리·목표 집값은 '내 정보' 탭에서 고쳐.
+          실투입금 = 기준 {fmtWon(assets.base)}{home.includeDeposit ? ` + 보증금 ${fmtWon(assets.deposit)}` : ""} + 더 모을 돈 {fmtWon(assets.extra)} − 부대비용 {fmtWon(home.closingCost)}원
         </p>
       </div>
 
@@ -270,8 +269,7 @@ export default function HomeSimulator({ rows, groups, home, onChange, loan, onLo
           </button>
         </div>
         <p className="note">
-          판정 기준: 세후 월급 대비 월 상환액 {Math.round(home.policy.judge.okMax * 100)}% 이하 적정, {Math.round(home.policy.judge.tightMax * 100)}% 이하 빠듯, 그 이상 부담. 보금자리론은 매수 시점 예상 총보수로
-          판정하고, 필요 대출이 집값의 {Math.round(home.policy.bogeumjari.ltv * 100)}%를 넘으면 LTV 초과로 표시해. '목표' 표시가 붙은 집값을 개요의 집 마련 진행·시뮬레이션·알림이 기준으로 써. 다른 집값의 '목표로'를 누르면 바뀌어.
+          세후 월급 대비 월 상환 {Math.round(home.policy.judge.okMax * 100)}% 이하 적정 · {Math.round(home.policy.judge.tightMax * 100)}% 이하 빠듯 · 초과 부담. 보금자리론은 매수 시점 총보수로 판정.
         </p>
       </div>
 
@@ -320,20 +318,20 @@ export default function HomeSimulator({ rows, groups, home, onChange, loan, onLo
       <SectionTitle>메모</SectionTitle>
       <div className="card">
         <ul className="plain">
-          <li>40년 만기는 월 상환은 줄지만 총이자가 늘어나. 이직 후 연봉이 오르면 오른 만큼 조기상환에 쓰는 걸 전제로 봐줘.</li>
+          <li>40년 만기: 월 상환은 줄지만 총이자가 늘어. 연봉이 오르면 조기상환 전제로 봐줘.</li>
           <li>
             같은 대출을 30년과 40년으로 갚을 때 총이자 차이는 대출 1억원당 약{" "}
             {fmtWon(totalInterest(10000, loan.ratePct, 40) - totalInterest(10000, loan.ratePct, 30))}원이야 (금리 {loan.ratePct}% 기준).
           </li>
-          <li>세후 월급은 연봉 구간별 비율표로 추정한 값이라 실제와 다를 수 있어. 정확한 한도는 매수 1년 전 은행·주택금융공사 상담으로 확인해줘.</li>
+          <li>세후 월급은 비율표 추정치야. 정확한 한도는 매수 1년 전 은행·HF 상담으로 확인해.</li>
         </ul>
       </div>
 
       <SectionTitle>정책 숫자 (설정)</SectionTitle>
       <div className="card">
         <p className="note" style={{ marginTop: 0, color: stale ? "var(--risk)" : undefined }}>
-          마지막 확인일 {home.policy.updatedAt}
-          {stale ? " · 1년이 넘었어. 정책 숫자를 다시 확인해줘." : " · 대출 상품 조건은 자주 바뀌니 매수 전에 꼭 다시 확인해줘."}
+          마지막 확인 {home.policy.updatedAt}
+          {stale ? " · 1년 넘음, 다시 확인해줘" : " · 매수 전에 다시 확인"}
         </p>
         <div className="field-row">
           <div className="field">

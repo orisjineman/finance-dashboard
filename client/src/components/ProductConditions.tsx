@@ -52,9 +52,8 @@ export default function ProductConditions({ rows, tradableRows, onRowsChange }: 
       <SectionTitle>상품별 거래 조건 (선택)</SectionTitle>
       <div className="card">
         <p className="note" style={{ marginTop: 0 }}>
-          <strong>1주 가격</strong>을 넣으면 정수 주수로 계산하고, 비워두면 금액 단위(소수점 거래, RP·예수금 등)로 계산해. 가격은 시세에 따라 바뀌니 거래 직전에 다시 확인해줘. 같은 상품이 여러 계좌에 있으면 한 번만 입력해도 모든 계좌에 적용돼.
-          <br />
-          <strong>매매 안 함</strong>은 만기까지 들고 갈 채권처럼 팔지도 더 사지도 않을 상품에, <strong>매수 우선</strong>은 새로 살 때 그 상품에만 몰아서 사고 싶을 때(예: S&P500만 살 때) 지정해.
+          <strong>1주 가격</strong>이 있으면 정수 주수, 없으면 금액 단위로 계산 (같은 상품은 한 번만 입력).{" "}
+          <strong>매매 안 함</strong>: 팔지도 사지도 않음 · <strong>매수 우선</strong>: 새로 살 때 이 상품에만.
         </p>
         <QuoteBar tickers={tickers} onResults={applyQuotes} />
         <div className="table-scroll">
@@ -121,7 +120,7 @@ export default function ProductConditions({ rows, tradableRows, onRowsChange }: 
         </div>
         <SectionTitle>일반 과세 계좌 보유분의 매입 원금 (선택)</SectionTitle>
         <p className="note" style={{ marginTop: 0 }}>
-          일반 과세 계좌(ISA·IRP·연금저축이 아닌 계좌)에서 팔 때 예상 세금을 계산하려면 그 보유분을 얼마에 샀는지(매입 원금)가 필요해. 증권사 앱의 "매입금액"을 넣어줘. 비워두면 세금은 계산하지 않고 '모름'으로 표시돼.
+          일반 과세 계좌 매도 세금 추정용. 증권사 앱의 '매입금액'을 넣어줘 (비우면 세금 계산 안 함).
         </p>
         <div className="table-scroll">
           <table className="grid" style={{ minWidth: 560 }}>

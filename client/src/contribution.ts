@@ -83,14 +83,14 @@ export function computeContribution(
   const spendOn = (category: "risk" | "safe", want: number) => {
     if (want <= EPS) return;
     if (category === "risk" && riskAccess[account] === "blocked") {
-      plan.notes.push(`${account}는 위험자산 편입 불가로 설정돼 있어서 위험자산 몫 ${won(want)}원을 사지 못했어. 다른 계좌를 골라줘.`);
+      plan.notes.push(`${account}는 위험자산 편입 불가라 ${won(want)}원을 못 샀어. 다른 계좌를 골라줘.`);
       return;
     }
     const cands = inAccount.filter((r) => r.category === category && r.rebalanceRule !== "hold");
     const preferred = cands.filter((r) => r.rebalanceRule === "preferred");
     const targets = preferred.length > 0 ? preferred : cands;
     if (targets.length === 0) {
-      plan.notes.push(`${account}에 살 수 있는 ${category === "risk" ? "위험" : "안전"}자산 상품이 없어서 ${won(want)}원은 예수금으로 남아 (상품별 조건에서 '매매 안 함'을 확인해줘).`);
+      plan.notes.push(`${account}에 살 ${category === "risk" ? "위험" : "안전"}자산 상품이 없어서 ${won(want)}원은 예수금으로 남음.`);
       return;
     }
     const base = targets.reduce((s, r) => s + r.amount, 0);
@@ -107,7 +107,7 @@ export function computeContribution(
     const leftover = want - parts.reduce((s, p) => s + p.amount, 0);
     const free = parts.filter((p) => p.shares === undefined);
     if (leftover > EPS && free.length > 0) free.forEach((p) => (p.amount += leftover / free.length));
-    else if (leftover * 10000 >= 1) plan.notes.push(`1주 단위로 맞추다 보니 ${won(leftover)}원은 사지 못하고 예수금으로 남아.`);
+    else if (leftover * 10000 >= 1) plan.notes.push(`1주 단위라 ${won(leftover)}원은 예수금으로 남음.`);
     for (const p of parts) {
       if (p.amount <= EPS) continue;
       plan.buys.push({ rowId: p.r.id, item: p.r.item, category, amount: p.amount, shares: p.shares, unitPrice: p.price });

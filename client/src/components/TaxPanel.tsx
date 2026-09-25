@@ -55,9 +55,8 @@ export default function TaxPanel({ budget, onChange, grossIncome, onEditInfo }: 
         <InfoValue label="총급여 (내 정보의 연 총보수)" onEdit={onEditInfo}>{grossIncome > 0 ? won(grossIncome) : "입력 필요"}</InfoValue>
         <Line k="지금까지 기준 줄어드는 세금 (추정 합계)" v={won(r.totalTaxSaved)} total />
         <p className="note">
-          환급액 전체가 아니라 연금·월세·청약·카드 네 항목으로 줄어드는 세금만 추정한 값이야. 정확한 환급액은 11월쯤 홈택스 '연말정산 미리보기'에서 확인해줘. 올해 입력값은
-          해가 바뀌면 자동으로 0부터 다시 시작해.
-          {grossIncome <= 0 && " 총급여를 모르면 월세·청약·카드 공제를 판정할 수 없어서 '내 정보' 탭에서 연 총보수를 먼저 넣어줘."}
+          네 항목으로 줄어드는 세금만 추정한 값이야. 정확한 환급액은 11월 홈택스 '연말정산 미리보기'에서 확인해.
+          {grossIncome <= 0 && " 내 정보에서 연 총보수를 먼저 넣어줘."}
         </p>
 
         <h3 className="sub-title">연금저축·IRP 세액공제</h3>
@@ -106,9 +105,7 @@ export default function TaxPanel({ budget, onChange, grossIncome, onEditInfo }: 
         ) : (
           grossIncome > 0 && <p className="note">총급여가 {won(p.rent.incomeMax)}를 넘어서 월세 세액공제 대상이 아니야.</p>
         )}
-        <p className="note">
-          무주택 세대주(요건을 갖춘 세대원 포함)이고, 임대차계약서 주소로 전입신고가 돼 있어야 해. 계좌이체 내역을 챙겨두고, 함께 사는 가족이 있으면 누가 세대주인지 확인해줘.
-        </p>
+        <p className="note">무주택 세대주 + 계약서 주소 전입신고 필요. 이체 내역을 챙겨둬.</p>
 
         <h3 className="sub-title">주택청약 소득공제</h3>
         <div className="field" style={{ maxWidth: 280 }}>
@@ -150,9 +147,8 @@ export default function TaxPanel({ budget, onChange, grossIncome, onEditInfo }: 
             <Line k="그만큼 줄어드는 세금 (추정)" v={won(r.card.taxSaved)} />
             <p className="note">
               {r.card.toThreshold > 0
-                ? `문턱을 넘기 전 사용액은 공제가 없어서, 문턱까지는 혜택이 좋은 신용카드를 써도 돼. 문턱을 넘은 뒤에는 체크카드·현금영수증 공제율(${p.card.debitRatePct}%)이 신용카드(${p.card.creditRatePct}%)의 두 배야.`
-                : `문턱을 넘었으니 남은 기간은 체크카드·현금영수증(${p.card.debitRatePct}%)이 신용카드(${p.card.creditRatePct}%)보다 공제율이 높아. 한도는 ${won(r.card.limit)}이야.`}{" "}
-              카드사 앱이나 홈택스에서 올해 사용액을 확인해 넣어줘.
+                ? `문턱 전까지는 공제 없음 → 혜택 좋은 신용카드도 OK. 넘은 뒤엔 체크카드(${p.card.debitRatePct}%)가 신용카드(${p.card.creditRatePct}%)보다 유리.`
+                : `문턱 넘음 → 남은 기간은 체크카드(${p.card.debitRatePct}%)가 신용카드(${p.card.creditRatePct}%)보다 유리. 한도 ${won(r.card.limit)}.`}
             </p>
           </>
         )}

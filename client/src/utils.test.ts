@@ -8,6 +8,7 @@ import {
   computeTotals,
   autoAnnualContribution,
   monthlyHouseSavings,
+  pensionFromSalary,
   fmt,
   fmtEok,
   fmtWon,
@@ -88,15 +89,20 @@ describe("합계 계산", () => {
   it("시뮬레이션 자동 적립액은 월 저축 가능액 × 12 + 연금 세액공제 환급", () => {
     const budget = { monthlyNetIncome: 400, annualRaisePct: 0, expenseCategories: [{ id: "a", name: "생활", amount: 150 }], pensionAnnualContribution: 600, pensionTaxCreditRate: 16.5 };
     expect(autoAnnualContribution(budget)).toBeCloseTo(250 * 12 + 99, 9);
+    expect(autoAnnualContribution({ ...budget, refundExpected: 200 })).toBeCloseTo(250 * 12 + 200, 9);
     expect(autoAnnualContribution({ ...budget, monthlyNetIncome: 100, pensionAnnualContribution: 0 })).toBe(0); // 적자면 0
   });
 
   it("집 마련 월 저축액은 연금 납입을 빼고, 환급은 사용처가 집 마련일 때만 더한다", () => {
     const budget = { monthlyNetIncome: 400, annualRaisePct: 0, expenseCategories: [{ id: "a", name: "생활", amount: 150 }], pensionAnnualContribution: 0, pensionTaxCreditRate: 16.5 };
     expect(monthlyHouseSavings(budget)).toBe(250);
-    expect(monthlyHouseSavings({ ...budget, pensionAnnualContribution: 600 })).toBeCloseTo(250 - 50, 9); // 기본: 환급은 노후 자금으로
-    expect(monthlyHouseSavings({ ...budget, pensionAnnualContribution: 600, refundTo: "retirement" })).toBeCloseTo(250 - 50, 9);
-    expect(monthlyHouseSavings({ ...budget, pensionAnnualContribution: 600, refundTo: "house" })).toBeCloseTo(250 - 50 + 8.25, 9);
+    // 연금 600, 공제율 16.5% → 환급 99
+    const b = { ...budget, pensionAnnualContribution: 600 };
+    expect(monthlyHouseSavings(b)).toBeCloseTo(250 - (600 - 99) / 12, 9); // 기본: 환급을 연금에 보탬 → 월급 몫 501
+    expect(monthlyHouseSavings({ ...b, refundTo: "retirement" })).toBeCloseTo(250 - 50, 9); // 환급은 따로 → 월급에서 600 전부
+    expect(monthlyHouseSavings({ ...b, refundTo: "house" })).toBeCloseTo(250 - 50 + 99 / 12, 9);
+    expect(monthlyHouseSavings({ ...b, refundExpected: 800 })).toBeCloseTo(250, 9); // 환급이 납입액보다 크면 월급 몫 0
+    expect(pensionFromSalary({ ...b, refundExpected: 150 })).toBe(450);
   });
 });
 

@@ -40,9 +40,7 @@ export default function GlidePathEditor({ strategy, onChange, onEditInfo }: Prop
         </div>
       </div>
       <p className="note" style={{ marginTop: 0, marginBottom: 12 }}>
-        {yearsLeft === null || todayTarget === null
-          ? "집 매수 예정일을 입력하면 지금 시점의 목표 위험 비중을 계산해줘."
-          : `집 매수까지 약 ${yearsLeft.toFixed(1)}년 남았어. 아래 표의 지점 사이를 직선으로 이어서 계산하면 지금 목표는 위험 ${todayTarget.toFixed(1)}%야.`}
+        {yearsLeft === null || todayTarget === null ? "매수 예정일이 있어야 목표를 계산해." : `매수까지 ${yearsLeft.toFixed(1)}년 · 지금 목표 위험 ${todayTarget.toFixed(1)}%`}
       </p>
       <div className="table-scroll">
 <table className="grid">

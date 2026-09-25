@@ -65,7 +65,7 @@ export default function DataPanel() {
       <SectionTitle>백업과 되돌리기</SectionTitle>
       <div className="card">
         <p className="note" style={{ marginTop: 0 }}>
-          저장할 때마다(10분에 한 번) 바뀌기 전 상태가 자동으로 백업돼. 최근 30개만 남기고, 되돌리기 직전 상태도 백업으로 남아서 되돌린 걸 다시 되돌릴 수 있어.
+          10분마다 자동 백업(최근 30개). 되돌리기 직전 상태도 남아서 다시 되돌릴 수 있어.
         </p>
         <button className="btn" disabled={busy} onClick={() => run(async () => { await createBackup(); await refresh(); }, "백업했어.")}>
           지금 백업
@@ -129,7 +129,7 @@ export default function DataPanel() {
       <SectionTitle>내보내기</SectionTitle>
       <div className="card">
         <p className="note" style={{ marginTop: 0 }}>
-          JSON은 앱 전체 데이터라서 나중에 다시 가져올 수 있어. 엑셀은 자산 스냅샷과 히스토리를 표로 보기 위한 파일이야(가져오기는 안 돼).
+          JSON은 전체 데이터(다시 가져오기 가능), 엑셀은 스냅샷·히스토리 표 보기용.
         </p>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <a className="btn ghost" href="/api/export" download>
@@ -144,13 +144,13 @@ export default function DataPanel() {
       <SectionTitle>가져오기</SectionTitle>
       <div className="card">
         <p className="note" style={{ marginTop: 0 }}>
-          이 앱에서 내보낸 JSON 파일로 전체 데이터를 통째로 바꿔. 바꾸기 직전 상태는 백업으로 남아.
+          내보낸 JSON으로 전체 데이터를 바꿔. 직전 상태는 백업돼.
         </p>
         <input id="import-file" type="file" accept="application/json,.json" onChange={(e) => onPickFile(e.target.files?.[0])} />
         {pendingImport && (
           <div style={{ marginTop: 12 }}>
             <p className="note" style={{ color: "var(--risk)" }}>
-              '{pendingImport.name}'로 현재 데이터를 모두 바꿀까? 되돌리려면 위 백업 목록의 '가져오기 직전'을 복원하면 돼.
+              '{pendingImport.name}'로 전체를 바꿀까? ('가져오기 직전' 백업으로 되돌릴 수 있어)
             </p>
             <button
               className="btn"

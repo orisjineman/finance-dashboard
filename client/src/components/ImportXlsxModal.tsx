@@ -49,7 +49,7 @@ export default function ImportXlsxModal({ onClose, onImport }: Props) {
         {!preview && (
           <>
             <p className="note">
-              계좌/항목명 + 잔액(또는 평가금액) 열이 있는 표를 찾아서 읽어와. 열 이름이 정확히 안 맞으면 못 찾을 수 있으니, 가져온 후 스냅샷 탭에서 직접 다듬어줘.
+              계좌·항목·잔액 열이 있는 표를 읽어와. 가져온 뒤 스냅샷에서 다듬어줘.
             </p>
             <input
               ref={fileInput}

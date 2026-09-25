@@ -103,10 +103,8 @@ export default function HistoryPanel({ rows, history, onChange }: Props) {
           </div>
         </div>
         <p className="note">
-          스냅샷에서 '수익률' 체크된 항목의 합계({fmtWon(t.total)}원)를 총평가금액으로 기록해. 입출금 통장 등 체크 해제한 항목은 빠져. 투자원금은 지금까지 내가 실제로 넣은 돈의 합계야. 직전 기록 이후 새로 넣은 돈이
-          없으면 그대로 두면 돼. 새로 넣었다면 그만큼 늘린 값으로 고쳐줘
-          {newContribution !== 0 ? ` (직전보다 ${newContribution > 0 ? "+" : ""}${fmtWon(newContribution)}원)` : ""}.
-          증권사 앱 계좌 화면의 "투자원금"이나 "매입금액"을 더해서 넣어도 돼.
+          총평가금액 = '수익률' 체크 항목 합계 {fmtWon(t.total)}원. 투자원금은 지금까지 넣은 돈 합계라 새로 넣은 만큼만 늘려줘
+          {newContribution !== 0 ? ` (직전 대비 ${newContribution > 0 ? "+" : ""}${fmtWon(newContribution)}원)` : ""}.
         </p>
         <button className="btn" style={{ marginTop: 10 }} onClick={addEntry}>
           + 기록 추가

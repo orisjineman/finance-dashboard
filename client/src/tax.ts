@@ -119,3 +119,10 @@ export function computeTaxPrep(budget: BudgetData, taxPrep: TaxPrepInput, income
     totalTaxSaved: pension.refund + rent.credit + subscription.taxSaved + card.taxSaved,
   };
 }
+
+// 1년 전체 기준 환급 예상액 (만원): 연금은 계획 납입액 × 공제율, 월세는 연말까지 낼 금액, 청약·카드는 지금까지 입력값.
+export function estimateAnnualRefund(budget: BudgetData, taxPrep: TaxPrepInput, income: number, now: Date): number {
+  const r = computeTaxPrep(budget, taxPrep, income, now);
+  const pensionPlanned = (Math.min(budget.pensionAnnualContribution || 0, r.pension.limit) * (budget.pensionTaxCreditRate || 0)) / 100;
+  return pensionPlanned + r.rent.projectedCredit + r.subscription.taxSaved + r.card.taxSaved;
+}

@@ -107,10 +107,8 @@ export default function RebalancePanel({ rows, strategy, settings, onChange, onR
           />
         </div>
         <p className="note" style={{ marginTop: 0 }}>
-          목표 비중에서 이 값 이상 벗어났을 때만 팔고 사라고 알려줘.{" "}
-          {yearsLeft === null
-            ? "집 매수 예정일이 아직 없어. '집 자금' 탭의 '집 매수 예정일 · 목표 비중표'에서 입력해줘."
-            : `집 매수 예정일은 ${strategy.housePurchaseDate}이고, 약 ${yearsLeft.toFixed(1)}년 남았어.`}
+          목표에서 이만큼 벗어나면 리밸런싱을 추천해.{" "}
+          {yearsLeft === null ? "매수 예정일은 내 정보에서 입력해줘." : `매수 예정일 ${strategy.housePurchaseDate} (약 ${yearsLeft.toFixed(1)}년 남음)`}
         </p>
         <div className="field-row" style={{ maxWidth: 520 }}>
           <div className="field">
@@ -123,7 +121,7 @@ export default function RebalancePanel({ rows, strategy, settings, onChange, onR
           </div>
         </div>
         <p className="note" style={{ marginTop: 0 }}>
-          추천 거래의 '예상 비용'을 계산할 때만 쓰는 값이야. 기본값은 수수료 0.015%, 세율 15.4%(국내 상장 ETF 배당소득세 기준)이고, 해외 상장 상품(양도세 22% 등)은 세율을 직접 바꿔서 봐.
+          추천 거래의 예상 비용 계산용. 해외 상장 상품은 세율(양도세 22% 등)을 바꿔서 봐.
         </p>
         <div className="field" style={{ marginTop: 4 }}>
           <label>계좌별 위험자산 편입</label>
@@ -164,15 +162,12 @@ export default function RebalancePanel({ rows, strategy, settings, onChange, onR
             </table>
           </div>
           <p className="note">
-            '편입 불가'로 두면 그 계좌에는 위험자산을 새로 사지 않고, 나머지 계좌가 목표 위험 비중을 맡아. '자동'은 위험 상품이 있는 계좌만 가능으로 봐.
-            <br />
-            '이번에 넣을 수 있는 금액'은 다른 계좌에서 이 계좌로 옮겨 올 수 있는 한도야. 0이면 이 계좌로는 돈을 옮기지 않아(예: ISA는 올해 납입 한도를 다 채웠으면 0, 2027년에 새 한도가 생기면 그때 입력).
-            돈을 뺄 수 있는 계좌는 ISA·IRP·연금저축처럼 묶인 계좌를 뺀 일반 계좌(CMA·위탁 등)만이야.
+            <strong>편입 불가</strong>: 그 계좌에서 위험자산을 사지 않음 · <strong>자동</strong>: 위험 상품이 있으면 가능.{" "}
+            <strong>넣을 수 있는 금액</strong>: 다른 계좌에서 옮겨 올 수 있는 한도 (0이면 이동 안 함, 돈은 일반 계좌에서만 뺌).
           </p>
         </div>
         <p className="note">
-          자금의 용도별로 묶음을 나눠서 각각 목표 비중을 정해. CMA·예금·주택청약처럼 어느 묶음에도 넣지 않은 계좌는 리밸런싱하지 않아
-          {ungrouped.length > 0 ? ` (지금은: ${ungrouped.join(", ")}).` : "."}
+          묶음에 넣지 않은 계좌는 리밸런싱하지 않아{ungrouped.length > 0 ? ` (${ungrouped.join(", ")})` : ""}.
         </p>
       </div>
 
@@ -186,7 +181,7 @@ export default function RebalancePanel({ rows, strategy, settings, onChange, onR
               <SectionTitle>집 매수 예정일 · 목표 비중표</SectionTitle>
               <GlidePathEditor strategy={strategy} onChange={onStrategyChange} onEditInfo={onEditInfo} />
               <p className="note">
-                '집 매수 시점에 맞춰 낮추기'를 고른 묶음은 이 표의 목표를 따라가. 표의 비중은 <strong>그 묶음 전체</strong>(CMA처럼 위험 상품이 없는 계좌 포함)에 대한 비율이야.
+                비중은 묶음 전체(위험 상품 없는 계좌 포함) 기준이야.
               </p>
             </>
           )}

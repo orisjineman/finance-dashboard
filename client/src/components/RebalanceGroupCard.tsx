@@ -126,10 +126,10 @@ export default function RebalanceGroupCard({ group, rows, allAccounts, tolerance
           </div>
           <p className="note" style={{ color: result.needsRebalance ? "var(--risk)" : "var(--safe)", fontWeight: 600 }}>
             {result.scopeTotal <= 0
-              ? "이 묶음에 계좌를 하나 이상 선택해줘."
+              ? "계좌를 하나 이상 선택해줘."
               : result.needsRebalance
-                ? `목표보다 위험자산이 ${Math.abs(result.driftPct).toFixed(1)}%p ${result.driftPct > 0 ? "많아" : "적어"}. 리밸런싱이 필요해.`
-                : `목표 대비 ${result.driftPct >= 0 ? "+" : ""}${result.driftPct.toFixed(1)}%p — 허용 오차 안이라 그대로 둬도 돼.`}
+                ? `위험자산이 목표보다 ${Math.abs(result.driftPct).toFixed(1)}%p ${result.driftPct > 0 ? "많아" : "적어"} → 리밸런싱 필요`
+                : `목표 대비 ${result.driftPct >= 0 ? "+" : ""}${result.driftPct.toFixed(1)}%p · 허용 오차 안`}
           </p>
 
           {plan && plan.total > 0 && (
@@ -155,22 +155,20 @@ export default function RebalanceGroupCard({ group, rows, allAccounts, tolerance
                 .filter((a) => !a.holdsRisk)
                 .map((a) => (
                   <p className="note" key={`norow-${a.account}`} style={{ margin: "4px 0", color: "var(--ink-soft)" }}>
-                    {a.account}는 위험자산 편입 가능으로 설정했지만 스냅샷에 위험 상품이 없어서 추천 거래에는 아직 못 잡혀. 스냅샷에 위험 상품(0원도 괜찮아)을 추가해줘.
+                    {a.account}: 편입 가능이지만 스냅샷에 위험 상품이 없어. 위험 상품 행(0원도 가능)을 추가해줘.
                   </p>
                 ))}
               {plan.safeOnly.map((a) => (
                 <p className="note" key={a.account} style={{ margin: "4px 0", color: "var(--ink)" }}>
-                  <strong>{a.account}</strong> ({fmtWon(a.amount)}원, 묶음의 {((a.amount / plan.total) * 100).toFixed(0)}%):{" "}
-                  {a.policy === "blocked"
-                    ? `위험자산 편입 불가로 설정해서 안전으로 둬${a.riskAmount > 0 ? ` (이미 있는 위험 ${fmtWon(a.riskAmount)}원은 그대로)` : ""}`
-                    : "위험 상품이 없어서 전액 안전으로 둬"}
+                  <strong>{a.account}</strong> {fmtWon(a.amount)}원 ({((a.amount / plan.total) * 100).toFixed(0)}%):{" "}
+                  {a.policy === "blocked" ? `편입 불가 → 안전 유지${a.riskAmount > 0 ? ` (기존 위험 ${fmtWon(a.riskAmount)}원은 그대로)` : ""}` : "위험 상품 없음 → 안전 유지"}
                 </p>
               ))}
               {!plan.feasible && (
                 <p className="note" style={{ margin: "6px 0 0", color: "var(--risk)", fontWeight: 600 }}>
                   {plan.tooLow
-                    ? `이 묶음의 위험 비중은 최소 약 ${plan.minRiskPct.toFixed(1)}%라서(편입 불가 계좌에 이미 있는 위험자산) 목표 ${plan.targetRiskPct.toFixed(1)}%는 달성할 수 없어. 목표를 올리거나 그 계좌의 위험자산을 옮겨야 해.`
-                    : `이 묶음이 낼 수 있는 최대 위험 비중은 약 ${plan.maxRiskPct.toFixed(1)}%라서 목표 ${plan.targetRiskPct.toFixed(1)}%는 달성할 수 없어. 위쪽 목표 비중표의 값을 낮추거나, 위험자산 편입 가능 계좌를 늘리거나 자금을 더 넣어야 해.`}
+                    ? `최소 위험 비중이 ${plan.minRiskPct.toFixed(1)}%라 목표 ${plan.targetRiskPct.toFixed(1)}%는 불가 (편입 불가 계좌의 기존 위험자산 때문).`
+                    : `최대 위험 비중이 ${plan.maxRiskPct.toFixed(1)}%라 목표 ${plan.targetRiskPct.toFixed(1)}%는 불가. 목표를 낮추거나 편입 가능 계좌를 늘려줘.`}
                 </p>
               )}
             </div>
@@ -189,10 +187,10 @@ export default function RebalanceGroupCard({ group, rows, allAccounts, tolerance
                   <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 6 }}>먼저 계좌 간 이동이 필요해</div>
                   {result.transfers.map((tr) => (
                     <p className="note" key={`${tr.from}-${tr.to}`} style={{ margin: "4px 0", color: "var(--ink)" }}>
-                      <strong>{tr.from}</strong>에서 <strong>{fmtWon(tr.amount)}원</strong>을 빼서 <strong>{tr.to}</strong>로 옮겨줘.
+                      <strong>{tr.from}</strong> → <strong>{tr.to}</strong> {fmtWon(tr.amount)}원 이동
                     </p>
                   ))}
-                  <p className="note" style={{ margin: "6px 0 0" }}>아래 표에서 '이동 자금'으로 표시된 거래가 이 돈으로 하는 거래야.</p>
+                  <p className="note" style={{ margin: "6px 0 0" }}>표의 '이동 자금' 거래가 이 돈으로 하는 거래야.</p>
                 </div>
               )}
               {result.trades.length > 0 && (
@@ -243,8 +241,7 @@ export default function RebalanceGroupCard({ group, rows, allAccounts, tolerance
                 </div>
               )}
               <p className="note">
-                거래 후 위험자산 비중은 약 {result.afterRiskPct.toFixed(1)}%가 돼. 계좌 안에서 판 돈은 같은 계좌에 머무르기 때문에, ISA·IRP·연금저축처럼 세금 없이
-                굴릴 수 있는 계좌부터 먼저 배정했어. 매도는 보유금액 비율대로, 매수는 이미 들고 있는 상품에 비율대로 나눴어('매수 우선'으로 지정한 상품이 있으면 그 상품에만).
+                거래 후 위험 비중 약 {result.afterRiskPct.toFixed(1)}%. 세금 없는 계좌(ISA·IRP·연금)부터, 보유 비율대로 나눴어.
               </p>
               {result.notes.map((n, i) => (
                 <p className="note" key={i} style={{ color: "var(--risk)" }}>
@@ -257,9 +254,7 @@ export default function RebalanceGroupCard({ group, rows, allAccounts, tolerance
             <div className="contrib-box topup">
               <div className="chart-title">그래도 못 맞추는 몫은 새 돈으로 채워</div>
               <p className="note" style={{ marginTop: 0 }}>
-                위 매도·매수와 계좌 간 이동을 다 해도 위험 비중이 목표에 닿지 않아. 남는 몫을 채우려면{" "}
-                <strong>{topUp.account}</strong>에 새 돈 <strong>약 {fmtWon(topUp.needed)}원</strong>을 {topUp.category === "risk" ? "위험" : "안전"}자산으로 넣으면 돼
-                (기존 자산은 더 팔지 않아). 이 계좌는 입금 가능 금액이 설정된 계좌와 {topUp.category === "risk" ? "위험자산 상품이 있는" : "안전자산 상품이 있는"} 계좌 중에서 골랐어.
+                그래도 모자란 몫: <strong>{topUp.account}</strong>에 새 돈 <strong>약 {fmtWon(topUp.needed)}원</strong>을 {topUp.category === "risk" ? "위험" : "안전"}자산으로.
               </p>
               {topUp.plan.buys.length > 0 && (
                 <table className="grid">
@@ -289,15 +284,13 @@ export default function RebalanceGroupCard({ group, rows, allAccounts, tolerance
               )}
               {topUp.oneShare ? (
                 <p className="note">
-                  이 금액은 {topUp.oneShare.item} 1주 가격({fmtWon(topUp.oneShare.amount)}원)보다 작아서 지금은 살 수 없어. 1주를 사려면 최소{" "}
-                  <strong>{fmtWon(topUp.oneShare.amount)}원</strong>을 넣어야 하고, 그러면 위험 비중이 약 {topUp.oneShare.plan.afterRiskPct.toFixed(1)}%가 돼 (목표 {targetRiskPct?.toFixed(1)}%).
-                  달마다 나눠 모아서 1주 가격이 되면 사는 방법도 있어.
+                  {topUp.oneShare.item} 1주({fmtWon(topUp.oneShare.amount)}원)보다 적어서 지금은 못 사. 1주를 사면 위험 비중 약 {topUp.oneShare.plan.afterRiskPct.toFixed(1)}%.
                 </p>
               ) : (
                 <>
                   <p className="note">
-                    넣은 뒤 위험 비중은 약 {topUp.plan.afterRiskPct.toFixed(1)}%가 돼 (목표 {targetRiskPct?.toFixed(1)}%).
-                    {topUp.plan.unspent * 10000 >= 1 && ` 1주 단위로 맞추느라 ${fmtWon(topUp.plan.unspent)}원은 예수금으로 남아.`}
+                    넣은 뒤 위험 비중 약 {topUp.plan.afterRiskPct.toFixed(1)}% (목표 {targetRiskPct?.toFixed(1)}%)
+                    {topUp.plan.unspent * 10000 >= 1 && ` · 예수금 ${fmtWon(topUp.plan.unspent)}원`}
                   </p>
                   {topUp.plan.notes.map((n, i) => (
                     <p className="note" key={i} style={{ color: "var(--risk)" }}>
@@ -312,10 +305,10 @@ export default function RebalanceGroupCard({ group, rows, allAccounts, tolerance
             <div className="contrib-box">
               <div className="chart-title">새로 넣을 돈으로 맞추기 (팔지 않고)</div>
               <p className="note" style={{ marginTop: 0 }}>
-                월급에서 이번에 새로 넣을 돈으로만 목표 비중에 가깝게 사는 방법이야. 기존 자산을 팔지 않으니 세금이 생기지 않아. 올해 납입 한도를 다 채운 ISA처럼 이번에 넣을 수 없는 계좌는 고르지 마.
+                팔지 않고 새 돈으로만 맞추기 (세금 없음).
                 {needed !== null && needed > 0 && (
                   <>
-                    {" "}지금 비중을 팔지 않고 목표에 맞추려면 <strong>약 {fmtWon(needed)}원</strong>을 {result && result.driftPct < 0 ? "위험" : "안전"}자산으로 넣어야 해.
+                    {" "}목표까지 {result && result.driftPct < 0 ? "위험" : "안전"}자산 <strong>약 {fmtWon(needed)}원</strong> 필요.
                   </>
                 )}
               </p>
@@ -377,9 +370,9 @@ export default function RebalanceGroupCard({ group, rows, allAccounts, tolerance
                       </tbody>
                     </table>
                   )}
-                  {contribution.unspent * 10000 >= 1 && <p className="note">사지 못하고 예수금으로 남는 금액: {fmtWon(contribution.unspent)}원</p>}
+                  {contribution.unspent * 10000 >= 1 && <p className="note">예수금으로 남음: {fmtWon(contribution.unspent)}원</p>}
                   {!contribution.reachesTarget && (
-                    <p className="note">이 금액만으로는 목표 비중({targetRiskPct.toFixed(1)}%)에 닿지 못해. 위의 매도·매수 추천을 함께 쓰거나 다음 달에도 이어서 넣으면 돼.</p>
+                    <p className="note">이 금액만으로는 목표({targetRiskPct.toFixed(1)}%)에 못 닿아.</p>
                   )}
                   {contribution.notes.map((n, i) => (
                     <p className="note" key={i} style={{ color: "var(--risk)" }}>

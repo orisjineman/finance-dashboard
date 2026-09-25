@@ -33,6 +33,17 @@ export function migrate(parsed: Partial<DashboardData> & Record<string, unknown>
     budget: { ...d.budget, ...(parsed.budget ?? {}) },
     strategy,
     rebalance: { ...d.rebalance, ...(parsed.rebalance ?? {}) },
+    home: {
+      ...d.home,
+      ...(parsed.home ?? {}),
+      policy: {
+        ...d.home.policy,
+        ...(parsed.home?.policy ?? {}),
+        bogeumjari: { ...d.home.policy.bogeumjari, ...(parsed.home?.policy?.bogeumjari ?? {}) },
+        didimdolSingle: { ...d.home.policy.didimdolSingle, ...(parsed.home?.policy?.didimdolSingle ?? {}) },
+        judge: { ...d.home.policy.judge, ...(parsed.home?.policy?.judge ?? {}) },
+      },
+    },
   };
 }
 

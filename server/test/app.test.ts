@@ -34,8 +34,8 @@ afterAll(() => {
 describe("GET /api/data", () => {
   it("모든 섹션과 섹션별 버전을 준다", async () => {
     const d = await getData();
-    for (const k of ["rows", "simulation", "loan", "checklist", "strategy", "history", "budget", "rebalance"]) expect(d).toHaveProperty(k);
-    expect(Object.keys(d._versions).sort()).toEqual(["budget", "checklist", "history", "loan", "rebalance", "rows", "simulation", "strategy"]);
+    for (const k of ["rows", "simulation", "loan", "checklist", "strategy", "history", "budget", "rebalance", "home"]) expect(d).toHaveProperty(k);
+    expect(Object.keys(d._versions).sort()).toEqual(["budget", "checklist", "history", "home", "loan", "rebalance", "rows", "simulation", "strategy"]);
   });
 });
 

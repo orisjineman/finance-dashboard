@@ -34,6 +34,15 @@ describe("migrate", () => {
     expect(d.rows[0].housingEligible).toBe(false);
   });
 
+  it("내 집 마련 설정이 없거나 정책 일부만 있으면 기본값으로 채운다", () => {
+    const d = store.migrate({ home: { currentIncome: 5500, policy: { bogeumjari: { maxIncome: 8000 } } } as never });
+    expect(d.home.currentIncome).toBe(5500);
+    expect(d.home.policy.bogeumjari.maxIncome).toBe(8000);
+    expect(d.home.policy.bogeumjari.maxHousePrice).toBe(60000);
+    expect(d.home.policy.afterTaxRatioTable.length).toBeGreaterThan(0);
+    expect(store.migrate({}).home.prices.length).toBeGreaterThan(0);
+  });
+
   it("없어진 ISA·CMA 탭 데이터는 버린다", () => {
     const d = store.migrate({ strategy: { housePurchaseDate: "2030-01-01", isaPortfolio: { riskPct: 1 }, cmaLadder: { rungs: [] } } as never });
     expect(d.strategy.housePurchaseDate).toBe("2030-01-01");

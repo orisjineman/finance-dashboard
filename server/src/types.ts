@@ -108,6 +108,28 @@ export interface RebalanceSettings {
   depositLimit?: Record<string, number>; // 계좌별 '이번에 넣을 수 있는 금액'(만원). 다른 계좌에서 옮겨 올 수 있는 한도이고, 없으면 0
 }
 
+export interface HomePolicy {
+  bogeumjari: { maxHousePrice: number; maxIncome: number; maxLoanFirstTime: number; ltv: number }; // 만원, ltv는 0~1
+  didimdolSingle: { maxHousePrice: number; maxAreaM2: number; maxLoanFirstTime: number };
+  afterTaxRatioTable: [number, number][]; // [연 총보수(만원), 세후 비율]
+  judge: { okMax: number; tightMax: number }; // 상환비중(0~1) 판정 기준
+  updatedAt: string; // 정책 숫자를 마지막으로 확인한 날 (YYYY-MM-DD)
+}
+
+export interface HomeSimInput {
+  assetSource: "group" | "housing"; // 가용자산 기준: 집 자금 리밸런싱 묶음 / 자산 스냅샷에서 '집자금' 체크한 전체
+  includeDeposit: boolean; // 보증금(항목 이름에 '보증금'이 들어간 행)을 가용자산에 더할지
+  extraAssets: number; // 만원, 매수 시점까지 더 모을 금액
+  closingCost: number; // 만원, 취득세·중개수수료·법무·이사
+  currentIncome: number; // 만원, 대출 심사용 현재 연 총보수
+  raisePct: number; // %, 연 인상률
+  targetRatioPct: number; // %, 세후 월급 대비 목표 월 상환 비중
+  areaM2: number; // 예상 전용면적(㎡), 0이면 미입력
+  prices: number[]; // 만원, 비교할 집값
+  incomeThreshold: number; // 만원, 도달 연도를 볼 연봉 기준 (보금자리론 소득 기준과 같게 두면 됨)
+  policy: HomePolicy;
+}
+
 export interface DashboardData {
   rows: AssetRow[];
   simulation: SimulationAssumptions;
@@ -117,4 +139,5 @@ export interface DashboardData {
   history: HistoryEntry[];
   budget: BudgetData;
   rebalance: RebalanceSettings;
+  home: HomeSimInput;
 }

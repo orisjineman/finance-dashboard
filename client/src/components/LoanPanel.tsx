@@ -1,13 +1,20 @@
 import { useMemo } from "react";
-import type { AssetRow, LoanInput } from "../types";
+import type { AssetRow, BudgetData, HomeSimInput, LoanInput, RebalanceGroup, StrategyData } from "../types";
 import { computeHousingLiquid, computeLoanEquity, fmtWon } from "../utils";
 import MoneyInput from "./MoneyInput";
 import SectionTitle from "./SectionTitle";
+import HomeSimulator from "./HomeSimulator";
 
 interface Props {
   rows: AssetRow[];
   loan: LoanInput;
   onChange: (loan: LoanInput) => void;
+  groups: RebalanceGroup[];
+  home: HomeSimInput;
+  onHomeChange: (home: HomeSimInput) => void;
+  strategy: StrategyData;
+  onStrategyChange: (strategy: StrategyData) => void;
+  budget: BudgetData;
 }
 
 function calcLoan(loan: LoanInput) {
@@ -23,7 +30,7 @@ function calcLoan(loan: LoanInput) {
   return { limit, equity, monthly };
 }
 
-export default function LoanPanel({ rows, loan, onChange }: Props) {
+export default function LoanPanel({ rows, loan, onChange, groups, home, onHomeChange, strategy, onStrategyChange, budget }: Props) {
   const result = useMemo(() => calcLoan(loan), [loan]);
   const housingLiquid = computeHousingLiquid(rows);
   const remaining = result.equity - housingLiquid;
@@ -34,7 +41,22 @@ export default function LoanPanel({ rows, loan, onChange }: Props) {
 
   return (
     <section className="panel active" id="panel-loan">
-      <SectionTitle>조건 입력</SectionTitle>
+      <HomeSimulator
+        rows={rows}
+        groups={groups}
+        home={home}
+        onChange={onHomeChange}
+        loan={loan}
+        onLoanChange={onChange}
+        strategy={strategy}
+        onStrategyChange={onStrategyChange}
+        budget={budget}
+      />
+
+      <SectionTitle>목표 집값 (개요·시뮬레이션 기준)</SectionTitle>
+      <p className="note" style={{ marginTop: 0 }}>
+        개요의 집 마련 진행과 시뮬레이션의 '집 자기자금 도달'은 이 집값과 LTV로 계산한 필요 자기자금을 써. 위 비교표의 '목표로' 버튼으로도 바꿀 수 있어.
+      </p>
       <div className="card">
         <div className="field-row">
           <div className="field">
@@ -63,7 +85,7 @@ export default function LoanPanel({ rows, loan, onChange }: Props) {
         </div>
       </div>
 
-      <SectionTitle>결과</SectionTitle>
+      <SectionTitle>목표 집값 결과</SectionTitle>
       <div className="card">
         <div className="result-line">
           <span className="k">대출 한도 (LTV 기준)</span>

@@ -1,12 +1,13 @@
 import type { DashboardData } from "./types";
 import { computeRebalance, groupTarget } from "./rebalance";
 import { computePensionCredit } from "./pension";
+import { incomeAt, policyStale } from "./home";
 
 export interface Alert {
   id: string;
   level: "warn" | "info";
   text: string;
-  tab?: "snapshot" | "rebalance" | "budget" | "overview";
+  tab?: "snapshot" | "rebalance" | "budget" | "overview" | "loan";
 }
 
 const DAY = 86400000;
@@ -80,6 +81,26 @@ export function computeAlerts(data: DashboardData, now: Date = new Date()): Aler
       text: `연말까지 ${pension.daysToYearEnd}일 남았고 연금저축·IRP 세액공제 한도가 ${Math.round(pension.remaining * 10000).toLocaleString("ko-KR")}원 남았어.`,
       tab: "budget",
     });
+  }
+
+  // 6) 내 집 마련: 정책 숫자가 오래됐거나, 매수 전에 연봉이 보금자리론 소득 기준을 넘을 것 같으면
+  const home = data.home;
+  if (home) {
+    if (policyStale(home.policy.updatedAt, now)) {
+      out.push({ id: "home-policy-stale", level: "info", text: `대출 정책 숫자를 마지막으로 확인한 날(${home.policy.updatedAt})이 1년 넘게 지났어. 내 집 마련 탭에서 다시 확인해줘.`, tab: "loan" });
+    }
+    const d = data.strategy.housePurchaseDate ? new Date(`${data.strategy.housePurchaseDate}T00:00:00`) : null;
+    if (home.currentIncome > 0 && d && !Number.isNaN(d.getTime())) {
+      const at = incomeAt(home.currentIncome, home.raisePct, now.getFullYear(), d.getFullYear());
+      if (at > home.policy.bogeumjari.maxIncome) {
+        out.push({
+          id: "home-income",
+          level: "warn",
+          text: `인상률 ${home.raisePct}%로 보면 ${d.getFullYear()}년 매수 때 연봉이 보금자리론 소득 기준(${Math.round(home.policy.bogeumjari.maxIncome * 10000).toLocaleString("ko-KR")}원)을 넘어. 집을 먼저 사고 이직하는 순서를 고려해줘.`,
+          tab: "loan",
+        });
+      }
+    }
   }
 
   return out;

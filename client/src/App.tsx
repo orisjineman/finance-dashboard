@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { AssetRow, BudgetData, ChecklistItem, DashboardData, HistoryEntry, LoanInput, RebalanceSettings, SimulationAssumptions, StrategyData } from "./types";
-import { ConflictError, fetchData, saveBudget, saveRebalance, saveChecklist, saveHistory, saveLoan, saveRows, saveSimulation, saveStrategy } from "./api";
+import type { AssetRow, BudgetData, ChecklistItem, DashboardData, HistoryEntry, HomeSimInput, LoanInput, RebalanceSettings, SimulationAssumptions, StrategyData } from "./types";
+import { ConflictError, fetchData, saveBudget, saveHome, saveRebalance, saveChecklist, saveHistory, saveLoan, saveRows, saveSimulation, saveStrategy } from "./api";
 import OverviewPanel from "./components/OverviewPanel";
 import { computeAlerts } from "./alerts";
 import SnapshotPanel from "./components/SnapshotPanel";
@@ -17,7 +17,7 @@ const TABS = [
   { key: "budget", label: "월급·예산" },
   { key: "rebalance", label: "리밸런싱" },
   { key: "sim", label: "연도별 시뮬레이션" },
-  { key: "loan", label: "대출 계산기" },
+  { key: "loan", label: "내 집 마련" },
   { key: "checklist", label: "체크리스트" },
   { key: "data", label: "데이터" },
 ] as const;
@@ -36,6 +36,7 @@ const SAVERS: { [K in keyof DashboardData]: (value: DashboardData[K]) => Promise
   history: saveHistory,
   budget: saveBudget,
   rebalance: saveRebalance,
+  home: saveHome,
 };
 
 type TabKey = (typeof TABS)[number]["key"];
@@ -127,6 +128,7 @@ export default function App() {
   const updateStrategy = (strategy: StrategyData) => update("strategy", strategy);
   const updateHistory = (history: HistoryEntry[]) => update("history", history);
   const updateRebalance = (rebalance: RebalanceSettings) => update("rebalance", rebalance);
+  const updateHome = (home: HomeSimInput) => update("home", home);
   const updateBudget = (budget: BudgetData) => update("budget", budget);
 
   const alerts = useMemo(() => (data ? computeAlerts(data) : []), [data]);
@@ -209,7 +211,19 @@ export default function App() {
         {tab === "sim" && (
           <SimulationPanel rows={data.rows} sim={data.simulation} onChange={updateSim} annualRaisePct={data.budget.annualRaisePct} loan={data.loan} />
         )}
-        {tab === "loan" && <LoanPanel rows={data.rows} loan={data.loan} onChange={updateLoan} />}
+        {tab === "loan" && (
+          <LoanPanel
+            rows={data.rows}
+            loan={data.loan}
+            onChange={updateLoan}
+            groups={data.rebalance.groups}
+            home={data.home}
+            onHomeChange={updateHome}
+            strategy={data.strategy}
+            onStrategyChange={updateStrategy}
+            budget={data.budget}
+          />
+        )}
         {tab === "checklist" && <ChecklistPanel items={data.checklist} onChange={updateChecklist} />}
         {tab === "data" && <DataPanel />}
       </main>

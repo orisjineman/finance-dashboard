@@ -22,6 +22,7 @@ const SECTIONS = {
   history: "array",
   budget: "object",
   rebalance: "object",
+  home: "object",
 } as const satisfies Record<keyof DashboardData, "array" | "object">;
 type Section = keyof typeof SECTIONS;
 

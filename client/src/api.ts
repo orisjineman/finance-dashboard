@@ -4,6 +4,7 @@ import type {
   ChecklistItem,
   DashboardData,
   HistoryEntry,
+  HomeSimInput,
   ImportPreview,
   LoanInput,
   RebalanceSettings,
@@ -58,6 +59,7 @@ export const saveStrategy = (strategy: StrategyData) => saveSection("strategy", 
 export const saveHistory = (history: HistoryEntry[]) => saveSection("history", history);
 export const saveBudget = (budget: BudgetData) => saveSection("budget", budget);
 export const saveRebalance = (rebalance: RebalanceSettings) => saveSection("rebalance", rebalance);
+export const saveHome = (home: HomeSimInput) => saveSection("home", home);
 
 export async function importXlsx(file: File): Promise<ImportPreview> {
   const formData = new FormData();

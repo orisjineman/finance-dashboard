@@ -115,6 +115,25 @@ describe("computeAlerts", () => {
     history: [],
     budget: budget({ pensionPaidThisYear: 900, pensionPaidYear: 2026 }),
     rebalance: { tolerancePct: 5, groups: [] },
+    home: {
+      assetSource: "group",
+      includeDeposit: true,
+      extraAssets: 0,
+      closingCost: 0,
+      currentIncome: 0,
+      raisePct: 2.5,
+      targetRatioPct: 34,
+      areaM2: 0,
+      prices: [],
+      incomeThreshold: 7000,
+      policy: {
+        bogeumjari: { maxHousePrice: 60000, maxIncome: 7000, maxLoanFirstTime: 42000, ltv: 0.7 },
+        didimdolSingle: { maxHousePrice: 30000, maxAreaM2: 60, maxLoanFirstTime: 20000 },
+        afterTaxRatioTable: [[6000, 0.86]],
+        judge: { okMax: 0.34, tightMax: 0.4 },
+        updatedAt: "2026-09-25",
+      },
+    },
     ...over,
   });
   const entry = (date: string) => ({ id: date, date, newContribution: 0, cumulativePrincipal: 1, totalValue: 1, riskValue: 0, safeValue: 0, cashValue: 0, profit: 0, returnRate: 0 });
@@ -144,6 +163,19 @@ describe("computeAlerts", () => {
   it("자동으로 불러온 가격이 오래되면 알린다", () => {
     const rows: AssetRow[] = [{ id: "1", account: "A", item: "ETF", category: "risk", amount: 1, unitPrice: 3, priceDate: "2026-09-01", housingEligible: true }];
     expect(ids(data({ rows }))).toContain("price-stale");
+  });
+  it("대출 정책 숫자를 확인한 지 1년이 넘으면 알린다", () => {
+    const base = data();
+    expect(ids(base)).not.toContain("home-policy-stale");
+    const old = data({ home: { ...base.home, policy: { ...base.home.policy, updatedAt: "2025-01-01" } } });
+    expect(ids(old)).toContain("home-policy-stale");
+  });
+  it("매수 예정 연도 전에 연봉이 보금자리론 소득 기준을 넘으면 알린다", () => {
+    const base = data();
+    const strategy = { ...base.strategy, housePurchaseDate: "2030-06-30" };
+    expect(ids(data({ strategy, home: { ...base.home, currentIncome: 5500, raisePct: 2.5 } }))).not.toContain("home-income");
+    expect(ids(data({ strategy, home: { ...base.home, currentIncome: 6600, raisePct: 3 } }))).toContain("home-income");
+    expect(ids(data({ strategy, home: { ...base.home, currentIncome: 0 } }))).not.toContain("home-income");
   });
   it("연말이 가깝고 한도가 남았을 때만 세액공제를 알린다", () => {
     expect(ids(data())).not.toContain("pension-limit"); // 한도를 다 채움

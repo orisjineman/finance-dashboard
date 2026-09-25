@@ -64,6 +64,32 @@ export function defaultData(): DashboardData {
         { id: "rg-house", name: "집 자금", accounts: ["ISA"], targetType: "glide", fixedRiskPct: 50, note: "" },
         { id: "rg-retire", name: "노후 자금", accounts: ["연금저축펀드", "IRP"], targetType: "fixed", fixedRiskPct: 70, note: "" }
       ]
+    },
+    home: {
+      assetSource: "group",
+      includeDeposit: true,
+      extraAssets: 0,
+      closingCost: 1500,
+      currentIncome: 0,
+      raisePct: 2.5,
+      targetRatioPct: 34,
+      areaM2: 0,
+      prices: [40000, 50000, 60000],
+      incomeThreshold: 7000,
+      policy: {
+        bogeumjari: { maxHousePrice: 60000, maxIncome: 7000, maxLoanFirstTime: 42000, ltv: 0.7 },
+        didimdolSingle: { maxHousePrice: 30000, maxAreaM2: 60, maxLoanFirstTime: 20000 },
+        afterTaxRatioTable: [
+          [5000, 0.87],
+          [6000, 0.86],
+          [7000, 0.84],
+          [8000, 0.825],
+          [9000, 0.807],
+          [10000, 0.79]
+        ],
+        judge: { okMax: 0.34, tightMax: 0.4 },
+        updatedAt: "2026-09-25"
+      }
     }
   };
 }

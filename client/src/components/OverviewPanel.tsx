@@ -5,6 +5,7 @@ import { yearsUntil } from "../rebalance";
 import { projectHousing } from "../housing";
 import { assetsNeededAffordable, evaluateTarget, monthsUntil } from "../home";
 import LineChart from "./LineChart";
+import ProgressBar from "./ProgressBar";
 import type { Alert } from "../alerts";
 import BudgetBreakdown from "./BudgetBreakdown";
 import MoneyInput from "./MoneyInput";
@@ -232,15 +233,7 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
           <span>가용자산 {fmtWon(housingLiquid)}원</span>
           <span style={{ color: "var(--ink-soft)" }}>최소 필요 자기자금 (LTV {ltvPct}%) {fmtWon(equityNeeded)}원</span>
         </div>
-        <div style={{ height: 14, borderRadius: 999, background: "var(--line)", overflow: "hidden" }}>
-          <div
-            style={{
-              width: `${housingProgress}%`,
-              height: "100%",
-              background: housingProgress >= 100 ? "var(--safe)" : "var(--gold)",
-            }}
-          />
-        </div>
+        <ProgressBar value={housingLiquid} max={equityNeeded} valueLabel="가용자산 (지금)" maxLabel={`최소 필요 자기자금 (LTV ${ltvPct}%)`} remainingLabel="더 모아야 할 금액" />
         <p className="note" style={{ marginTop: 10 }}>
           {housingRemaining > 0
             ? `연금저축·IRP를 뺀 가용자산 기준으로 ${fmtWon(housingRemaining)}원을 더 모아야 해 (필요 자기자금에 부대비용 ${fmtWon(home.closingCost)}원 포함, 달성률 ${housingProgress}%).`

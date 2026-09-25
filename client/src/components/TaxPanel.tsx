@@ -4,21 +4,13 @@ import { DEFAULT_PENSION_LIMIT } from "../pension";
 import { computeTaxPrep } from "../tax";
 import { policyStale } from "../home";
 import MoneyInput from "./MoneyInput";
+import ProgressBar from "./ProgressBar";
 import SectionTitle from "./SectionTitle";
 
 interface Props {
   budget: BudgetData;
   onChange: (budget: BudgetData) => void;
   grossIncome: number; // 만원, 내 집 마련 탭의 연 총보수를 총급여로 쓴다
-}
-
-function Bar({ value, max, done }: { value: number; max: number; done: boolean }) {
-  const pct = max > 0 ? Math.min(100, Math.round((value / max) * 100)) : 0;
-  return (
-    <div style={{ height: 12, borderRadius: 999, background: "var(--line)", overflow: "hidden", margin: "6px 0 4px" }}>
-      <div style={{ width: `${pct}%`, height: "100%", background: done ? "var(--safe)" : "var(--gold)" }} />
-    </div>
-  );
 }
 
 function Line({ k, v, total }: { k: string; v: string; total?: boolean }) {
@@ -84,7 +76,7 @@ export default function TaxPanel({ budget, onChange, grossIncome }: Props) {
             </select>
           </div>
         </div>
-        <Bar value={r.pension.paid} max={r.pension.limit} done={r.pension.remaining <= 0} />
+        <ProgressBar height={12} value={r.pension.paid} max={r.pension.limit} valueLabel="올해 납입" maxLabel="세액공제 한도" remainingLabel="남은 한도" />
         <Line k="남은 한도" v={won(r.pension.remaining)} />
         <Line k="지금까지 세액공제 (추정)" v={won(r.pension.refund)} />
         <Line k="남은 한도를 채우면 더 줄어드는 세금" v={won(r.pension.extraRefundIfFilled)} />
@@ -125,7 +117,7 @@ export default function TaxPanel({ budget, onChange, grossIncome }: Props) {
         </div>
         {r.subscription.eligible ? (
           <>
-            <Bar value={r.subscription.paid} max={p.subscription.limit} done={r.subscription.remaining <= 0} />
+            <ProgressBar height={12} value={r.subscription.paid} max={p.subscription.limit} valueLabel="올해 납입" maxLabel="소득공제 납입 한도" remainingLabel="남은 한도" />
             <Line k={`소득공제 (납입액 × ${p.subscription.ratePct}%, 한도 ${won(p.subscription.limit)} 납입까지)`} v={won(r.subscription.deduction)} />
             <Line k="그만큼 줄어드는 세금 (추정)" v={won(r.subscription.taxSaved)} />
             {r.subscription.remaining > 0 && <Line k={`한도까지 ${won(r.subscription.remaining)} 더 넣으면 더 줄어드는 세금`} v={won(r.subscription.extraTaxIfFilled)} />}
@@ -148,7 +140,7 @@ export default function TaxPanel({ budget, onChange, grossIncome }: Props) {
         </div>
         {grossIncome > 0 && (
           <>
-            <Bar value={r.card.used} max={r.card.threshold} done={r.card.toThreshold <= 0} />
+            <ProgressBar height={12} value={r.card.used} max={r.card.threshold} valueLabel="올해 카드 사용액" maxLabel={`공제 문턱 (총급여 ${p.card.thresholdPct}%)`} remainingLabel="문턱까지 남은 사용액" />
             <Line k={`문턱 (총급여의 ${p.card.thresholdPct}%)`} v={won(r.card.threshold)} />
             {r.card.toThreshold > 0 ? (
               <Line k="문턱까지 남은 사용액" v={won(r.card.toThreshold)} />

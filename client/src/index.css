@@ -748,3 +748,23 @@ table.grid tr.target-row td {
   font-weight: 600;
   color: var(--ink);
 }
+.progress {
+  position: relative;
+  margin: 6px 0 4px;
+  cursor: default;
+  touch-action: pan-y;
+}
+.progress-track {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+}
+.progress-tip {
+  top: auto;
+  bottom: calc(100% + 6px);
+  white-space: nowrap;
+}

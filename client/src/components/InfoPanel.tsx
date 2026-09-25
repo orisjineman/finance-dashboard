@@ -167,9 +167,9 @@ export default function InfoPanel({ budget, onBudgetChange, home, onHomeChange, 
         </div>
         {refundTo === "pension" && (
           <div className="result-line">
-            <span className="k">월급에서 낼 연금 (목표 − 환급)</span>
+            <span className="k">매달 월급에서 넣을 연금 (목표 − 환급)</span>
             <span className="v">
-              {fmtWon(salaryPension)}원/년 · 월 {fmtWon(salaryPension / 12)}원
+              월 {fmtWon(salaryPension / 12)}원 <small style={{ color: "var(--ink-soft)" }}>(연 {fmtWon(salaryPension)}원)</small>
             </span>
           </div>
         )}

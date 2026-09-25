@@ -43,6 +43,7 @@ describe("migrate", () => {
     expect(store.migrate({}).home.prices.length).toBeGreaterThan(0);
     expect(store.migrate({ home: { raisePct: 3 } as never }).home).not.toHaveProperty("raisePct"); // 인상률은 budget 하나로
     expect(store.migrate({}).home.assetSource).toBe("housing");
+    expect(store.migrate({ home: { extraAssets: 5 } as never }).home.extraMode).toBe("auto"); // 더 모을 돈은 기본 자동 계산
   });
 
   it("예전 loan.ltvPct는 정책 LTV로 옮기고 지운다 (정책 LTV가 이미 있으면 그대로)", () => {

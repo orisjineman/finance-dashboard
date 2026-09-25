@@ -3,7 +3,7 @@ import type { AssetRow, BudgetData, HistoryEntry, HomeSimInput, LoanInput, Rebal
 import { computeCurrentReturn, computeHousingLiquid, computeLoanEquity, computeReturnTotals, computeTotals, fmtEok, fmtWon, monthlyHouseSavings } from "../utils";
 import { yearsUntil } from "../rebalance";
 import { projectHousing } from "../housing";
-import { evaluateTarget } from "../home";
+import { assetsNeededAffordable, evaluateTarget, monthsUntil } from "../home";
 import LineChart from "./LineChart";
 import type { Alert } from "../alerts";
 import BudgetBreakdown from "./BudgetBreakdown";
@@ -88,6 +88,23 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
   const purchaseT = strategy.housePurchaseDate ? new Date(`${strategy.housePurchaseDate}T00:00:00`).getTime() : NaN;
   const monthsDiff =
     projection.reachDate && Number.isFinite(purchaseT) ? Math.round((purchaseT - projection.reachDate.getTime()) / (30.4375 * 86400000)) : null;
+
+  // 매수 예정일까지 이대로 모았을 때의 가용자산 = 내 집 마련 탭의 실투입금 + 부대비용 (같은 계산)
+  const monthsLeft = monthsUntil(strategy.housePurchaseDate, now);
+  const atPurchase = housingLiquid + Math.max(0, houseMonthly) * monthsLeft;
+  const pathPoints =
+    Number.isFinite(purchaseT) && monthsLeft > 0
+      ? [
+          { t: now.getTime(), y: housingLiquid },
+          { t: purchaseT, y: atPurchase },
+        ]
+      : projection.points;
+  // 목표 집값을 적정 상환 비중(내 집 마련 탭의 목표 비중, 40년 만기) 안에서 사려면 필요한 가용자산
+  const affordNeeded = target ? assetsNeededAffordable(target, 40, home.closingCost) : null;
+  const affordReach =
+    affordNeeded !== null ? projectHousing({ current: housingLiquid, target: affordNeeded, monthlyAdd: houseMonthly, now, purchaseDate: strategy.housePurchaseDate }) : null;
+  const ym = (d: Date) => `${d.getFullYear()}년 ${d.getMonth() + 1}월`;
+  const ltvPct = Math.round(home.policy.bogeumjari.ltv * 100);
 
   function setPensionContribution(v: number) {
     onBudgetChange({ ...budget, pensionAnnualContribution: v });
@@ -213,7 +230,7 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
       <div className="card">
         <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13.5, marginBottom: 6 }}>
           <span>가용자산 {fmtWon(housingLiquid)}원</span>
-          <span style={{ color: "var(--ink-soft)" }}>필요 자기자금 {fmtWon(equityNeeded)}원</span>
+          <span style={{ color: "var(--ink-soft)" }}>최소 필요 자기자금 (LTV {ltvPct}%) {fmtWon(equityNeeded)}원</span>
         </div>
         <div style={{ height: 14, borderRadius: 999, background: "var(--line)", overflow: "hidden" }}>
           <div
@@ -245,18 +262,33 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
               yFormat={fmtEok}
               series={[
                 { label: "가용자산(기록·현재)", color: "var(--accent)", points: housingPoints },
-                ...(projection.points.length > 1 ? [{ label: "이대로 모으면(예상)", color: "var(--gold)", dashed: true, dots: false, points: projection.points }] : []),
+                ...(pathPoints.length > 1 ? [{ label: "이대로 모으면(예상)", color: "var(--gold)", dashed: true, dots: false, points: pathPoints }] : []),
               ]}
-              hLines={[{ label: "필요 자기자금", y: equityNeeded, color: "var(--safe)" }]}
+              hLines={[
+                { label: `최소 자기자금 (LTV ${ltvPct}%)`, y: equityNeeded, color: "var(--safe)" },
+                ...(affordNeeded !== null ? [{ label: `적정 상환 기준 (40년, 월급의 ${home.targetRatioPct}%)`, y: affordNeeded, color: "var(--risk)" }] : []),
+              ]}
               vLines={Number.isFinite(purchaseT) ? [{ label: "집 매수 예정일", t: purchaseT, color: "var(--ink-soft)" }] : []}
             />
             <p className="note" style={{ marginTop: 6 }}>
+              수익률 없이 매달 {fmtWon(houseMonthly)}원씩 모은다고 가정했어.{" "}
               {projection.reachDate === null
-                ? "지금 저축 가능액으로는 목표에 닿지 않아. 월급·예산 탭에서 저축 가능액을 확인해줘."
+                ? "지금 저축 가능액으로는 최소 자기자금에 닿지 않아."
                 : housingRemaining <= 0
-                  ? "필요 자기자금에 이미 도달했어."
-                  : `수익률 없이 매달 ${fmtWon(houseMonthly)}원씩 모은다고 가정하면 ${projection.reachDate.getFullYear()}년 ${projection.reachDate.getMonth() + 1}월쯤 닿아.`}
-              {monthsDiff !== null && housingRemaining > 0 && (monthsDiff >= 0 ? ` 집 매수 예정일보다 약 ${monthsDiff}개월 빨라.` : ` 집 매수 예정일보다 약 ${-monthsDiff}개월 늦어.`)}
+                  ? "최소 자기자금(대출 한도를 다 쓰는 경우)에는 이미 도달했어."
+                  : `최소 자기자금(대출 한도를 다 쓰는 경우)에는 ${ym(projection.reachDate)}쯤 닿아${monthsDiff !== null ? (monthsDiff >= 0 ? `, 매수 예정일보다 약 ${monthsDiff}개월 빨라` : `, 매수 예정일보다 약 ${-monthsDiff}개월 늦어`) : ""}.`}
+              {affordNeeded !== null && affordReach && (
+                <>
+                  {" "}
+                  하지만 월 상환을 세후 월급의 {home.targetRatioPct}% 안(40년 만기)으로 두려면 <strong style={{ color: "var(--ink)" }}>{fmtWon(affordNeeded)}원</strong>이 필요하고,{" "}
+                  {affordReach.reachDate === null
+                    ? "지금 저축 속도로는 닿지 않아."
+                    : affordNeeded <= housingLiquid
+                      ? "이미 넘었어."
+                      : `${ym(affordReach.reachDate)}쯤 닿아${affordReach.onTrack === false ? " (매수 예정일보다 늦어)" : ""}.`}
+                </>
+              )}
+              {Number.isFinite(purchaseT) && monthsLeft > 0 && ` 매수 예정일에는 약 ${fmtWon(atPurchase)}원이 돼 (내 집 마련 탭의 실투입금 + 부대비용과 같은 값).`}
               {" "}스냅샷 히스토리에 기록을 추가할 때마다 가용자산 점이 하나씩 쌓여.
             </p>
           </div>
@@ -272,7 +304,7 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
               </span>
             </div>
             <div style={{ marginTop: 4, color: "var(--ink-soft)" }}>
-              매수 시점({target.result.purchaseYear}년) 기준 · 실투입금 {fmtWon(target.equity)}원(내 집 마련 탭의 추가 가용자산·부대비용 반영) · 최대 적정 집값(상환 {home.targetRatioPct}%) 30년 {(target.result.maxPrice30 / 10000).toFixed(2)}억 · 40년 {(target.result.maxPrice40 / 10000).toFixed(2)}억
+              매수 시점({target.result.purchaseYear}년) 기준 · 실투입금 {fmtWon(target.equity)}원(지금 가용자산 + 매수 때까지 더 모을 돈 − 부대비용) · 최대 적정 집값(상환 {home.targetRatioPct}%) 30년 {(target.result.maxPrice30 / 10000).toFixed(2)}억 · 40년 {(target.result.maxPrice40 / 10000).toFixed(2)}억
             </div>
             <button className="btn ghost sm" style={{ marginTop: 8 }} onClick={() => onNavigate("loan")}>
               내 집 마련 탭에서 자세히

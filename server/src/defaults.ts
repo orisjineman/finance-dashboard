@@ -85,6 +85,7 @@ export function defaultData(): DashboardData {
     home: {
       assetSource: "housing",
       includeDeposit: true,
+      extraMode: "auto",
       extraAssets: 0,
       closingCost: 1500,
       currentIncome: 0,

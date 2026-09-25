@@ -1,4 +1,5 @@
 import type { AssetRow, DashboardData, HomePolicy, HomeSimInput, RebalanceGroup } from "./types";
+import { monthlyHouseSavings } from "./utils";
 
 // 내 집 마련 시뮬레이터 계산. 금액은 모두 만원 단위.
 
@@ -97,6 +98,7 @@ export function checkDidimdolSingle(price: number, loan: number, areaM2: number,
 // 가용자산: 집 자금 묶음(또는 '집자금' 체크 전체) 합계 + 보증금(선택) + 추가 가용자산 - 부대비용
 export interface HomeAssets {
   base: number; // 보증금을 뺀 기준 자산
+  extra: number; // 매수 때까지 더 모을 돈 (자동이면 월 저축액 × 남은 달)
   deposit: number; // 항목 이름에 '보증금'이 든 행의 합계
   depositItems: string[];
   equity: number; // 실투입금
@@ -107,15 +109,24 @@ export function findHouseGroup(groups: RebalanceGroup[]): RebalanceGroup | null 
   return groups.find((g) => g.name.includes("집")) ?? groups.find((g) => g.targetType === "glide") ?? null;
 }
 
-export function computeHomeAssets(rows: AssetRow[], groups: RebalanceGroup[], input: HomeSimInput): HomeAssets {
+// 매수 예정일까지 남은 달 수 (이번 달 기준, 지났으면 0)
+export function monthsUntil(dateStr: string, now: Date): number {
+  const d = dateStr ? new Date(`${dateStr}T00:00:00`) : null;
+  if (!d || Number.isNaN(d.getTime())) return 0;
+  return Math.max(0, (d.getFullYear() - now.getFullYear()) * 12 + (d.getMonth() - now.getMonth()));
+}
+
+// autoExtra: extraMode가 auto일 때 쓸 '매수 때까지 더 모을 돈' (보통 월 저축액 × 남은 달)
+export function computeHomeAssets(rows: AssetRow[], groups: RebalanceGroup[], input: HomeSimInput, autoExtra = 0): HomeAssets {
   const isDeposit = (r: AssetRow) => r.item.includes("보증금");
   const group = findHouseGroup(groups);
   const inBase = (r: AssetRow) => (input.assetSource === "group" ? !!group && group.accounts.includes(r.account) : r.housingEligible);
   const base = rows.filter((r) => inBase(r) && !isDeposit(r)).reduce((s, r) => s + r.amount, 0);
   const deposits = rows.filter(isDeposit);
   const deposit = deposits.reduce((s, r) => s + r.amount, 0);
-  const equity = base + (input.includeDeposit ? deposit : 0) + (input.extraAssets || 0) - (input.closingCost || 0);
-  return { base, deposit, depositItems: deposits.map((r) => r.item), equity, groupName: group?.name ?? null };
+  const extra = input.extraMode === "auto" ? Math.max(0, autoExtra) : input.extraAssets || 0;
+  const equity = base + (input.includeDeposit ? deposit : 0) + extra - (input.closingCost || 0);
+  return { base, extra, deposit, depositItems: deposits.map((r) => r.item), equity, groupName: group?.name ?? null };
 }
 
 export interface PriceRow {
@@ -199,7 +210,15 @@ export interface TargetCheck {
 export function evaluateTarget(data: Pick<DashboardData, "rows" | "rebalance" | "home" | "loan" | "strategy" | "budget">, now: Date): TargetCheck | null {
   const { home, loan } = data;
   if (!home || !(loan.price > 0) || !(home.currentIncome > 0)) return null;
-  const assets = computeHomeAssets(data.rows, data.rebalance.groups, home);
+  const autoExtra = monthlyHouseSavings(data.budget) * monthsUntil(data.strategy.housePurchaseDate, now);
+  const assets = computeHomeAssets(data.rows, data.rebalance.groups, home, autoExtra);
   const result = computeHome({ ...home, prices: [loan.price] }, assets.equity, loan.ratePct, data.strategy.housePurchaseDate, now, data.budget.annualRaisePct);
   return result.rows[0] ? { result, row: result.rows[0], equity: assets.equity } : null;
+}
+
+// 목표 집값을 '적정 상환 비중'(목표 비중) 안에서 사려면 매수 때 필요한 가용자산 (부대비용 포함, 개요 그래프와 같은 기준)
+// = 집값 − 목표 비중으로 갚을 수 있는 최대 대출 + 부대비용
+export function assetsNeededAffordable(check: TargetCheck, years: 30 | 40, closingCost: number): number {
+  const maxLoan = (years === 40 ? check.result.maxPrice40 : check.result.maxPrice30) - check.equity;
+  return Math.max(0, check.row.price - maxLoan) + Math.max(0, closingCost);
 }

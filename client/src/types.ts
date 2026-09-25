@@ -137,7 +137,8 @@ export interface HomePolicy {
 export interface HomeSimInput {
   assetSource: "group" | "housing"; // 가용자산 기준: 자산 스냅샷에서 '집자금' 체크한 전체(기본, 개요·시뮬레이션과 같음) / 집 자금 리밸런싱 묶음
   includeDeposit: boolean; // 보증금(항목 이름에 '보증금'이 들어간 행)을 가용자산에 더할지
-  extraAssets: number; // 만원, 매수 시점까지 더 모을 금액
+  extraMode?: "auto" | "manual"; // auto: 집 마련 월 저축액 × 매수까지 남은 달 (개요 예상 경로와 같은 값), manual: extraAssets 그대로
+  extraAssets: number; // 만원, 매수 시점까지 더 모을 금액 (extraMode가 manual일 때)
   closingCost: number; // 만원, 취득세·중개수수료·법무·이사
   currentIncome: number; // 만원, 대출 심사용 현재 연 총보수
   targetRatioPct: number; // %, 세후 월급 대비 목표 월 상환 비중

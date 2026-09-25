@@ -8,7 +8,9 @@ import {
   computeHomeAssets,
   incomeAt,
   judgeRatio,
+  assetsNeededAffordable,
   evaluateTarget,
+  monthsUntil,
   maxPrincipal,
   totalInterest,
   monthlyAfterTax,
@@ -222,5 +224,40 @@ describe("evaluateTarget", () => {
   it("목표 집값이나 연봉이 없으면 null", () => {
     expect(evaluateTarget({ ...base, loan: { ...base.loan, price: 0 } }, now)).toBeNull();
     expect(evaluateTarget({ ...base, home: { ...base.home, currentIncome: 0 } }, now)).toBeNull();
+  });
+});
+
+describe("매수 때까지 더 모을 돈 (자동)", () => {
+  const rows: AssetRow[] = [{ id: "1", account: "ISA", item: "S&P", category: "risk", amount: 10000, housingEligible: true }];
+  it("남은 달 수는 이번 달 기준, 지났으면 0", () => {
+    const now = new Date("2026-09-25T00:00:00");
+    expect(monthsUntil("2030-06-30", now)).toBe(45);
+    expect(monthsUntil("2026-09-30", now)).toBe(0);
+    expect(monthsUntil("2025-01-01", now)).toBe(0);
+    expect(monthsUntil("", now)).toBe(0);
+  });
+  it("auto면 넘겨준 값(월 저축액 × 남은 달), manual이면 입력값을 쓴다", () => {
+    expect(computeHomeAssets(rows, [], input({ assetSource: "housing", extraMode: "auto", extraAssets: 999 }), 4500).extra).toBe(4500);
+    expect(computeHomeAssets(rows, [], input({ assetSource: "housing", extraMode: "manual", extraAssets: 999 }), 4500).extra).toBe(999);
+    expect(computeHomeAssets(rows, [], input({ assetSource: "housing", extraAssets: 999 }), 4500).extra).toBe(999); // 예전 데이터는 manual로 본다
+  });
+});
+
+describe("assetsNeededAffordable", () => {
+  it("그 가용자산이면 목표 집값의 상환 비중이 정확히 목표 비중이 된다", () => {
+    const now = new Date("2026-09-25T00:00:00");
+    const base = {
+      rows: [{ id: "1", account: "ISA", item: "S&P", category: "risk" as const, amount: 15000, housingEligible: true }],
+      rebalance: { tolerancePct: 5, groups: [] },
+      home: input({ assetSource: "housing", currentIncome: 5000, extraMode: "manual", closingCost: 1000 }),
+      loan: { price: 50000, ratePct: 4 },
+      strategy: { housePurchaseDate: "2030-06-30", isaDutyEndDate: "", overviewSummary: [], glidePath: [] },
+      budget: { monthlyNetIncome: 0, annualRaisePct: 3, expenseCategories: [], pensionAnnualContribution: 0, pensionTaxCreditRate: 16.5 },
+    };
+    const t = evaluateTarget(base, now)!;
+    const need = assetsNeededAffordable(t, 40, 1000);
+    // 가용자산이 need면 실투입금 = need − 부대비용, 대출 = 집값 − 실투입금
+    const loan = 50000 - (need - 1000);
+    expect(monthlyPayment(loan, 4, 40) / t.result.afterTaxMonthly).toBeCloseTo(0.34, 9);
   });
 });

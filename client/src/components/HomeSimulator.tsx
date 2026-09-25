@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { AssetRow, BudgetData, HomePolicy, HomeSimInput, LoanInput, RebalanceGroup, StrategyData } from "../types";
 import { fmtWon, monthlyHouseSavings } from "../utils";
 import { monthlyAfterTax } from "../home";
-import { computeHome, computeHomeAssets, policyStale, totalInterest, yearExceeding, type Eligibility, type Judge } from "../home";
+import { computeHome, computeHomeAssets, monthsUntil, policyStale, totalInterest, yearExceeding, type Eligibility, type Judge } from "../home";
 import MoneyInput from "./MoneyInput";
 import SectionTitle from "./SectionTitle";
 
@@ -40,7 +40,11 @@ function Badge({ label, e }: { label: string; e: Eligibility }) {
 export default function HomeSimulator({ rows, groups, home, onChange, loan, onLoanChange, strategy, onStrategyChange, budget, onBudgetChange }: Props) {
   const now = new Date();
   const [newPrice, setNewPrice] = useState(0);
-  const assets = computeHomeAssets(rows, groups, home);
+  // 매수 때까지 더 모을 돈(자동) = 집 마련 월 저축액 × 매수까지 남은 달. 개요의 '이대로 모으면' 예상 경로와 같은 값이다.
+  const monthsLeft = monthsUntil(strategy.housePurchaseDate, now);
+  const monthlySavings = monthlyHouseSavings(budget);
+  const savingsUntilPurchase = Math.max(0, monthlySavings) * monthsLeft;
+  const assets = computeHomeAssets(rows, groups, home, savingsUntilPurchase);
   const raisePct = budget.annualRaisePct || 0;
   // 비교 목록에 목표 집값이 없으면(예전에 따로 입력한 값) 표에 함께 보여준다
   const targetInList = home.prices.includes(loan.price);
@@ -52,14 +56,6 @@ export default function HomeSimulator({ rows, groups, home, onChange, loan, onLo
   const set = <K extends keyof HomeSimInput>(key: K, value: HomeSimInput[K]) => onChange({ ...home, [key]: value });
   const setPolicy = (patch: Partial<HomePolicy>) => onChange({ ...home, policy: { ...home.policy, ...patch } });
 
-  // 월 저축 가능액(월급·예산 탭) × 매수까지 남은 개월 수
-  const monthsLeft = (() => {
-    const d = strategy.housePurchaseDate ? new Date(`${strategy.housePurchaseDate}T00:00:00`) : null;
-    if (!d || Number.isNaN(d.getTime())) return 0;
-    return Math.max(0, (d.getFullYear() - now.getFullYear()) * 12 + (d.getMonth() - now.getMonth()));
-  })();
-  const monthlySavings = monthlyHouseSavings(budget); // 개요의 집 마련 예상 경로와 같은 값 (연금 납입·환급 반영)
-  const savingsUntilPurchase = Math.max(0, monthlySavings) * monthsLeft;
 
   const raiseCases = Array.from(new Set([2, 2.5, 3, raisePct])).sort((a, b) => a - b);
   const estNowMonthly = monthlyAfterTax(home.policy.afterTaxRatioTable, home.currentIncome);
@@ -122,12 +118,24 @@ export default function HomeSimulator({ rows, groups, home, onChange, loan, onLo
         </div>
         <div className="field-row">
           <div className="field">
-            <label>추가 가용자산 (원, 매수 때까지 더 모을 돈)</label>
-            <MoneyInput value={home.extraAssets} onChange={(v) => set("extraAssets", v)} />
-            {savingsUntilPurchase > 0 && (
-              <button className="btn ghost sm" style={{ marginTop: 6 }} onClick={() => set("extraAssets", Math.round(savingsUntilPurchase))}>
-                집 마련 월 저축액 {fmtWon(monthlySavings)}원 × {monthsLeft}개월 = {fmtWon(savingsUntilPurchase)}원으로 채우기
-              </button>
+            <label>매수 때까지 더 모을 돈 (원)</label>
+            <select
+              value={home.extraMode === "auto" ? "auto" : "manual"}
+              onChange={(e) => set("extraMode", e.target.value as "auto" | "manual")}
+              style={{ marginBottom: 6 }}
+            >
+              <option value="auto">자동: 집 마련 월 저축액 × 남은 달 (개요 예상 경로와 같음)</option>
+              <option value="manual">직접 입력</option>
+            </select>
+            {home.extraMode === "auto" ? (
+              <>
+                <MoneyInput value={Math.round(assets.extra)} readOnly />
+                <p className="note" style={{ margin: "4px 0 0" }}>
+                  월 {fmtWon(monthlySavings)}원(연금 납입·환급 반영) × {monthsLeft}달. 스냅샷 잔액이 늘면 남은 달이 줄어서 이중으로 세지 않아.
+                </p>
+              </>
+            ) : (
+              <MoneyInput value={home.extraAssets} onChange={(v) => set("extraAssets", v)} />
             )}
           </div>
           <div className="field">
@@ -172,7 +180,7 @@ export default function HomeSimulator({ rows, groups, home, onChange, loan, onLo
           </p>
         )}
         <p className="note" style={{ marginTop: 0 }}>
-          실투입금 = 기준 자산 {fmtWon(assets.base)}원{home.includeDeposit ? ` + 보증금 ${fmtWon(assets.deposit)}원` : ""} + 추가 {fmtWon(home.extraAssets)}원 − 부대비용 {fmtWon(home.closingCost)}원. 매수 예정일과 대출 금리는 리밸런싱·목표 집값 계산과 같은 값을 써.
+          실투입금 = 기준 자산 {fmtWon(assets.base)}원{home.includeDeposit ? ` + 보증금 ${fmtWon(assets.deposit)}원` : ""} + 더 모을 돈 {fmtWon(assets.extra)}원 − 부대비용 {fmtWon(home.closingCost)}원. 매수 예정일과 대출 금리는 리밸런싱·목표 집값 계산과 같은 값을 써.
         </p>
       </div>
 

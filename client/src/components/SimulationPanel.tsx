@@ -246,6 +246,7 @@ export default function SimulationPanel({ rows, sim, onChange, annualRaisePct, l
         <div style={{ marginTop: 14 }}>
           <LineChart
             yFormat={fmtEok}
+            valueFormat={(v) => `${fmtWon(v)}원`}
             series={outcomes.map((o, i) => ({
               label: names[i],
               color: palette[i % palette.length],

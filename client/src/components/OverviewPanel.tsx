@@ -260,6 +260,7 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
             <div className="chart-title">집 마련 진행과 예상 경로</div>
             <LineChart
               yFormat={fmtEok}
+              valueFormat={(v) => `${fmtWon(v)}원`}
               series={[
                 { label: "가용자산(기록·현재)", color: "var(--accent)", points: housingPoints },
                 ...(pathPoints.length > 1 ? [{ label: "이대로 모으면(예상)", color: "var(--gold)", dashed: true, dots: false, points: pathPoints }] : []),

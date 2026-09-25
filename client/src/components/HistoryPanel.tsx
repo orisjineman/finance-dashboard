@@ -120,6 +120,7 @@ export default function HistoryPanel({ rows, history, onChange }: Props) {
                   <div className="chart-title">총평가금액과 누적 투자원금</div>
                   <LineChart
                     yFormat={fmtEok}
+                    valueFormat={(v) => `${fmtWon(v)}원`}
                     series={[
                       { label: "총평가금액", color: "var(--accent)", points: sorted.map((h) => ({ t: new Date(`${h.date}T00:00:00`).getTime(), y: h.totalValue })) },
                       { label: "누적 투자원금", color: "var(--ink-soft)", dashed: true, points: sorted.map((h) => ({ t: new Date(`${h.date}T00:00:00`).getTime(), y: h.cumulativePrincipal })) },
@@ -130,6 +131,7 @@ export default function HistoryPanel({ rows, history, onChange }: Props) {
                   <div className="chart-title">투자원금 대비 수익률</div>
                   <LineChart
                     yFormat={(v) => `${v.toFixed(0)}%`}
+                    valueFormat={(v) => `${v.toFixed(2)}%`}
                     series={[{ label: "수익률", color: "var(--safe)", points: sorted.map((h) => ({ t: new Date(`${h.date}T00:00:00`).getTime(), y: h.returnRate * 100 })) }]}
                   />
                 </div>

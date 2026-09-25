@@ -12,3 +12,16 @@ export function niceTicks(min: number, max: number, count = 4): number[] {
   for (let i = first; i <= last; i++) ticks.push(Number((i * step).toPrecision(12)));
   return ticks;
 }
+
+// 시각 t에서 꺾은선의 값 (양옆 점을 직선으로 이어 읽는다). 선이 없는 구간(처음 점 이전·마지막 점 이후)이면 null.
+export function valueAt(points: { t: number; y: number }[], t: number): number | null {
+  if (points.length === 0) return null;
+  const pts = [...points].sort((a, b) => a.t - b.t);
+  if (t < pts[0].t || t > pts[pts.length - 1].t) return null;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i];
+    const b = pts[i + 1];
+    if (t >= a.t && t <= b.t) return b.t === a.t ? b.y : a.y + ((b.y - a.y) * (t - a.t)) / (b.t - a.t);
+  }
+  return pts[pts.length - 1].y;
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { niceTicks } from "./chart";
+import { niceTicks, valueAt } from "./chart";
 import { projectHousing } from "./housing";
 
 describe("niceTicks", () => {
@@ -44,5 +44,26 @@ describe("projectHousing", () => {
   it("예정일보다 늦게 닿으면 onTrack=false, 예정일이 없으면 null", () => {
     expect(projectHousing({ current: 0, target: 100000, monthlyAdd: 10, now, purchaseDate: "2027-01-01" }).onTrack).toBe(false);
     expect(projectHousing({ current: 0, target: 100, monthlyAdd: 10, now, purchaseDate: "" }).onTrack).toBeNull();
+  });
+});
+
+describe("valueAt", () => {
+  const pts = [
+    { t: 100, y: 10 },
+    { t: 0, y: 0 },
+    { t: 300, y: 10 },
+  ];
+  it("점 위에서는 그 값, 사이에서는 직선으로 이어 읽는다 (입력 순서와 무관)", () => {
+    expect(valueAt(pts, 0)).toBe(0);
+    expect(valueAt(pts, 50)).toBeCloseTo(5, 9);
+    expect(valueAt(pts, 200)).toBeCloseTo(10, 9);
+    expect(valueAt(pts, 300)).toBe(10);
+  });
+  it("선 밖이나 빈 선은 null, 점 하나면 그 시각에서만 값", () => {
+    expect(valueAt(pts, -1)).toBeNull();
+    expect(valueAt(pts, 301)).toBeNull();
+    expect(valueAt([], 5)).toBeNull();
+    expect(valueAt([{ t: 5, y: 7 }], 5)).toBe(7);
+    expect(valueAt([{ t: 5, y: 7 }], 6)).toBeNull();
   });
 });

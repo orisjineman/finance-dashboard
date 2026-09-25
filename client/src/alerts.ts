@@ -98,7 +98,7 @@ export function computeAlerts(data: DashboardData, now: Date = new Date()): Aler
         out.push({
           id: "home-income",
           level: "warn",
-          text: `연봉 상승률 ${raise}%(월급·예산 탭)로 보면 ${d.getFullYear()}년 매수 때 연봉이 보금자리론 소득 기준(${Math.round(home.policy.bogeumjari.maxIncome * 10000).toLocaleString("ko-KR")}원)을 넘어. 집을 먼저 사고 이직하는 순서를 고려해줘.`,
+          text: `연봉 상승률 ${raise}%(내 정보 탭)로 보면 ${d.getFullYear()}년 매수 때 연봉이 보금자리론 소득 기준(${Math.round(home.policy.bogeumjari.maxIncome * 10000).toLocaleString("ko-KR")}원)을 넘어. 집을 먼저 사고 이직하는 순서를 고려해줘.`,
           tab: "loan",
         });
       }

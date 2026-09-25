@@ -16,6 +16,7 @@ interface Props {
   onChange: (settings: RebalanceSettings) => void;
   onRowsChange: (rows: AssetRow[]) => void;
   onStrategyChange: (strategy: StrategyData) => void;
+  onEditInfo: () => void;
 }
 
 
@@ -23,7 +24,7 @@ const NO_ACCESS: Record<string, "allowed" | "blocked"> = {};
 const NO_LIMIT: Record<string, number> = {};
 
 
-export default function RebalancePanel({ rows, strategy, settings, onChange, onRowsChange, onStrategyChange }: Props) {
+export default function RebalancePanel({ rows, strategy, settings, onChange, onRowsChange, onStrategyChange, onEditInfo }: Props) {
   const allAccounts = useMemo(() => uniqueAccounts(rows), [rows]);
   const yearsLeft = yearsUntil(strategy.housePurchaseDate);
   const glideTarget = yearsLeft === null ? null : glideRiskPct(strategy.glidePath, yearsLeft);
@@ -183,7 +184,7 @@ export default function RebalancePanel({ rows, strategy, settings, onChange, onR
           {activeGroup.targetType === "glide" && (
             <>
               <SectionTitle>집 매수 예정일 · 목표 비중표</SectionTitle>
-              <GlidePathEditor strategy={strategy} onChange={onStrategyChange} />
+              <GlidePathEditor strategy={strategy} onChange={onStrategyChange} onEditInfo={onEditInfo} />
               <p className="note">
                 '집 매수 시점에 맞춰 낮추기'를 고른 묶음은 이 표의 목표를 따라가. 표의 비중은 <strong>그 묶음 전체</strong>(CMA처럼 위험 상품이 없는 계좌 포함)에 대한 비율이야.
               </p>

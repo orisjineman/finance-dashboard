@@ -6,6 +6,7 @@ import { monthlyAfterTax } from "../home";
 import { computeHome, computeHomeAssets, policyStale, totalInterest, yearExceeding, type Eligibility, type Judge } from "../home";
 import MoneyInput from "./MoneyInput";
 import SectionTitle from "./SectionTitle";
+import { InfoValue } from "./InfoLink";
 
 interface Props {
   rows: AssetRow[];
@@ -15,10 +16,9 @@ interface Props {
   loan: LoanInput;
   onLoanChange: (loan: LoanInput) => void;
   strategy: StrategyData;
-  onStrategyChange: (strategy: StrategyData) => void;
   budget: BudgetData;
   simulation: SimulationAssumptions;
-  onBudgetChange: (budget: BudgetData) => void;
+  onEditInfo: () => void; // '내 정보' 탭으로 이동
 }
 
 const JUDGE_LABEL: Record<Judge, { text: string; tag: string }> = {
@@ -39,7 +39,7 @@ function Badge({ label, e }: { label: string; e: Eligibility }) {
 }
 
 // '내 집 마련' 탭의 시뮬레이터. 집값 후보별로 필요 대출, 월 상환액, 상환 비중, 대출 자격을 비교한다.
-export default function HomeSimulator({ rows, groups, home, onChange, loan, onLoanChange, strategy, onStrategyChange, budget, simulation, onBudgetChange }: Props) {
+export default function HomeSimulator({ rows, groups, home, onChange, loan, onLoanChange, strategy, budget, simulation, onEditInfo }: Props) {
   const now = new Date();
   const [newPrice, setNewPrice] = useState(0);
   // 매수 때까지 더 모을 돈(자동) = 개요의 '이대로 모으면' 예상 경로에서 매수 예정일까지 늘어나는 금액 (수익률 반영 토글 공유)
@@ -150,23 +150,19 @@ export default function HomeSimulator({ rows, groups, home, onChange, loan, onLo
           </div>
         </div>
         <div className="field-row">
-          <div className="field">
-            <label>현재 연 총보수 (원, 대출 심사 기준)</label>
-            <MoneyInput value={home.currentIncome} onChange={(v) => set("currentIncome", v)} />
+          <div>
+            <InfoValue label="연 총보수 (대출 심사 기준)" onEdit={onEditInfo}>{fmtWon(home.currentIncome)}원</InfoValue>
           </div>
-          <div className="field">
-            <label>연봉 상승률 (%, 월급·예산 탭과 같은 값)</label>
-            <input type="number" step={0.5} value={raisePct} onChange={(e) => onBudgetChange({ ...budget, annualRaisePct: parseFloat(e.target.value) || 0 })} />
+          <div>
+            <InfoValue label="연봉 상승률" onEdit={onEditInfo}>{raisePct}% / 년</InfoValue>
           </div>
         </div>
         <div className="field-row">
-          <div className="field">
-            <label>집 매수 예정일</label>
-            <input type="date" value={strategy.housePurchaseDate} onChange={(e) => onStrategyChange({ ...strategy, housePurchaseDate: e.target.value })} />
+          <div>
+            <InfoValue label="집 매수 예정일" onEdit={onEditInfo}>{strategy.housePurchaseDate || "-"}</InfoValue>
           </div>
-          <div className="field">
-            <label>대출 금리 (연 %)</label>
-            <input type="number" step={0.1} value={loan.ratePct} onChange={(e) => onLoanChange({ ...loan, ratePct: parseFloat(e.target.value) || 0 })} />
+          <div>
+            <InfoValue label="대출 금리" onEdit={onEditInfo}>연 {loan.ratePct}%</InfoValue>
           </div>
         </div>
         <div className="field-row">
@@ -181,12 +177,12 @@ export default function HomeSimulator({ rows, groups, home, onChange, loan, onLo
         </div>
         {home.currentIncome > 0 && budget.monthlyNetIncome > 0 && (
           <p className="note" style={{ marginTop: 0 }}>
-            참고: 총보수 {fmtWon(home.currentIncome)}원을 비율표로 환산한 지금 세후 월급은 약 {fmtWon(estNowMonthly)}원이고, 월급·예산 탭의 월 실수령액은 {fmtWon(budget.monthlyNetIncome)}원이야.
+            참고: 총보수 {fmtWon(home.currentIncome)}원을 비율표로 환산한 지금 세후 월급은 약 {fmtWon(estNowMonthly)}원이고, 내 정보 탭의 월 실수령액은 {fmtWon(budget.monthlyNetIncome)}원이야.
             총보수에는 상여·과세 복지가 들어가서 매달 받는 돈보다 클 수 있어. 차이가 크면 비율표나 총보수를 확인해줘.
           </p>
         )}
         <p className="note" style={{ marginTop: 0 }}>
-          실투입금 = 기준 자산 {fmtWon(assets.base)}원{home.includeDeposit ? ` + 보증금 ${fmtWon(assets.deposit)}원` : ""} + 더 모을 돈 {fmtWon(assets.extra)}원 − 부대비용 {fmtWon(home.closingCost)}원. 매수 예정일과 대출 금리는 리밸런싱·목표 집값 계산과 같은 값을 써.
+          실투입금 = 기준 자산 {fmtWon(assets.base)}원{home.includeDeposit ? ` + 보증금 ${fmtWon(assets.deposit)}원` : ""} + 더 모을 돈 {fmtWon(assets.extra)}원 − 부대비용 {fmtWon(home.closingCost)}원. 연 총보수·상승률·매수 예정일·금리·목표 집값은 '내 정보' 탭에서 고쳐.
         </p>
       </div>
 
@@ -297,7 +293,7 @@ export default function HomeSimulator({ rows, groups, home, onChange, loan, onLo
               return (
                 <tr key={rate}>
                   <td>
-                    {rate}%{rate === raisePct ? " (월급·예산 탭 값)" : ""}
+                    {rate}%{rate === raisePct ? " (내 정보 값)" : ""}
                   </td>
                   <td>{home.currentIncome <= 0 ? "-" : y === null ? "넘지 않음" : `${y}년`}</td>
                   <td>{fmtWon(home.currentIncome * Math.pow(1 + rate / 100, Math.max(0, purchaseYear - currentYear)))}원</td>

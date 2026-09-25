@@ -15,7 +15,7 @@ interface Props {
 }
 
 export default function SimulationPanel({ rows, sim: stored, onChange, annualRaisePct, budget }: Props) {
-  // 연간 적립액: 자동이면 월급·예산 탭에서 계산 (월 저축 가능액 × 12 + 연금 세액공제 환급)
+  // 연간 적립액: 자동이면 내 정보 탭 값으로 계산 (월 저축 가능액 × 12 + 연금 세액공제 환급)
   const autoContribution = autoAnnualContribution(budget);
   const isAuto = stored.contributionMode === "auto";
   const sim: SimulationAssumptions = useMemo(() => (isAuto ? { ...stored, annualContribution: autoContribution } : stored), [isAuto, stored, autoContribution]);
@@ -67,7 +67,7 @@ export default function SimulationPanel({ rows, sim: stored, onChange, annualRai
           <div className="field">
             <label>연간 신규 적립액 (원)</label>
             <select value={isAuto ? "auto" : "manual"} onChange={(e) => set("contributionMode", e.target.value as "auto" | "manual")} style={{ marginBottom: 6 }}>
-              <option value="auto">자동: 월급·예산 탭 기준</option>
+              <option value="auto">자동: 내 정보 탭 기준</option>
               <option value="manual">직접 입력</option>
             </select>
             {isAuto ? (
@@ -95,7 +95,7 @@ export default function SimulationPanel({ rows, sim: stored, onChange, annualRai
             style={{ width: 16, height: 16 }}
           />
           <label htmlFor="apply-raise" style={{ marginBottom: 0 }}>
-            매년 적립액에 연봉 상승률 반영 (월급·예산 탭 기준 {annualRaisePct}%)
+            매년 적립액에 연봉 상승률 반영 (내 정보 탭 기준 {annualRaisePct}%)
           </label>
         </div>
         <div className="field-row">

@@ -9,6 +9,7 @@ export function defaultTaxPrep(): TaxPrepInput {
     creditCardUsed: 0,
     debitCardUsed: 0,
     policy: {
+      pension: { lowIncomeMax: 5500, rateLowPct: 16.5, ratePct: 13.2 },
       rent: { incomeMax: 8000, lowIncomeMax: 5500, rateLowPct: 17, ratePct: 15, limit: 1000 },
       subscription: { incomeMax: 7000, limit: 300, ratePct: 40 },
       card: { thresholdPct: 25, creditRatePct: 15, debitRatePct: 30, limitLow: 300, limitHigh: 250, limitIncome: 7000 },

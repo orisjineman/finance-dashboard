@@ -4,7 +4,8 @@ import { ConflictError, fetchData, saveBudget, saveHome, saveRebalance, saveChec
 import OverviewPanel from "./components/OverviewPanel";
 import { computeAlerts } from "./alerts";
 import SnapshotPanel from "./components/SnapshotPanel";
-import BudgetPanel from "./components/BudgetPanel";
+import InfoPanel from "./components/InfoPanel";
+import { deriveData } from "./derive";
 import RebalancePanel from "./components/RebalancePanel";
 import SimulationPanel from "./components/SimulationPanel";
 import LoanPanel from "./components/LoanPanel";
@@ -14,8 +15,8 @@ import TaxPanel from "./components/TaxPanel";
 
 const TABS = [
   { key: "overview", label: "개요" },
+  { key: "budget", label: "내 정보" },
   { key: "snapshot", label: "자산 스냅샷" },
-  { key: "budget", label: "월급·예산" },
   { key: "tax", label: "연말정산" },
   { key: "rebalance", label: "리밸런싱" },
   { key: "sim", label: "연도별 시뮬레이션" },
@@ -77,7 +78,9 @@ function initialTheme(): Theme {
 }
 
 export default function App() {
-  const [data, setData] = useState<DashboardData | null>(null);
+  const [rawData, setData] = useState<DashboardData | null>(null);
+  // 입력값끼리 정해지는 값(연금 세액공제율 등)을 계산한 결과를 화면에 쓴다. 저장은 원본(rawData) 기준.
+  const data = useMemo(() => (rawData ? deriveData(rawData) : null), [rawData]);
   const [tab, setTab] = useState<TabKey>("overview");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -198,7 +201,6 @@ export default function App() {
             strategy={data.strategy}
             onStrategyChange={updateStrategy}
             budget={data.budget}
-            onBudgetChange={updateBudget}
             loan={data.loan}
             history={data.history}
             alerts={alerts}
@@ -212,9 +214,20 @@ export default function App() {
         {tab === "snapshot" && (
           <SnapshotPanel rows={data.rows} onChange={updateRows} history={data.history} onHistoryChange={updateHistory} />
         )}
-        {tab === "rebalance" && <RebalancePanel rows={data.rows} strategy={data.strategy} settings={data.rebalance} onChange={updateRebalance} onRowsChange={updateRows} onStrategyChange={updateStrategy} />}
-        {tab === "budget" && <BudgetPanel budget={data.budget} onChange={updateBudget} />}
-        {tab === "tax" && <TaxPanel budget={data.budget} onChange={updateBudget} grossIncome={data.home.currentIncome} />}
+        {tab === "rebalance" && <RebalancePanel rows={data.rows} strategy={data.strategy} settings={data.rebalance} onChange={updateRebalance} onRowsChange={updateRows} onStrategyChange={updateStrategy} onEditInfo={() => setTab("budget")} />}
+        {tab === "budget" && (
+          <InfoPanel
+            budget={data.budget}
+            onBudgetChange={updateBudget}
+            home={data.home}
+            onHomeChange={updateHome}
+            strategy={data.strategy}
+            onStrategyChange={updateStrategy}
+            loan={data.loan}
+            onLoanChange={updateLoan}
+          />
+        )}
+        {tab === "tax" && <TaxPanel budget={data.budget} onChange={updateBudget} grossIncome={data.home.currentIncome} onEditInfo={() => setTab("budget")} />}
         {tab === "sim" && (
           <SimulationPanel rows={data.rows} sim={data.simulation} onChange={updateSim} annualRaisePct={data.budget.annualRaisePct} budget={data.budget} />
         )}
@@ -227,10 +240,9 @@ export default function App() {
             home={data.home}
             onHomeChange={updateHome}
             strategy={data.strategy}
-            onStrategyChange={updateStrategy}
             budget={data.budget}
             simulation={data.simulation}
-            onBudgetChange={updateBudget}
+            onEditInfo={() => setTab("budget")}
           />
         )}
         {tab === "checklist" && <ChecklistPanel items={data.checklist} onChange={updateChecklist} />}

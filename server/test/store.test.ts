@@ -64,6 +64,7 @@ describe("migrate", () => {
     expect(d.budget.taxPrep?.policy.rent.limit).toBe(750);
     expect(d.budget.taxPrep?.policy.rent.incomeMax).toBe(8000);
     expect(d.budget.taxPrep?.policy.card.thresholdPct).toBe(25);
+    expect(d.budget.taxPrep?.policy.pension?.lowIncomeMax).toBe(5500);
     expect(store.migrate({}).budget.taxPrep?.subscriptionPaid).toBe(0);
   });
 

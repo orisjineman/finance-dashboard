@@ -5,6 +5,7 @@ import { newId } from "../utils";
 interface Props {
   strategy: StrategyData;
   onChange: (strategy: StrategyData) => void;
+  onEditInfo?: () => void; // 매수 예정일은 '내 정보' 탭에서 고친다
 }
 
 // 집 매수 예정일에서 남은 기간(년)만큼 거슬러 올라간 시점을 "2029년 6월" 형태로 표시
@@ -16,7 +17,7 @@ function whenLabel(purchaseDate: string, yearsLeft: number): string {
 }
 
 // 집 매수 예정일과, 남은 기간별 목표 위험 비중 표 (지점 사이는 직선으로 이어서 계산)
-export default function GlidePathEditor({ strategy, onChange }: Props) {
+export default function GlidePathEditor({ strategy, onChange, onEditInfo }: Props) {
   const { glidePath, housePurchaseDate } = strategy;
   const yearsLeft = yearsUntil(housePurchaseDate);
   const todayTarget = yearsLeft === null ? null : glideRiskPct(glidePath, yearsLeft);
@@ -27,9 +28,16 @@ export default function GlidePathEditor({ strategy, onChange }: Props) {
 
   return (
     <div className="card">
-      <div className="field" style={{ maxWidth: 260 }}>
+      <div className="field" style={{ maxWidth: 360 }}>
         <label>집 매수 예정일</label>
-        <input type="date" value={housePurchaseDate} onChange={(e) => onChange({ ...strategy, housePurchaseDate: e.target.value })} />
+        <div className="info-value">
+          <span>{housePurchaseDate || "-"}</span>
+          {onEditInfo && (
+            <button type="button" className="btn ghost sm" onClick={onEditInfo}>
+              내 정보에서 수정
+            </button>
+          )}
+        </div>
       </div>
       <p className="note" style={{ marginTop: 0, marginBottom: 12 }}>
         {yearsLeft === null || todayTarget === null

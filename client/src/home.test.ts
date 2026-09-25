@@ -215,7 +215,7 @@ describe("evaluateTarget", () => {
     budget: { monthlyNetIncome: 0, annualRaisePct: 3, expenseCategories: [], pensionAnnualContribution: 0, pensionTaxCreditRate: 16.5 },
     simulation: { annualContribution: 0, years: 10, riskRate: 8, safeRate: 3, contributionRiskRatio: 50, applySalaryRaise: false },
   };
-  it("목표 집값 한 채를 월급·예산 탭 인상률로 판정한다", () => {
+  it("목표 집값 한 채를 내 정보 탭 인상률로 판정한다", () => {
     const t = evaluateTarget(base, now)!;
     expect(t.equity).toBe(15000 + 3000 - 1500);
     expect(t.row.price).toBe(40000);

@@ -16,7 +16,7 @@ export interface AssetRow {
 }
 
 export interface SimulationAssumptions {
-  contributionMode?: "auto" | "manual"; // auto: 월급·예산 탭 (월 저축 가능액 × 12 + 연금 세액공제 환급), manual: annualContribution
+  contributionMode?: "auto" | "manual"; // auto: 내 정보 탭 (월 저축 가능액 × 12 + 연금 세액공제 환급), manual: annualContribution
   annualContribution: number; // 만원 (manual일 때)
   years: number;
   riskRate: number; // %
@@ -79,6 +79,7 @@ export interface BudgetCategory {
 }
 
 export interface TaxPrepPolicy {
+  pension?: { lowIncomeMax: number; rateLowPct: number; ratePct: number }; // 연금저축·IRP 세액공제율: 총급여가 lowIncomeMax 이하면 rateLowPct, 넘으면 ratePct
   rent: { incomeMax: number; lowIncomeMax: number; rateLowPct: number; ratePct: number; limit: number }; // 월세 세액공제 (만원, %)
   subscription: { incomeMax: number; limit: number; ratePct: number }; // 주택청약 소득공제
   card: { thresholdPct: number; creditRatePct: number; debitRatePct: number; limitLow: number; limitHigh: number; limitIncome: number }; // 신용·체크카드 소득공제

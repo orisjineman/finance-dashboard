@@ -52,7 +52,10 @@ export default function LineChart({ series, yFormat, hLines = [], vLines = [], v
 
   const x = (t: number) => M.l + ((t - tMin) / (tMax - tMin)) * (W - M.l - M.r);
   const y = (v: number) => H - M.b - ((v - yMin) / (yMax - yMin)) * (H - M.t - M.b);
-  const xTicks = Array.from({ length: 4 }, (_, i) => tMin + ((tMax - tMin) * i) / 3);
+  // 같은 라벨(같은 달)이 반복되지 않게 눈금을 거른다
+  const xTicks = Array.from({ length: 4 }, (_, i) => tMin + ((tMax - tMin) * i) / 3).filter(
+    (t, i, arr) => i === 0 || ymLabel(t) !== ymLabel(arr[i - 1])
+  );
   const fmt = valueFormat ?? yFormat;
 
   // 마우스(터치) 위치의 시각을 구해 그 세로선의 값들을 보여준다

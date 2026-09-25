@@ -75,6 +75,11 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
     ...history.filter((h) => h.housingLiquid !== undefined).map((h) => ({ t: new Date(`${h.date}T00:00:00`).getTime(), y: h.housingLiquid as number })),
     { t: now.getTime(), y: housingLiquid },
   ].sort((a, b) => a.t - b.t);
+  // 전체 자산 추이: 히스토리에 기록된 전체 자산 + 지금 값
+  const totalPoints = [
+    ...history.filter((h) => h.totalAssets !== undefined).map((h) => ({ t: new Date(`${h.date}T00:00:00`).getTime(), y: h.totalAssets as number })),
+    { t: now.getTime(), y: t.total },
+  ].sort((a, b) => a.t - b.t);
   const purchaseT = strategy.housePurchaseDate ? new Date(`${strategy.housePurchaseDate}T00:00:00`).getTime() : NaN;
   const purchase = Number.isFinite(purchaseT) ? new Date(purchaseT) : null;
   const ltvPct = Math.round(home.policy.bogeumjari.ltv * 100);
@@ -169,6 +174,21 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
         <p className="note">투자원금 대비 수익률은 자산 스냅샷 탭의 히스토리에서 첫 기록을 추가하면 계산돼.</p>
       )}
 
+      <SectionTitle>전체 자산 추이</SectionTitle>
+      <div className="card">
+        {totalPoints.length >= 2 ? (
+          <LineChart
+            yFormat={fmtEok}
+            valueFormat={(v) => `${fmtWon(v)}원`}
+            series={[{ label: "전체 자산 (통장·보증금·연금 포함)", color: "var(--gold)", points: totalPoints }]}
+          />
+        ) : (
+          <p className="note" style={{ margin: 0 }}>
+            지금 전체 자산 {fmtWon(t.total)}원. 스냅샷 히스토리에 기록하면 다음 기록부터 추이가 그려져.
+          </p>
+        )}
+      </div>
+
       <SectionTitle>위험 / 안전 비중 (투자 항목 기준)</SectionTitle>
       <div className="card">
         <div className="donut-wrap">
@@ -187,7 +207,7 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
             </div>
           </div>
         </div>
-        <p className="note">투자 항목 {fmtWon(inv.total)}원 기준이야. 자산 스냅샷에서 '수익률' 체크를 해제한 항목(입출금 통장, 전세·월세 보증금, 청약 등)은 빠져.</p>
+        <p className="note">투자 항목 {fmtWon(inv.total)}원 기준</p>
       </div>
 
       <SectionTitle>이번 달 월급·예산</SectionTitle>

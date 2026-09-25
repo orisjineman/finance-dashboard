@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { AssetRow, HistoryEntry } from "../types";
-import { computeCurrentReturn, computeHousingLiquid, computeReturnTotals, fmtEok, fmtWon, newId } from "../utils";
+import { computeCurrentReturn, computeHousingLiquid, computeReturnTotals, computeTotals, fmtEok, fmtWon, newId } from "../utils";
 import LineChart from "./LineChart";
 import MoneyInput from "./MoneyInput";
 import SectionTitle from "./SectionTitle";
@@ -46,6 +46,7 @@ export default function HistoryPanel({ rows, history, onChange }: Props) {
       safeValue: t.safe,
       cashValue: t.cash,
       housingLiquid: computeHousingLiquid(rows),
+      totalAssets: computeTotals(rows).total,
       profit,
       returnRate,
     };
@@ -115,13 +116,16 @@ export default function HistoryPanel({ rows, history, onChange }: Props) {
             {sorted.length >= 2 ? (
               <div style={{ marginTop: 20, display: "grid", gap: 18 }}>
                 <div>
-                  <div className="chart-title">총평가금액과 누적 투자원금</div>
+                  <div className="chart-title">총평가금액 · 누적 투자원금 · 전체 자산</div>
                   <LineChart
                     yFormat={fmtEok}
                     valueFormat={(v) => `${fmtWon(v)}원`}
                     series={[
                       { label: "총평가금액", color: "var(--accent)", points: sorted.map((h) => ({ t: new Date(`${h.date}T00:00:00`).getTime(), y: h.totalValue })) },
                       { label: "누적 투자원금", color: "var(--ink-soft)", dashed: true, points: sorted.map((h) => ({ t: new Date(`${h.date}T00:00:00`).getTime(), y: h.cumulativePrincipal })) },
+                      ...(sorted.some((h) => h.totalAssets !== undefined)
+                        ? [{ label: "전체 자산", color: "var(--gold)", points: sorted.filter((h) => h.totalAssets !== undefined).map((h) => ({ t: new Date(`${h.date}T00:00:00`).getTime(), y: h.totalAssets as number })) }]
+                        : []),
                     ]}
                   />
                 </div>

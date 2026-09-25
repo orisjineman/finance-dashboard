@@ -23,6 +23,7 @@ export interface SimulationAssumptions {
   safeRate: number; // %
   contributionRiskRatio: number; // %
   scenarios?: SimulationScenario[]; // 시나리오 비교용 추가 가정 (현재 입력값과 나란히 비교)
+  baseMode?: "invest" | "total"; // 시뮬레이션 시작 자산: 투자자산(기본) / 전체 자산 (통장·보증금 등은 수익 0%)
   applySalaryRaise: boolean; // 매년 적립액에 연봉 상승률을 복리로 반영할지
 }
 
@@ -68,6 +69,7 @@ export interface HistoryEntry {
   riskValue: number;
   safeValue: number;
   cashValue: number;
+  totalAssets?: number; // 만원, 기록 시점의 전체 자산 (통장·보증금·청약 포함)
   housingLiquid?: number; // 만원, 기록 시점의 집 마련 가용자산 (집 마련 진행 그래프용)
   profit: number;
   returnRate: number;

@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import type { AssetRow, BudgetData, SimulationAssumptions, SimulationScenario } from "../types";
-import { autoAnnualContribution, computeReturnTotals, fmtEok, fmtWon, newId } from "../utils";
+import { autoAnnualContribution, computeReturnTotals, computeTotals, fmtEok, fmtWon, newId } from "../utils";
 import { evaluateScenario, runSimulation } from "../simulation";
 import LineChart from "./LineChart";
 import MoneyInput from "./MoneyInput";
@@ -21,14 +21,19 @@ export default function SimulationPanel({ rows, sim: stored, onChange, annualRai
   const sim: SimulationAssumptions = useMemo(() => (isAuto ? { ...stored, annualContribution: autoContribution } : stored), [isAuto, stored, autoContribution]);
   const t = computeReturnTotals(rows);
   const riskPct0 = t.investBase > 0 ? t.risk / t.investBase : 0.5;
-  const results = useMemo(() => runSimulation(t.total, riskPct0, sim, annualRaisePct), [t.total, riskPct0, sim, annualRaisePct]);
+  // 전체 자산 기준이면 투자자산 밖의 자산(통장·보증금·청약 등)을 수익 0%로 더한다
+  const totalMode = stored.baseMode === "total";
+  const allTotal = computeTotals(rows).total;
+  const idle = totalMode ? Math.max(0, allTotal - t.total) : 0;
+  const startTotal = t.total + idle;
+  const results = useMemo(() => runSimulation(t.total, riskPct0, sim, annualRaisePct, idle), [t.total, riskPct0, sim, annualRaisePct, idle]);
 
   const scenarios = sim.scenarios ?? [];
-  const evalCtx = { base: t.total, riskPct0, raisePct: annualRaisePct };
+  const evalCtx = { base: t.total, riskPct0, raisePct: annualRaisePct, idle };
   const outcomes = useMemo(
     () => [evaluateScenario(evalCtx, sim, null), ...scenarios.map((sc) => evaluateScenario(evalCtx, sim, sc))],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [t.total, riskPct0, sim, annualRaisePct]
+    [t.total, riskPct0, sim, annualRaisePct, idle]
   );
   const names = ["현재 입력값", ...scenarios.map((sc) => sc.name || "이름 없음")];
   const palette = ["var(--accent)", "var(--gold)", "var(--safe)", "var(--ink-soft)", "var(--risk)"];
@@ -56,13 +61,24 @@ export default function SimulationPanel({ rows, sim: stored, onChange, annualRai
     <section className="panel active" id="panel-sim">
       <SectionTitle>가정 입력</SectionTitle>
       <div className="card">
-        <div className="field">
-          <label>현재 투자자산 (원, 자동)</label>
-          <MoneyInput value={t.total} readOnly />
-          <p className="note" style={{ marginTop: 6 }}>
-            자산 스냅샷에서 '수익률'이 체크된 항목만 계산해. 입출금 통장·전세·월세 보증금·청약처럼 체크를 해제한 항목은 빠져.
-          </p>
+        <div className="field-row">
+          <div className="field">
+            <label>시작 자산 기준</label>
+            <select value={totalMode ? "total" : "invest"} onChange={(e) => set("baseMode", e.target.value as "invest" | "total")}>
+              <option value="invest">투자자산 ('수익률' 체크 항목)</option>
+              <option value="total">전체 자산 (통장·보증금·청약 포함)</option>
+            </select>
+          </div>
+          <div className="field">
+            <label>시작 자산 (자동)</label>
+            <MoneyInput value={startTotal} readOnly />
+          </div>
         </div>
+        {totalMode && (
+          <p className="note" style={{ marginTop: 0 }}>
+            투자자산 {fmtWon(t.total)}원에만 수익률이 붙고, 나머지 {fmtWon(idle)}원(통장·보증금 등)은 그대로 더해.
+          </p>
+        )}
         <div className="field-row">
           <div className="field">
             <label>연간 신규 적립액 (원)</label>
@@ -256,12 +272,12 @@ export default function SimulationPanel({ rows, sim: stored, onChange, annualRai
               label: names[i],
               color: palette[i % palette.length],
               dots: false,
-              points: [{ t: new Date(thisYear, 0, 1).getTime(), y: evalCtx.base }, ...o.results.map((r) => ({ t: new Date(thisYear + r.year, 0, 1).getTime(), y: r.total }))],
+              points: [{ t: new Date(thisYear, 0, 1).getTime(), y: startTotal }, ...o.results.map((r) => ({ t: new Date(thisYear + r.year, 0, 1).getTime(), y: r.total }))],
             }))}
           />
         </div>
         <p className="note">
-          전체 투자자산(연금 포함)의 장기 성장용. 집 마련은 개요·내 집 마련 탭에서 봐.
+          장기 자산 성장용. 집 마련은 개요·내 집 마련 탭에서 봐.
         </p>
       </div>
     </section>

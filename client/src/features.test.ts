@@ -79,6 +79,16 @@ describe("시뮬레이션", () => {
     expect(r[1].total).toBeCloseTo(1441, 6);
     expect(r[2].profit).toBeCloseTo(r[2].total - 1300, 6);
   });
+  it("수익 없는 자산(idle)은 그대로 더해지고 수익에는 안 잡힌다", () => {
+    const withIdle = runSimulation(1000, 1, sim, 0, 500);
+    const without = runSimulation(1000, 1, sim, 0);
+    withIdle.forEach((r, i) => {
+      expect(r.total).toBeCloseTo(without[i].total + 500, 9);
+      expect(r.profit).toBeCloseTo(without[i].profit, 9);
+    });
+    const o = evaluateScenario({ base: 1000, riskPct0: 1, raisePct: 0, idle: 500 }, sim, null);
+    expect(o.final).toBeCloseTo(without[2].total + 500, 9);
+  });
   it("연봉 상승률을 적립액에 복리로 반영한다", () => {
     const r = runSimulation(0, 1, { ...sim, applySalaryRaise: true }, 10);
     expect(r[0].contribution).toBe(100);

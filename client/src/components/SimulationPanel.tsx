@@ -135,7 +135,7 @@ export default function SimulationPanel({ rows, sim: stored, onChange, annualRai
             <div className="bar-col" key={r.year}>
               <div className="bar-value">{fmtEok(r.total)}</div>
               <div className="bar" style={{ height: `${Math.max(4, Math.round((r.total / maxVal) * 140))}px` }} />
-              <div className="bar-label">{r.year}y</div>
+              <div className="bar-label" title={`${r.year}년차 (${thisYear + r.year}년)`}>{`${String(thisYear + r.year).slice(2)}년`}</div>
             </div>
           ))}
         </div>
@@ -152,7 +152,9 @@ export default function SimulationPanel({ rows, sim: stored, onChange, annualRai
           <tbody>
             {results.map((r) => (
               <tr key={r.year}>
-                <td>{r.year}년차</td>
+                <td style={{ whiteSpace: "nowrap" }}>
+                  {r.year}년차 <span style={{ color: "var(--ink-soft)" }}>({thisYear + r.year}년)</span>
+                </td>
                 {sim.applySalaryRaise && <td className="num">{fmtWon(r.contribution)}원</td>}
                 <td className="num">{fmtWon(r.total)}원</td>
                 <td className="num">{fmtWon(r.profit)}원</td>
@@ -161,7 +163,7 @@ export default function SimulationPanel({ rows, sim: stored, onChange, annualRai
           </tbody>
         </table>
 </div>
-        <p className="note">단리가 아니라 복리로 계산하고, 매년 초 적립금이 들어온다고 가정한 값이야. 실제 수익률은 시장 상황에 따라 크게 달라질 수 있어서, 참고용 시나리오로만 써줘.</p>
+        <p className="note">단리가 아니라 복리로 계산하고, 매년 초 적립금이 들어온다고 가정한 값이야. 1년차는 지금부터 1년 뒤(내년 이맘때)를 뜻해. 실제 수익률은 시장 상황에 따라 크게 달라질 수 있어서, 참고용 시나리오로만 써줘.</p>
       </div>
 
       <SectionTitle>시나리오 비교</SectionTitle>

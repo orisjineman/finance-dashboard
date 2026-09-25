@@ -684,3 +684,6 @@ table.grid .btn {
   font-size: 13.5px;
   line-height: 1.7;
 }
+table.grid tr.target-row td {
+  background: var(--safe-soft);
+}

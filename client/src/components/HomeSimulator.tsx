@@ -42,7 +42,10 @@ export default function HomeSimulator({ rows, groups, home, onChange, loan, onLo
   const [newPrice, setNewPrice] = useState(0);
   const assets = computeHomeAssets(rows, groups, home);
   const raisePct = budget.annualRaisePct || 0;
-  const r = computeHome(home, assets.equity, loan.ratePct, strategy.housePurchaseDate, now, raisePct);
+  // 비교 목록에 목표 집값이 없으면(예전에 따로 입력한 값) 표에 함께 보여준다
+  const targetInList = home.prices.includes(loan.price);
+  const shownPrices = loan.price > 0 && !targetInList ? [...home.prices, loan.price] : home.prices;
+  const r = computeHome({ ...home, prices: shownPrices }, assets.equity, loan.ratePct, strategy.housePurchaseDate, now, raisePct);
   const stale = policyStale(home.policy.updatedAt, now);
   const currentYear = now.getFullYear();
 
@@ -191,9 +194,14 @@ export default function HomeSimulator({ rows, groups, home, onChange, loan, onLo
             </thead>
             <tbody>
               {r.rows.map((x) => (
-                <tr key={x.price}>
+                <tr key={x.price} className={x.price === loan.price ? "target-row" : undefined}>
                   <td className="num" style={{ fontWeight: 700, whiteSpace: "nowrap" }}>
                     {eok(x.price)}
+                    {x.price === loan.price && (
+                      <span className="tag safe" style={{ marginLeft: 6 }}>
+                        목표
+                      </span>
+                    )}
                   </td>
                   <td className="num">{fmtWon(x.loan)}</td>
                   <td className="num">{fmtWon(x.monthly30)}</td>
@@ -213,17 +221,22 @@ export default function HomeSimulator({ rows, groups, home, onChange, loan, onLo
                     </div>
                   </td>
                   <td style={{ whiteSpace: "nowrap" }}>
-                    <button
-                      className="btn ghost sm"
-                      title="개요·시뮬레이션의 '필요 자기자금'을 이 집값 기준으로 바꿔"
-                      onClick={() => onLoanChange({ ...loan, price: x.price })}
-                      disabled={loan.price === x.price}
-                    >
-                      {loan.price === x.price ? "목표" : "목표로"}
-                    </button>{" "}
-                    <button className="btn ghost sm" onClick={() => set("prices", home.prices.filter((p) => p !== x.price))}>
-                      삭제
-                    </button>
+                    {x.price === loan.price ? (
+                      !targetInList && (
+                        <button className="btn ghost sm" onClick={() => set("prices", [...home.prices, x.price])}>
+                          비교 목록에 추가
+                        </button>
+                      )
+                    ) : (
+                      <>
+                        <button className="btn ghost sm" title="개요·시뮬레이션·알림이 이 집값을 기준으로 바뀌어" onClick={() => onLoanChange({ ...loan, price: x.price })}>
+                          목표로
+                        </button>{" "}
+                        <button className="btn ghost sm" onClick={() => set("prices", home.prices.filter((p) => p !== x.price))}>
+                          삭제
+                        </button>
+                      </>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -248,7 +261,7 @@ export default function HomeSimulator({ rows, groups, home, onChange, loan, onLo
         </div>
         <p className="note">
           판정 기준: 세후 월급 대비 월 상환액 {Math.round(home.policy.judge.okMax * 100)}% 이하 적정, {Math.round(home.policy.judge.tightMax * 100)}% 이하 빠듯, 그 이상 부담. 보금자리론은 매수 시점 예상 총보수로
-          판정하고, 필요 대출이 집값의 {Math.round(home.policy.bogeumjari.ltv * 100)}%를 넘으면 LTV 초과로 표시해. '목표로'를 누르면 개요의 집 마련 진행과 시뮬레이션이 그 집값 기준으로 바뀌어.
+          판정하고, 필요 대출이 집값의 {Math.round(home.policy.bogeumjari.ltv * 100)}%를 넘으면 LTV 초과로 표시해. '목표' 표시가 붙은 집값을 개요의 집 마련 진행·시뮬레이션·알림이 기준으로 써. 다른 집값의 '목표로'를 누르면 바뀌어.
         </p>
       </div>
 

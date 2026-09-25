@@ -30,6 +30,7 @@ export function migrate(parsed: Partial<DashboardData> & Record<string, unknown>
   const loan = { ...d.loan, ...(parsed.loan ?? {}) } as DashboardData["loan"] & Record<string, unknown>;
   const oldLtvPct = typeof loan.ltvPct === "number" ? loan.ltvPct : undefined;
   delete loan.ltvPct;
+  delete loan.termYears; // 상환기간은 내 집 마련 비교표에서 30·40년을 모두 계산하므로 쓰지 않는다
   const ltvFromOld = parsed.home?.policy?.bogeumjari?.ltv === undefined && oldLtvPct !== undefined ? { ltv: oldLtvPct / 100 } : {};
   return {
     ...d,

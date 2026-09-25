@@ -208,7 +208,7 @@ describe("evaluateTarget", () => {
     ],
     rebalance: { tolerancePct: 5, groups: [] },
     home: input({ assetSource: "housing", currentIncome: 5000 }),
-    loan: { price: 40000, ratePct: 4, termYears: 30 },
+    loan: { price: 40000, ratePct: 4 },
     strategy: { housePurchaseDate: "2030-06-30", isaDutyEndDate: "", overviewSummary: [], glidePath: [] },
     budget: { monthlyNetIncome: 0, annualRaisePct: 3, expenseCategories: [], pensionAnnualContribution: 0, pensionTaxCreditRate: 16.5 },
   };

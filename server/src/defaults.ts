@@ -21,8 +21,7 @@ export function defaultData(): DashboardData {
     },
     loan: {
       price: 0,
-      ratePct: 4.2,
-      termYears: 30
+      ratePct: 4.2
     },
     checklist: [
       { id: "c1", text: "매달: 정기 적립 항목 납입하기", done: false },

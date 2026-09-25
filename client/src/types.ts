@@ -37,7 +37,6 @@ export interface SimulationScenario {
 export interface LoanInput {
   price: number; // 만원
   ratePct: number;
-  termYears: number;
 }
 
 export interface ChecklistItem {

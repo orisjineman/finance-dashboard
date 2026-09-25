@@ -59,7 +59,7 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
   const savingsRate = budget.monthlyNetIncome > 0 ? (savings / budget.monthlyNetIncome) * 100 : 0;
 
   const housingLiquid = computeHousingLiquid(rows);
-  const equityNeeded = computeLoanEquity(loan, home.closingCost);
+  const equityNeeded = computeLoanEquity(loan.price, home.policy.bogeumjari.ltv, home.closingCost);
   const housingProgress = equityNeeded > 0 ? Math.min(100, Math.round((housingLiquid / equityNeeded) * 100)) : 0;
   const housingRemaining = equityNeeded - housingLiquid;
 

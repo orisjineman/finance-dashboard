@@ -328,7 +328,7 @@ export default function HomeSimulator({ rows, groups, home, onChange, loan, onLo
             <MoneyInput value={home.policy.bogeumjari.maxLoanFirstTime} onChange={(v) => setPolicy({ bogeumjari: { ...home.policy.bogeumjari, maxLoanFirstTime: v } })} />
           </div>
           <div className="field">
-            <label>LTV (%)</label>
+            <label>LTV (%, 목표 집값 계산에도 같이 쓰임)</label>
             <input
               type="number"
               value={Math.round(home.policy.bogeumjari.ltv * 1000) / 10}

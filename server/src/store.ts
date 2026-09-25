@@ -26,12 +26,17 @@ export function migrate(parsed: Partial<DashboardData> & Record<string, unknown>
   delete strategy.cmaLadder;
   const home = { ...d.home, ...(parsed.home ?? {}) } as DashboardData["home"] & Record<string, unknown>;
   delete home.raisePct; // 인상률은 월급·예산 탭(budget.annualRaisePct) 하나로 통일
+  // LTV는 정책 설정(home.policy.bogeumjari.ltv) 하나로 통일. 예전 loan.ltvPct만 있으면 그 값을 옮겨 온다.
+  const loan = { ...d.loan, ...(parsed.loan ?? {}) } as DashboardData["loan"] & Record<string, unknown>;
+  const oldLtvPct = typeof loan.ltvPct === "number" ? loan.ltvPct : undefined;
+  delete loan.ltvPct;
+  const ltvFromOld = parsed.home?.policy?.bogeumjari?.ltv === undefined && oldLtvPct !== undefined ? { ltv: oldLtvPct / 100 } : {};
   return {
     ...d,
     ...parsed,
     rows: (parsed.rows ?? d.rows).map((r) => ({ ...r, housingEligible: r.housingEligible ?? true })),
     simulation: { ...d.simulation, ...(parsed.simulation ?? {}) },
-    loan: { ...d.loan, ...(parsed.loan ?? {}) },
+    loan,
     budget: { ...d.budget, ...(parsed.budget ?? {}) },
     strategy,
     rebalance: { ...d.rebalance, ...(parsed.rebalance ?? {}) },
@@ -40,7 +45,7 @@ export function migrate(parsed: Partial<DashboardData> & Record<string, unknown>
       policy: {
         ...d.home.policy,
         ...(parsed.home?.policy ?? {}),
-        bogeumjari: { ...d.home.policy.bogeumjari, ...(parsed.home?.policy?.bogeumjari ?? {}) },
+        bogeumjari: { ...d.home.policy.bogeumjari, ...ltvFromOld, ...(parsed.home?.policy?.bogeumjari ?? {}) },
         didimdolSingle: { ...d.home.policy.didimdolSingle, ...(parsed.home?.policy?.didimdolSingle ?? {}) },
         judge: { ...d.home.policy.judge, ...(parsed.home?.policy?.judge ?? {}) },
       },

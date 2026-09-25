@@ -13,9 +13,10 @@ interface Props {
   annualRaisePct: number;
   loan: LoanInput;
   closingCost: number; // 만원, 내 집 마련 탭의 부대비용
+  ltv: number; // 0~1, 내 집 마련 탭 정책 설정의 LTV
 }
 
-export default function SimulationPanel({ rows, sim, onChange, annualRaisePct, loan, closingCost }: Props) {
+export default function SimulationPanel({ rows, sim, onChange, annualRaisePct, loan, closingCost, ltv }: Props) {
   const t = computeReturnTotals(rows);
   const riskPct0 = t.investBase > 0 ? t.risk / t.investBase : 0.5;
   const results = useMemo(() => runSimulation(t.total, riskPct0, sim, annualRaisePct), [t.total, riskPct0, sim, annualRaisePct]);
@@ -29,13 +30,13 @@ export default function SimulationPanel({ rows, sim, onChange, annualRaisePct, l
     riskPct0,
     housingBase: computeHousingLiquid(rows),
     housingRiskPct0: hRisk + hSafe > 0 ? hRisk / (hRisk + hSafe) : 0.5,
-    equityNeeded: computeLoanEquity(loan, closingCost),
+    equityNeeded: computeLoanEquity(loan.price, ltv, closingCost),
     raisePct: annualRaisePct,
   };
   const outcomes = useMemo(
     () => [evaluateScenario(evalCtx, sim, null), ...scenarios.map((sc) => evaluateScenario(evalCtx, sim, sc))],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [t.total, riskPct0, sim, annualRaisePct, loan, rows, closingCost]
+    [t.total, riskPct0, sim, annualRaisePct, loan, rows, closingCost, ltv]
   );
   const names = ["현재 입력값", ...scenarios.map((sc) => sc.name || "이름 없음")];
   const palette = ["var(--accent)", "var(--gold)", "var(--safe)", "var(--ink-soft)", "var(--risk)"];

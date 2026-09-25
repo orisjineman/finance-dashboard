@@ -21,7 +21,6 @@ export function defaultData(): DashboardData {
     },
     loan: {
       price: 0,
-      ltvPct: 70,
       ratePct: 4.2,
       termYears: 30
     },

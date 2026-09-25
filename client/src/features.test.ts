@@ -109,7 +109,7 @@ describe("computeAlerts", () => {
   const data = (over: Partial<DashboardData> = {}): DashboardData => ({
     rows: [],
     simulation: { annualContribution: 0, years: 10, riskRate: 7, safeRate: 3, contributionRiskRatio: 50, applySalaryRaise: false },
-    loan: { price: 0, ltvPct: 0, ratePct: 0, termYears: 30 },
+    loan: { price: 0, ratePct: 0, termYears: 30 },
     checklist: [],
     strategy: { housePurchaseDate: "", isaDutyEndDate: "", overviewSummary: [], glidePath: [] },
     history: [],
@@ -182,14 +182,14 @@ describe("computeAlerts", () => {
     const rows: AssetRow[] = [{ id: "1", account: "ISA", item: "S&P", category: "risk", amount: 10000, housingEligible: true }];
     const strategy = { ...base.strategy, housePurchaseDate: "2030-06-30" };
     const home = { ...base.home, assetSource: "housing" as const, currentIncome: 5000, policy: { ...base.home.policy, afterTaxRatioTable: [[5000, 0.87]] as [number, number][] } };
-    const withPrice = (price: number) => ids(data({ rows, strategy, home, loan: { price, ltvPct: 70, ratePct: 4, termYears: 30 } }));
+    const withPrice = (price: number) => ids(data({ rows, strategy, home, loan: { price, ratePct: 4, termYears: 30 } }));
     const heavy = withPrice(70000);
     expect(heavy).toContain("home-target-heavy");
     expect(heavy).toContain("home-target-ltv");
     expect(heavy).toContain("home-target-bogeumjari");
     const light = withPrice(15000);
     expect(light.filter((x) => x.startsWith("home-target"))).toEqual([]);
-    expect(ids(data({ rows, strategy, home, loan: { price: 0, ltvPct: 70, ratePct: 4, termYears: 30 } })).filter((x) => x.startsWith("home-target"))).toEqual([]);
+    expect(ids(data({ rows, strategy, home, loan: { price: 0, ratePct: 4, termYears: 30 } })).filter((x) => x.startsWith("home-target"))).toEqual([]);
   });
   it("연말이 가깝고 한도가 남았을 때만 세액공제를 알린다", () => {
     expect(ids(data())).not.toContain("pension-limit"); // 한도를 다 채움

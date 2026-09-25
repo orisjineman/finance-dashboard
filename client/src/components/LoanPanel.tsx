@@ -18,12 +18,12 @@ interface Props {
   onBudgetChange: (budget: BudgetData) => void;
 }
 
-function calcLoan(loan: LoanInput, closingCost: number) {
+function calcLoan(loan: LoanInput, ltv: number, closingCost: number) {
   const rate = (loan.ratePct || 0) / 100 / 12;
   const term = (loan.termYears || 1) * 12;
 
-  const equity = computeLoanEquity(loan, closingCost);
-  const limit = (loan.price * (loan.ltvPct || 0)) / 100;
+  const equity = computeLoanEquity(loan.price, ltv, closingCost);
+  const limit = loan.price * ltv;
   let monthly: number;
   if (rate === 0) monthly = limit / term;
   else monthly = (limit * rate * Math.pow(1 + rate, term)) / (Math.pow(1 + rate, term) - 1);
@@ -32,7 +32,8 @@ function calcLoan(loan: LoanInput, closingCost: number) {
 }
 
 export default function LoanPanel({ rows, loan, onChange, groups, home, onHomeChange, strategy, onStrategyChange, budget, onBudgetChange }: Props) {
-  const result = useMemo(() => calcLoan(loan, home.closingCost), [loan, home.closingCost]);
+  const ltv = home.policy.bogeumjari.ltv;
+  const result = useMemo(() => calcLoan(loan, ltv, home.closingCost), [loan, ltv, home.closingCost]);
   const housingLiquid = computeHousingLiquid(rows);
   const remaining = result.equity - housingLiquid;
 
@@ -66,8 +67,12 @@ export default function LoanPanel({ rows, loan, onChange, groups, home, onHomeCh
             <MoneyInput value={loan.price} onChange={(v) => set("price", v)} />
           </div>
           <div className="field">
-            <label>LTV (%)</label>
-            <input type="number" value={loan.ltvPct} onChange={(e) => set("ltvPct", parseFloat(e.target.value) || 0)} />
+            <label>LTV (%, 위쪽 정책 숫자 설정과 같은 값)</label>
+            <input
+              type="number"
+              value={Math.round(ltv * 1000) / 10}
+              onChange={(e) => onHomeChange({ ...home, policy: { ...home.policy, bogeumjari: { ...home.policy.bogeumjari, ltv: (parseFloat(e.target.value) || 0) / 100 } } })}
+            />
           </div>
         </div>
         <div className="field-row">

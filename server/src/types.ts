@@ -36,7 +36,6 @@ export interface SimulationScenario {
 
 export interface LoanInput {
   price: number; // 만원
-  ltvPct: number;
   ratePct: number;
   termYears: number;
 }
@@ -109,7 +108,7 @@ export interface RebalanceSettings {
 }
 
 export interface HomePolicy {
-  bogeumjari: { maxHousePrice: number; maxIncome: number; maxLoanFirstTime: number; ltv: number }; // 만원, ltv는 0~1
+  bogeumjari: { maxHousePrice: number; maxIncome: number; maxLoanFirstTime: number; ltv: number }; // 만원, ltv는 0~1 (목표 집값의 필요 자기자금 계산에도 이 값 하나만 쓴다)
   didimdolSingle: { maxHousePrice: number; maxAreaM2: number; maxLoanFirstTime: number };
   afterTaxRatioTable: [number, number][]; // [연 총보수(만원), 세후 비율]
   judge: { okMax: number; tightMax: number }; // 상환비중(0~1) 판정 기준

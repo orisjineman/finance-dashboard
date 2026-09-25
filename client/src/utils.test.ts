@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { AssetRow, HistoryEntry, LoanInput } from "./types";
+import type { AssetRow, HistoryEntry } from "./types";
 import {
   computeCurrentReturn,
   computeHousingLiquid,
@@ -78,10 +78,10 @@ describe("합계 계산", () => {
   });
 
   it("필요 자기자금은 집값에서 LTV 대출한도를 뺀 값이다", () => {
-    const loan = { price: 100000, ltvPct: 70, ratePct: 4, termYears: 30 } as LoanInput;
-    expect(computeLoanEquity(loan)).toBeCloseTo(30000, 6);
-    expect(computeLoanEquity({ ...loan, ltvPct: 0 })).toBe(100000);
-    expect(computeLoanEquity(loan, 1500)).toBeCloseTo(31500, 6); // 부대비용 포함
+    expect(computeLoanEquity(100000, 0.7)).toBeCloseTo(30000, 6);
+    expect(computeLoanEquity(100000, 0)).toBe(100000);
+    expect(computeLoanEquity(100000, 0.7, 1500)).toBeCloseTo(31500, 6); // 부대비용 포함
+    expect(computeLoanEquity(100000, 1.5)).toBe(0); // 0~1 밖은 잘라낸다
   });
 
   it("집 마련 월 저축액은 연금 납입을 빼고 세액공제 환급을 더한다", () => {

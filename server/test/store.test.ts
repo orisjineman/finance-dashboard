@@ -45,6 +45,14 @@ describe("migrate", () => {
     expect(store.migrate({}).home.assetSource).toBe("housing");
   });
 
+  it("예전 loan.ltvPct는 정책 LTV로 옮기고 지운다 (정책 LTV가 이미 있으면 그대로)", () => {
+    const moved = store.migrate({ loan: { price: 1, ltvPct: 60, ratePct: 4, termYears: 30 } as never });
+    expect(moved.loan).not.toHaveProperty("ltvPct");
+    expect(moved.home.policy.bogeumjari.ltv).toBeCloseTo(0.6, 9);
+    const kept = store.migrate({ loan: { ltvPct: 60 } as never, home: { policy: { bogeumjari: { ltv: 0.5 } } } as never });
+    expect(kept.home.policy.bogeumjari.ltv).toBe(0.5);
+  });
+
   it("없어진 ISA·CMA 탭 데이터는 버린다", () => {
     const d = store.migrate({ strategy: { housePurchaseDate: "2030-01-01", isaPortfolio: { riskPct: 1 }, cmaLadder: { rungs: [] } } as never });
     expect(d.strategy.housePurchaseDate).toBe("2030-01-01");

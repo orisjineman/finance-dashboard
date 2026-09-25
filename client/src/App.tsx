@@ -211,7 +211,7 @@ export default function App() {
         {tab === "rebalance" && <RebalancePanel rows={data.rows} strategy={data.strategy} settings={data.rebalance} onChange={updateRebalance} onRowsChange={updateRows} onStrategyChange={updateStrategy} />}
         {tab === "budget" && <BudgetPanel budget={data.budget} onChange={updateBudget} />}
         {tab === "sim" && (
-          <SimulationPanel rows={data.rows} sim={data.simulation} onChange={updateSim} annualRaisePct={data.budget.annualRaisePct} loan={data.loan} closingCost={data.home.closingCost} />
+          <SimulationPanel rows={data.rows} sim={data.simulation} onChange={updateSim} annualRaisePct={data.budget.annualRaisePct} loan={data.loan} closingCost={data.home.closingCost} ltv={data.home.policy.bogeumjari.ltv} />
         )}
         {tab === "loan" && (
           <LoanPanel

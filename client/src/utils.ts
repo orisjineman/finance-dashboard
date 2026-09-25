@@ -1,4 +1,4 @@
-import type { AssetRow, BudgetData, HistoryEntry, LoanInput } from "./types";
+import type { AssetRow, BudgetData, HistoryEntry } from "./types";
 
 export interface Totals {
   risk: number;
@@ -36,9 +36,9 @@ export function computeHousingLiquid(rows: AssetRow[]): number {
 }
 
 // 필요 자기자금 = 집값 - LTV 대출한도 + 부대비용(취득세·중개·법무·이사). 개요·시뮬레이션·내 집 마련 탭이 모두 이 값을 쓴다.
-export function computeLoanEquity(loan: LoanInput, closingCost = 0): number {
-  const ltv = (loan.ltvPct || 0) / 100;
-  return loan.price * (1 - ltv) + Math.max(0, closingCost);
+// ltv는 0~1 (내 집 마련 탭 정책 설정의 LTV 하나만 쓴다)
+export function computeLoanEquity(price: number, ltv: number, closingCost = 0): number {
+  return price * (1 - Math.min(1, Math.max(0, ltv || 0))) + Math.max(0, closingCost);
 }
 
 // 집 마련에 매달 모을 수 있는 돈 = 월 저축 가능액 − 연금 납입(월) + 세액공제 환급(월). 연금 납입 계획이 없으면 저축 가능액 그대로.

@@ -32,22 +32,15 @@ export function runSimulation(base: number, riskPct0: number, sim: SimulationAss
   return out;
 }
 
-// 목표 금액에 처음 닿는 연차. 기간 안에 못 닿으면 null.
-export function yearReaching(results: YearResult[], target: number): number | null {
-  if (target <= 0) return null;
-  return results.find((r) => r.total >= target)?.year ?? null;
-}
-
 export interface ScenarioOutcome {
   results: YearResult[];
   final: number;
   profit: number;
-  housingYear: number | null; // 집 자기자금 목표에 닿는 연차 (집 마련 가용자산에서 같은 가정으로 굴렸을 때)
 }
 
 // 기본 가정(sim)에 시나리오의 수익률·적립 가정을 덮어써서 결과를 낸다. scenario 가 null 이면 sim 그대로.
 export function evaluateScenario(
-  o: { base: number; riskPct0: number; housingBase: number; housingRiskPct0: number; equityNeeded: number; raisePct: number },
+  o: { base: number; riskPct0: number; raisePct: number },
   sim: SimulationAssumptions,
   scenario: SimulationScenario | null
 ): ScenarioOutcome {
@@ -56,6 +49,5 @@ export function evaluateScenario(
     : sim;
   const results = runSimulation(o.base, o.riskPct0, merged, o.raisePct);
   const last = results[results.length - 1];
-  const housing = runSimulation(o.housingBase, o.housingRiskPct0, merged, o.raisePct);
-  return { results, final: last.total, profit: last.profit, housingYear: yearReaching(housing, o.equityNeeded) };
+  return { results, final: last.total, profit: last.profit };
 }

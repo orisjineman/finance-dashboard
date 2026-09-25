@@ -1,5 +1,7 @@
 import type { AssetRow, DashboardData, HomePolicy, HomeSimInput, RebalanceGroup } from "./types";
-import { monthlyHouseSavings } from "./utils";
+import { monthsUntil, planHousing } from "./housing";
+
+export { monthsUntil };
 
 // 내 집 마련 시뮬레이터 계산. 금액은 모두 만원 단위.
 
@@ -109,13 +111,6 @@ export function findHouseGroup(groups: RebalanceGroup[]): RebalanceGroup | null 
   return groups.find((g) => g.name.includes("집")) ?? groups.find((g) => g.targetType === "glide") ?? null;
 }
 
-// 매수 예정일까지 남은 달 수 (이번 달 기준, 지났으면 0)
-export function monthsUntil(dateStr: string, now: Date): number {
-  const d = dateStr ? new Date(`${dateStr}T00:00:00`) : null;
-  if (!d || Number.isNaN(d.getTime())) return 0;
-  return Math.max(0, (d.getFullYear() - now.getFullYear()) * 12 + (d.getMonth() - now.getMonth()));
-}
-
 // autoExtra: extraMode가 auto일 때 쓸 '매수 때까지 더 모을 돈' (보통 월 저축액 × 남은 달)
 export function computeHomeAssets(rows: AssetRow[], groups: RebalanceGroup[], input: HomeSimInput, autoExtra = 0): HomeAssets {
   const isDeposit = (r: AssetRow) => r.item.includes("보증금");
@@ -207,10 +202,11 @@ export interface TargetCheck {
   equity: number;
 }
 
-export function evaluateTarget(data: Pick<DashboardData, "rows" | "rebalance" | "home" | "loan" | "strategy" | "budget">, now: Date): TargetCheck | null {
+export function evaluateTarget(data: Pick<DashboardData, "rows" | "rebalance" | "home" | "loan" | "strategy" | "budget" | "simulation">, now: Date): TargetCheck | null {
   const { home, loan } = data;
   if (!home || !(loan.price > 0) || !(home.currentIncome > 0)) return null;
-  const autoExtra = monthlyHouseSavings(data.budget) * monthsUntil(data.strategy.housePurchaseDate, now);
+  // '더 모을 돈'(자동)은 개요 예상 경로와 같은 계산 (수익률 반영 토글 포함)
+  const autoExtra = planHousing(data.rows, data.budget, data.simulation, data.strategy.housePurchaseDate, now, !!home.projectWithReturns).extra;
   const assets = computeHomeAssets(data.rows, data.rebalance.groups, home, autoExtra);
   const result = computeHome({ ...home, prices: [loan.price] }, assets.equity, loan.ratePct, data.strategy.housePurchaseDate, now, data.budget.annualRaisePct);
   return result.rows[0] ? { result, row: result.rows[0], equity: assets.equity } : null;

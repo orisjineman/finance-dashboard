@@ -1,9 +1,9 @@
 import { useState } from "react";
-import type { AssetRow, BudgetData, HistoryEntry, HomeSimInput, LoanInput, RebalanceSettings, StrategyData } from "../types";
-import { computeCurrentReturn, computeHousingLiquid, computeLoanEquity, computeReturnTotals, computeTotals, fmtEok, fmtWon, monthlyHouseSavings } from "../utils";
+import type { AssetRow, BudgetData, HistoryEntry, HomeSimInput, LoanInput, RebalanceSettings, SimulationAssumptions, StrategyData } from "../types";
+import { computeCurrentReturn, computeHousingLiquid, computeLoanEquity, computeReturnTotals, computeTotals, fmtEok, fmtWon } from "../utils";
 import { yearsUntil } from "../rebalance";
-import { projectHousing } from "../housing";
-import { assetsNeededAffordable, evaluateTarget, monthsUntil } from "../home";
+import { planHousing, reachDate, monthsToReach } from "../housing";
+import { assetsNeededAffordable, evaluateTarget } from "../home";
 import LineChart from "./LineChart";
 import ProgressBar from "./ProgressBar";
 import type { Alert } from "../alerts";
@@ -21,7 +21,9 @@ interface Props {
   history: HistoryEntry[];
   alerts: Alert[];
   home: HomeSimInput;
+  onHomeChange: (home: HomeSimInput) => void;
   rebalance: RebalanceSettings;
+  simulation: SimulationAssumptions;
   onNavigate: (tab: NonNullable<Alert["tab"]>) => void;
 }
 
@@ -46,7 +48,7 @@ function daysUntil(dateStr: string): number | null {
   return Math.ceil((target.getTime() - today.getTime()) / 86400000);
 }
 
-export default function OverviewPanel({ rows, strategy, onStrategyChange, budget, onBudgetChange, loan, history, alerts, home, rebalance, onNavigate }: Props) {
+export default function OverviewPanel({ rows, strategy, onStrategyChange, budget, onBudgetChange, loan, history, alerts, home, onHomeChange, rebalance, simulation, onNavigate }: Props) {
   const t = computeTotals(rows);
   const inv = computeReturnTotals(rows);
   const dday = daysUntil(strategy.isaDutyEndDate);
@@ -65,45 +67,33 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
   const housingRemaining = equityNeeded - housingLiquid;
 
   const { pensionAnnualContribution, pensionTaxCreditRate } = budget;
-  const houseMonthlyNoPension = savings;
-  const houseMonthlyWithPension = monthlyHouseSavings(budget); // 연금 납입·환급 반영 (내 집 마련 탭과 같은 값)
-
-  const yearsToGoalNoPension =
-    housingRemaining > 0 && houseMonthlyNoPension > 0 ? housingRemaining / (houseMonthlyNoPension * 12) : null;
-  const yearsToGoalWithPension =
-    housingRemaining > 0 && houseMonthlyWithPension > 0 ? housingRemaining / (houseMonthlyWithPension * 12) : null;
-  const yearsToGoal = pensionAnnualContribution > 0 ? yearsToGoalWithPension : yearsToGoalNoPension;
-  const pensionDelayYears =
-    yearsToGoalWithPension !== null && yearsToGoalNoPension !== null
-      ? yearsToGoalWithPension - yearsToGoalNoPension
-      : null;
-
-  const houseMonthly = monthlyHouseSavings(budget);
   const now = new Date();
-  const target = evaluateTarget({ rows, rebalance, home, loan, strategy, budget }, now);
-  const projection = projectHousing({ current: housingLiquid, target: equityNeeded, monthlyAdd: houseMonthly, now, purchaseDate: strategy.housePurchaseDate });
+  const withReturns = !!home.projectWithReturns;
+  // 집 마련 예상 경로 (내 집 마련 탭의 '더 모을 돈'과 같은 계산). 수익률 반영은 토글로 고른다.
+  const plan = planHousing(rows, budget, simulation, strategy.housePurchaseDate, now, withReturns);
+  const planNoPension = planHousing(rows, { ...budget, pensionAnnualContribution: 0 }, simulation, strategy.housePurchaseDate, now, withReturns);
+  const houseMonthly = plan.monthly;
+  const reachMonths = housingRemaining > 0 ? monthsToReach(plan.growth, equityNeeded) : 0;
+  const reachMonthsNoPension = housingRemaining > 0 ? monthsToReach(planNoPension.growth, equityNeeded) : 0;
+  const yearsToGoal = reachMonths !== null && reachMonths > 0 ? reachMonths / 12 : null;
+  const yearsToGoalNoPension = reachMonthsNoPension !== null && reachMonthsNoPension > 0 ? reachMonthsNoPension / 12 : null;
+  const yearsToGoalWithPension = yearsToGoal;
+  const pensionDelayYears = yearsToGoalWithPension !== null && yearsToGoalNoPension !== null ? yearsToGoalWithPension - yearsToGoalNoPension : null;
+
+  const target = evaluateTarget({ rows, rebalance, home, loan, strategy, budget, simulation }, now);
   const housingPoints = [
     ...history.filter((h) => h.housingLiquid !== undefined).map((h) => ({ t: new Date(`${h.date}T00:00:00`).getTime(), y: h.housingLiquid as number })),
     { t: now.getTime(), y: housingLiquid },
   ].sort((a, b) => a.t - b.t);
   const purchaseT = strategy.housePurchaseDate ? new Date(`${strategy.housePurchaseDate}T00:00:00`).getTime() : NaN;
-  const monthsDiff =
-    projection.reachDate && Number.isFinite(purchaseT) ? Math.round((purchaseT - projection.reachDate.getTime()) / (30.4375 * 86400000)) : null;
-
-  // 매수 예정일까지 이대로 모았을 때의 가용자산 = 내 집 마련 탭의 실투입금 + 부대비용 (같은 계산)
-  const monthsLeft = monthsUntil(strategy.housePurchaseDate, now);
-  const atPurchase = housingLiquid + Math.max(0, houseMonthly) * monthsLeft;
-  const pathPoints =
-    Number.isFinite(purchaseT) && monthsLeft > 0
-      ? [
-          { t: now.getTime(), y: housingLiquid },
-          { t: purchaseT, y: atPurchase },
-        ]
-      : projection.points;
+  const minReach = reachDate(plan, equityNeeded, now);
+  const monthsDiff = minReach && Number.isFinite(purchaseT) ? Math.round((purchaseT - minReach.getTime()) / (30.4375 * 86400000)) : null;
+  const monthsLeft = plan.monthsLeft;
+  const atPurchase = plan.atPurchase;
+  const pathPoints = plan.series;
   // 목표 집값을 적정 상환 비중(내 집 마련 탭의 목표 비중, 40년 만기) 안에서 사려면 필요한 가용자산
   const affordNeeded = target ? assetsNeededAffordable(target, 40, home.closingCost) : null;
-  const affordReach =
-    affordNeeded !== null ? projectHousing({ current: housingLiquid, target: affordNeeded, monthlyAdd: houseMonthly, now, purchaseDate: strategy.housePurchaseDate }) : null;
+  const affordReach = affordNeeded !== null ? reachDate(plan, affordNeeded, now) : null;
   const ym = (d: Date) => `${d.getFullYear()}년 ${d.getMonth() + 1}월`;
   const ltvPct = Math.round(home.policy.bogeumjari.ltv * 100);
 
@@ -241,7 +231,7 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
           {housingRemaining > 0 && yearsToGoal !== null && (
             <>
               {" "}
-              연금 납입 계획을 반영하면 약{" "}
+              {withReturns ? "기대수익률과 " : ""}연금 납입 계획을 반영하면 약{" "}
               <strong style={{ color: "var(--ink)" }}>{formatYearsMonths(yearsToGoal)}</strong> 후 달성할 수 있어.
             </>
           )}
@@ -250,7 +240,13 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
 
         {equityNeeded > 0 && (
           <div style={{ marginTop: 16 }}>
-            <div className="chart-title">집 마련 진행과 예상 경로</div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+              <div className="chart-title">집 마련 진행과 예상 경로</div>
+              <label className="toggle" htmlFor="house-returns">
+                <input id="house-returns" type="checkbox" checked={withReturns} onChange={(e) => onHomeChange({ ...home, projectWithReturns: e.target.checked })} />
+                수익률 반영 (시뮬레이션 탭 가정: 위험 {simulation.riskRate}% · 안전 {simulation.safeRate}%)
+              </label>
+            </div>
             <LineChart
               yFormat={fmtEok}
               valueFormat={(v) => `${fmtWon(v)}원`}
@@ -265,21 +261,23 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
               vLines={Number.isFinite(purchaseT) ? [{ label: "집 매수 예정일", t: purchaseT, color: "var(--ink-soft)" }] : []}
             />
             <p className="note" style={{ marginTop: 6 }}>
-              수익률 없이 매달 {fmtWon(houseMonthly)}원씩 모은다고 가정했어.{" "}
-              {projection.reachDate === null
+              {withReturns
+                ? `매달 ${fmtWon(houseMonthly)}원씩 모으고, 위험자산 ${simulation.riskRate}% · 안전자산 ${simulation.safeRate}%(보증금·통장은 0%) 기대수익률이 붙는다고 가정했어. 실제 수익률은 달라질 수 있어.`
+                : `수익률 없이 매달 ${fmtWon(houseMonthly)}원씩 모은다고 가정했어 (보수적으로 보기).`}{" "}
+              {minReach === null
                 ? "지금 저축 가능액으로는 최소 자기자금에 닿지 않아."
                 : housingRemaining <= 0
                   ? "최소 자기자금(대출 한도를 다 쓰는 경우)에는 이미 도달했어."
-                  : `최소 자기자금(대출 한도를 다 쓰는 경우)에는 ${ym(projection.reachDate)}쯤 닿아${monthsDiff !== null ? (monthsDiff >= 0 ? `, 매수 예정일보다 약 ${monthsDiff}개월 빨라` : `, 매수 예정일보다 약 ${-monthsDiff}개월 늦어`) : ""}.`}
-              {affordNeeded !== null && affordReach && (
+                  : `최소 자기자금(대출 한도를 다 쓰는 경우)에는 ${ym(minReach)}쯤 닿아${monthsDiff !== null ? (monthsDiff >= 0 ? `, 매수 예정일보다 약 ${monthsDiff}개월 빨라` : `, 매수 예정일보다 약 ${-monthsDiff}개월 늦어`) : ""}.`}
+              {affordNeeded !== null && (
                 <>
                   {" "}
                   하지만 월 상환을 세후 월급의 {home.targetRatioPct}% 안(40년 만기)으로 두려면 <strong style={{ color: "var(--ink)" }}>{fmtWon(affordNeeded)}원</strong>이 필요하고,{" "}
-                  {affordReach.reachDate === null
+                  {affordReach === null
                     ? "지금 저축 속도로는 닿지 않아."
                     : affordNeeded <= housingLiquid
                       ? "이미 넘었어."
-                      : `${ym(affordReach.reachDate)}쯤 닿아${affordReach.onTrack === false ? " (매수 예정일보다 늦어)" : ""}.`}
+                      : `${ym(affordReach)}쯤 닿아${Number.isFinite(purchaseT) && affordReach.getTime() > purchaseT ? " (매수 예정일보다 늦어)" : ""}.`}
                 </>
               )}
               {Number.isFinite(purchaseT) && monthsLeft > 0 && ` 매수 예정일에는 약 ${fmtWon(atPurchase)}원이 돼 (내 집 마련 탭의 실투입금 + 부대비용과 같은 값).`}

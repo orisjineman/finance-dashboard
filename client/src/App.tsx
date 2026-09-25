@@ -203,7 +203,9 @@ export default function App() {
             history={data.history}
             alerts={alerts}
             home={data.home}
+            onHomeChange={updateHome}
             rebalance={data.rebalance}
+            simulation={data.simulation}
             onNavigate={setTab}
           />
         )}
@@ -214,7 +216,7 @@ export default function App() {
         {tab === "budget" && <BudgetPanel budget={data.budget} onChange={updateBudget} />}
         {tab === "tax" && <TaxPanel budget={data.budget} onChange={updateBudget} grossIncome={data.home.currentIncome} />}
         {tab === "sim" && (
-          <SimulationPanel rows={data.rows} sim={data.simulation} onChange={updateSim} annualRaisePct={data.budget.annualRaisePct} loan={data.loan} closingCost={data.home.closingCost} ltv={data.home.policy.bogeumjari.ltv} />
+          <SimulationPanel rows={data.rows} sim={data.simulation} onChange={updateSim} annualRaisePct={data.budget.annualRaisePct} budget={data.budget} />
         )}
         {tab === "loan" && (
           <LoanPanel
@@ -227,6 +229,7 @@ export default function App() {
             strategy={data.strategy}
             onStrategyChange={updateStrategy}
             budget={data.budget}
+            simulation={data.simulation}
             onBudgetChange={updateBudget}
           />
         )}

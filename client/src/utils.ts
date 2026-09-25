@@ -101,3 +101,10 @@ export function newId(prefix: string): string {
 export function uniqueAccounts(rows: AssetRow[]): string[] {
   return Array.from(new Set(rows.map((r) => r.account).filter(Boolean))).sort();
 }
+
+// 연도별 시뮬레이션의 연간 신규 적립액(자동) = 월 저축 가능액 × 12 + 연금 세액공제 환급. 월급을 쓰고 남는 돈을 모두 투자한다고 본다.
+export function autoAnnualContribution(budget: BudgetData): number {
+  const savings = budget.monthlyNetIncome - budget.expenseCategories.reduce((sum, c) => sum + c.amount, 0);
+  const refund = ((budget.pensionAnnualContribution || 0) * (budget.pensionTaxCreditRate || 0)) / 100;
+  return Math.max(0, savings * 12 + refund);
+}

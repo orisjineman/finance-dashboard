@@ -1,8 +1,9 @@
 import { useState } from "react";
-import type { AssetRow, BudgetData, HomePolicy, HomeSimInput, LoanInput, RebalanceGroup, StrategyData } from "../types";
-import { fmtWon, monthlyHouseSavings } from "../utils";
+import type { AssetRow, BudgetData, HomePolicy, HomeSimInput, LoanInput, RebalanceGroup, SimulationAssumptions, StrategyData } from "../types";
+import { fmtWon } from "../utils";
+import { planHousing } from "../housing";
 import { monthlyAfterTax } from "../home";
-import { computeHome, computeHomeAssets, monthsUntil, policyStale, totalInterest, yearExceeding, type Eligibility, type Judge } from "../home";
+import { computeHome, computeHomeAssets, policyStale, totalInterest, yearExceeding, type Eligibility, type Judge } from "../home";
 import MoneyInput from "./MoneyInput";
 import SectionTitle from "./SectionTitle";
 
@@ -16,6 +17,7 @@ interface Props {
   strategy: StrategyData;
   onStrategyChange: (strategy: StrategyData) => void;
   budget: BudgetData;
+  simulation: SimulationAssumptions;
   onBudgetChange: (budget: BudgetData) => void;
 }
 
@@ -37,14 +39,14 @@ function Badge({ label, e }: { label: string; e: Eligibility }) {
 }
 
 // '내 집 마련' 탭의 시뮬레이터. 집값 후보별로 필요 대출, 월 상환액, 상환 비중, 대출 자격을 비교한다.
-export default function HomeSimulator({ rows, groups, home, onChange, loan, onLoanChange, strategy, onStrategyChange, budget, onBudgetChange }: Props) {
+export default function HomeSimulator({ rows, groups, home, onChange, loan, onLoanChange, strategy, onStrategyChange, budget, simulation, onBudgetChange }: Props) {
   const now = new Date();
   const [newPrice, setNewPrice] = useState(0);
-  // 매수 때까지 더 모을 돈(자동) = 집 마련 월 저축액 × 매수까지 남은 달. 개요의 '이대로 모으면' 예상 경로와 같은 값이다.
-  const monthsLeft = monthsUntil(strategy.housePurchaseDate, now);
-  const monthlySavings = monthlyHouseSavings(budget);
-  const savingsUntilPurchase = Math.max(0, monthlySavings) * monthsLeft;
-  const assets = computeHomeAssets(rows, groups, home, savingsUntilPurchase);
+  // 매수 때까지 더 모을 돈(자동) = 개요의 '이대로 모으면' 예상 경로에서 매수 예정일까지 늘어나는 금액 (수익률 반영 토글 공유)
+  const plan = planHousing(rows, budget, simulation, strategy.housePurchaseDate, now, !!home.projectWithReturns);
+  const monthsLeft = plan.monthsLeft;
+  const monthlySavings = plan.monthly;
+  const assets = computeHomeAssets(rows, groups, home, plan.extra);
   const raisePct = budget.annualRaisePct || 0;
   // 비교 목록에 목표 집값이 없으면(예전에 따로 입력한 값) 표에 함께 보여준다
   const targetInList = home.prices.includes(loan.price);
@@ -131,8 +133,12 @@ export default function HomeSimulator({ rows, groups, home, onChange, loan, onLo
               <>
                 <MoneyInput value={Math.round(assets.extra)} readOnly />
                 <p className="note" style={{ margin: "4px 0 0" }}>
-                  월 {fmtWon(monthlySavings)}원(연금 납입·환급 반영) × {monthsLeft}달. 스냅샷 잔액이 늘면 남은 달이 줄어서 이중으로 세지 않아.
+                  월 {fmtWon(monthlySavings)}원(연금 납입·환급 반영) × {monthsLeft}달{home.projectWithReturns ? " + 기대수익" : ""}. 스냅샷 잔액이 늘면 남은 달이 줄어서 이중으로 세지 않아.
                 </p>
+                <label className="toggle" htmlFor="home-returns" style={{ marginTop: 6 }}>
+                  <input id="home-returns" type="checkbox" checked={!!home.projectWithReturns} onChange={(e) => set("projectWithReturns", e.target.checked)} />
+                  수익률 반영 (시뮬레이션 탭 가정, 개요 그래프와 같이 바뀜)
+                </label>
               </>
             ) : (
               <MoneyInput value={home.extraAssets} onChange={(v) => set("extraAssets", v)} />

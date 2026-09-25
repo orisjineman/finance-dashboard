@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { niceTicks, valueAt } from "./chart";
-import { projectHousing } from "./housing";
+import { addMonths, growBalances, monthsToReach, monthsUntil, planHousing, reachDate } from "./housing";
 
 describe("niceTicks", () => {
   it("범위를 덮고 오름차순이며 간격이 일정하다", () => {
@@ -22,28 +22,45 @@ describe("niceTicks", () => {
   });
 });
 
-describe("projectHousing", () => {
-  const now = new Date("2026-09-24T00:00:00");
-  it("이미 목표를 넘었으면 지금 도달로 본다", () => {
-    const p = projectHousing({ current: 100, target: 80, monthlyAdd: 10, now, purchaseDate: "2030-06-30" });
-    expect(p.monthsToReach).toBe(0);
-    expect(p.onTrack).toBe(true);
+describe("집 마련 예상 경로", () => {
+  const g = { risk: 100, safe: 100, cash: 50, monthlyAdd: 10, contribRiskPct: 50, riskRatePct: 12, safeRatePct: 0, withReturns: false };
+  it("수익률을 빼면 매달 저축액만큼 직선으로 는다", () => {
+    const b = growBalances(g, 3);
+    expect(b).toEqual([250, 260, 270, 280]);
   });
-  it("저축이 0 이하이면 도달할 수 없다", () => {
-    const p = projectHousing({ current: 10, target: 80, monthlyAdd: 0, now, purchaseDate: "2030-06-30" });
-    expect(p.reachDate).toBeNull();
-    expect(p.onTrack).toBe(false);
+  it("수익률을 넣으면 위험자산에 월 복리가 붙고 현금은 그대로", () => {
+    const b = growBalances({ ...g, monthlyAdd: 0, withReturns: true }, 12);
+    expect(b[12]).toBeCloseTo(100 * 1.12 + 100 + 50, 6); // 월 환산 12번 = 연 12%
   });
-  it("매달 저축으로 도달 시점을 직선으로 계산한다", () => {
-    const p = projectHousing({ current: 20, target: 80, monthlyAdd: 10, now, purchaseDate: "2030-06-30" });
-    expect(p.monthsToReach).toBeCloseTo(6, 6);
-    expect(p.points).toHaveLength(2);
-    expect(p.points[1].y).toBe(80);
-    expect(p.onTrack).toBe(true);
+  it("목표에 닿는 달: 이미 넘으면 0, 저축이 없으면 null", () => {
+    expect(monthsToReach(g, 275)).toBe(3);
+    expect(monthsToReach(g, 200)).toBe(0);
+    expect(monthsToReach({ ...g, monthlyAdd: 0 }, 1000)).toBeNull();
   });
-  it("예정일보다 늦게 닿으면 onTrack=false, 예정일이 없으면 null", () => {
-    expect(projectHousing({ current: 0, target: 100000, monthlyAdd: 10, now, purchaseDate: "2027-01-01" }).onTrack).toBe(false);
-    expect(projectHousing({ current: 0, target: 100, monthlyAdd: 10, now, purchaseDate: "" }).onTrack).toBeNull();
+  it("남은 달·달 더하기", () => {
+    const now = new Date("2026-09-25T00:00:00");
+    expect(monthsUntil("2030-06-30", now)).toBe(45);
+    expect(monthsUntil("", now)).toBe(0);
+    expect(addMonths(now, 4).getMonth()).toBe(0); // 2027년 1월
+  });
+  it("planHousing: '집자금' 행만 모으고 매수일까지 달마다 경로를 만든다", () => {
+    const now = new Date("2026-09-25T00:00:00");
+    const rows = [
+      { id: "1", account: "A", item: "x", category: "risk" as const, amount: 100, housingEligible: true },
+      { id: "2", account: "B", item: "보증금", category: "cash" as const, amount: 50, housingEligible: true },
+      { id: "3", account: "IRP", item: "y", category: "risk" as const, amount: 999, housingEligible: false },
+    ];
+    const budget = { monthlyNetIncome: 30, annualRaisePct: 0, expenseCategories: [{ id: "e", name: "생활", amount: 20 }], pensionAnnualContribution: 0, pensionTaxCreditRate: 16.5 };
+    const sim = { riskRate: 12, safeRate: 3, contributionRiskRatio: 100 };
+    const flat = planHousing(rows, budget, sim, "2027-01-01", now, false);
+    expect(flat.current).toBe(150);
+    expect(flat.monthsLeft).toBe(4);
+    expect(flat.extra).toBe(40); // 월 10 × 4달
+    expect(flat.series).toHaveLength(5);
+    const grow = planHousing(rows, budget, sim, "2027-01-01", now, true);
+    expect(grow.atPurchase).toBeGreaterThan(flat.atPurchase);
+    expect(reachDate(flat, 170, now)?.getMonth()).toBe(10); // 2달 뒤 = 11월
+    expect(reachDate(flat, 100, now)).toBe(now);
   });
 });
 

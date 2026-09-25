@@ -213,6 +213,7 @@ describe("evaluateTarget", () => {
     loan: { price: 40000, ratePct: 4 },
     strategy: { housePurchaseDate: "2030-06-30", isaDutyEndDate: "", overviewSummary: [], glidePath: [] },
     budget: { monthlyNetIncome: 0, annualRaisePct: 3, expenseCategories: [], pensionAnnualContribution: 0, pensionTaxCreditRate: 16.5 },
+    simulation: { annualContribution: 0, years: 10, riskRate: 8, safeRate: 3, contributionRiskRatio: 50, applySalaryRaise: false },
   };
   it("목표 집값 한 채를 월급·예산 탭 인상률로 판정한다", () => {
     const t = evaluateTarget(base, now)!;
@@ -253,6 +254,7 @@ describe("assetsNeededAffordable", () => {
       loan: { price: 50000, ratePct: 4 },
       strategy: { housePurchaseDate: "2030-06-30", isaDutyEndDate: "", overviewSummary: [], glidePath: [] },
       budget: { monthlyNetIncome: 0, annualRaisePct: 3, expenseCategories: [], pensionAnnualContribution: 0, pensionTaxCreditRate: 16.5 },
+      simulation: { annualContribution: 0, years: 10, riskRate: 8, safeRate: 3, contributionRiskRatio: 50, applySalaryRaise: false },
     };
     const t = evaluateTarget(base, now)!;
     const need = assetsNeededAffordable(t, 40, 1000);

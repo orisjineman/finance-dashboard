@@ -30,6 +30,7 @@ export function defaultData(): DashboardData {
       { id: "r7", account: "기타", item: "현금성 자산", category: "cash", amount: 0, housingEligible: true }
     ],
     simulation: {
+      contributionMode: "auto",
       annualContribution: 0,
       years: 10,
       riskRate: 8,
@@ -85,6 +86,7 @@ export function defaultData(): DashboardData {
     home: {
       assetSource: "housing",
       includeDeposit: true,
+      projectWithReturns: false,
       extraMode: "auto",
       extraAssets: 0,
       closingCost: 1500,

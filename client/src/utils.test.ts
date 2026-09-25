@@ -6,6 +6,7 @@ import {
   computeLoanEquity,
   computeReturnTotals,
   computeTotals,
+  autoAnnualContribution,
   monthlyHouseSavings,
   fmt,
   fmtEok,
@@ -82,6 +83,12 @@ describe("합계 계산", () => {
     expect(computeLoanEquity(100000, 0)).toBe(100000);
     expect(computeLoanEquity(100000, 0.7, 1500)).toBeCloseTo(31500, 6); // 부대비용 포함
     expect(computeLoanEquity(100000, 1.5)).toBe(0); // 0~1 밖은 잘라낸다
+  });
+
+  it("시뮬레이션 자동 적립액은 월 저축 가능액 × 12 + 연금 세액공제 환급", () => {
+    const budget = { monthlyNetIncome: 400, annualRaisePct: 0, expenseCategories: [{ id: "a", name: "생활", amount: 150 }], pensionAnnualContribution: 600, pensionTaxCreditRate: 16.5 };
+    expect(autoAnnualContribution(budget)).toBeCloseTo(250 * 12 + 99, 9);
+    expect(autoAnnualContribution({ ...budget, monthlyNetIncome: 100, pensionAnnualContribution: 0 })).toBe(0); // 적자면 0
   });
 
   it("집 마련 월 저축액은 연금 납입을 빼고 세액공제 환급을 더한다", () => {

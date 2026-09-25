@@ -3,7 +3,7 @@ import type { AssetRow, BudgetData, DashboardData, SimulationAssumptions } from 
 import type { RebalanceTrade } from "./rebalance";
 import { computePensionCredit, paidThisYear } from "./pension";
 import { estimateCosts } from "./costs";
-import { evaluateScenario, runSimulation, yearReaching } from "./simulation";
+import { evaluateScenario, runSimulation } from "./simulation";
 import { computeAlerts } from "./alerts";
 
 const now = new Date("2026-10-15T00:00:00");
@@ -89,19 +89,12 @@ describe("시뮬레이션", () => {
     expect(runSimulation(0, 0, { ...sim, years: 99 }, 0)).toHaveLength(40);
     expect(runSimulation(0, 0, { ...sim, years: 0 }, 0)).toHaveLength(10); // 0이면 기본 10년
   });
-  it("목표에 처음 닿는 연차를 찾는다", () => {
-    const r = runSimulation(1000, 1, sim, 0);
-    expect(yearReaching(r, 1400)).toBe(2);
-    expect(yearReaching(r, 999999)).toBeNull();
-    expect(yearReaching(r, 0)).toBeNull();
-  });
   it("시나리오는 수익률·적립액만 덮어쓰고 결과를 비교할 수 있다", () => {
-    const o = { base: 1000, riskPct0: 1, housingBase: 500, housingRiskPct0: 1, equityNeeded: 1000, raisePct: 0 };
+    const o = { base: 1000, riskPct0: 1, raisePct: 0 };
     const base = evaluateScenario(o, sim, null);
     const better = evaluateScenario(o, sim, { id: "s", name: "낙관", riskRate: 20, safeRate: 0, annualContribution: 100, contributionRiskRatio: 100 });
     expect(better.final).toBeGreaterThan(base.final);
-    expect(better.housingYear).not.toBeNull();
-    expect(base.housingYear === null || better.housingYear! <= base.housingYear).toBe(true);
+    expect(better.results).toHaveLength(base.results.length);
   });
 });
 

@@ -768,3 +768,15 @@ table.grid tr.target-row td {
   bottom: calc(100% + 6px);
   white-space: nowrap;
 }
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.toggle input {
+  width: 15px;
+  height: 15px;
+}

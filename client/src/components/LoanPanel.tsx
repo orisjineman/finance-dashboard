@@ -1,4 +1,4 @@
-import type { AssetRow, BudgetData, HomeSimInput, LoanInput, RebalanceGroup, StrategyData } from "../types";
+import type { AssetRow, BudgetData, HomeSimInput, LoanInput, RebalanceGroup, SimulationAssumptions, StrategyData } from "../types";
 import HomeSimulator from "./HomeSimulator";
 
 interface Props {
@@ -11,11 +11,12 @@ interface Props {
   strategy: StrategyData;
   onStrategyChange: (strategy: StrategyData) => void;
   budget: BudgetData;
+  simulation: SimulationAssumptions;
   onBudgetChange: (budget: BudgetData) => void;
 }
 
 // '내 집 마련' 탭. 지금 기준 진행 상황(가용자산·더 모을 금액)은 개요의 집 마련 자금 카드에서 본다.
-export default function LoanPanel({ rows, loan, onChange, groups, home, onHomeChange, strategy, onStrategyChange, budget, onBudgetChange }: Props) {
+export default function LoanPanel({ rows, loan, onChange, groups, home, onHomeChange, strategy, onStrategyChange, budget, simulation, onBudgetChange }: Props) {
   return (
     <section className="panel active" id="panel-loan">
       <HomeSimulator
@@ -28,6 +29,7 @@ export default function LoanPanel({ rows, loan, onChange, groups, home, onHomeCh
         strategy={strategy}
         onStrategyChange={onStrategyChange}
         budget={budget}
+        simulation={simulation}
         onBudgetChange={onBudgetChange}
       />
       <p className="note">

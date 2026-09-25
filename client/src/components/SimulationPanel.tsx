@@ -1,6 +1,6 @@
 import { useMemo } from "react";
-import type { AssetRow, LoanInput, SimulationAssumptions, SimulationScenario } from "../types";
-import { computeHousingLiquid, computeLoanEquity, computeReturnTotals, fmtEok, fmtWon, newId } from "../utils";
+import type { AssetRow, BudgetData, SimulationAssumptions, SimulationScenario } from "../types";
+import { autoAnnualContribution, computeReturnTotals, fmtEok, fmtWon, newId } from "../utils";
 import { evaluateScenario, runSimulation } from "../simulation";
 import LineChart from "./LineChart";
 import MoneyInput from "./MoneyInput";
@@ -11,32 +11,24 @@ interface Props {
   sim: SimulationAssumptions;
   onChange: (sim: SimulationAssumptions) => void;
   annualRaisePct: number;
-  loan: LoanInput;
-  closingCost: number; // 만원, 내 집 마련 탭의 부대비용
-  ltv: number; // 0~1, 내 집 마련 탭 정책 설정의 LTV
+  budget: BudgetData; // 연간 적립액 자동 계산용
 }
 
-export default function SimulationPanel({ rows, sim, onChange, annualRaisePct, loan, closingCost, ltv }: Props) {
+export default function SimulationPanel({ rows, sim: stored, onChange, annualRaisePct, budget }: Props) {
+  // 연간 적립액: 자동이면 월급·예산 탭에서 계산 (월 저축 가능액 × 12 + 연금 세액공제 환급)
+  const autoContribution = autoAnnualContribution(budget);
+  const isAuto = stored.contributionMode === "auto";
+  const sim: SimulationAssumptions = useMemo(() => (isAuto ? { ...stored, annualContribution: autoContribution } : stored), [isAuto, stored, autoContribution]);
   const t = computeReturnTotals(rows);
   const riskPct0 = t.investBase > 0 ? t.risk / t.investBase : 0.5;
   const results = useMemo(() => runSimulation(t.total, riskPct0, sim, annualRaisePct), [t.total, riskPct0, sim, annualRaisePct]);
 
   const scenarios = sim.scenarios ?? [];
-  const housingRows = rows.filter((r) => r.housingEligible);
-  const hRisk = housingRows.filter((r) => r.category === "risk").reduce((sum, r) => sum + r.amount, 0);
-  const hSafe = housingRows.filter((r) => r.category === "safe").reduce((sum, r) => sum + r.amount, 0);
-  const evalCtx = {
-    base: t.total,
-    riskPct0,
-    housingBase: computeHousingLiquid(rows),
-    housingRiskPct0: hRisk + hSafe > 0 ? hRisk / (hRisk + hSafe) : 0.5,
-    equityNeeded: computeLoanEquity(loan.price, ltv, closingCost),
-    raisePct: annualRaisePct,
-  };
+  const evalCtx = { base: t.total, riskPct0, raisePct: annualRaisePct };
   const outcomes = useMemo(
     () => [evaluateScenario(evalCtx, sim, null), ...scenarios.map((sc) => evaluateScenario(evalCtx, sim, sc))],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [t.total, riskPct0, sim, annualRaisePct, loan, rows, closingCost, ltv]
+    [t.total, riskPct0, sim, annualRaisePct]
   );
   const names = ["현재 입력값", ...scenarios.map((sc) => sc.name || "이름 없음")];
   const palette = ["var(--accent)", "var(--gold)", "var(--safe)", "var(--ink-soft)", "var(--risk)"];
@@ -57,7 +49,7 @@ export default function SimulationPanel({ rows, sim, onChange, annualRaisePct, l
   const barRows = results.filter((_, i) => (i + 1) % showEvery === 0 || i === results.length - 1);
 
   function set<K extends keyof SimulationAssumptions>(key: K, value: SimulationAssumptions[K]) {
-    onChange({ ...sim, [key]: value });
+    onChange({ ...stored, [key]: value });
   }
 
   return (
@@ -74,7 +66,20 @@ export default function SimulationPanel({ rows, sim, onChange, annualRaisePct, l
         <div className="field-row">
           <div className="field">
             <label>연간 신규 적립액 (원)</label>
-            <MoneyInput value={sim.annualContribution} onChange={(v) => set("annualContribution", v)} />
+            <select value={isAuto ? "auto" : "manual"} onChange={(e) => set("contributionMode", e.target.value as "auto" | "manual")} style={{ marginBottom: 6 }}>
+              <option value="auto">자동: 월급·예산 탭 기준</option>
+              <option value="manual">직접 입력</option>
+            </select>
+            {isAuto ? (
+              <>
+                <MoneyInput value={Math.round(autoContribution)} readOnly />
+                <p className="note" style={{ margin: "4px 0 0" }}>
+                  월 저축 가능액 × 12 + 연금 세액공제 환급. 월급에서 쓰고 남는 돈을 모두 투자한다고 봐. 생활 예비비로 따로 떼어 두는 돈이 있으면 직접 입력으로 바꿔줘.
+                </p>
+              </>
+            ) : (
+              <MoneyInput value={stored.annualContribution} onChange={(v) => set("annualContribution", v)} />
+            )}
           </div>
           <div className="field">
             <label>시뮬레이션 기간 (년)</label>
@@ -225,7 +230,6 @@ export default function SimulationPanel({ rows, sim, onChange, annualRaisePct, l
                 <th>시나리오</th>
                 <th className="num">{sim.years}년 뒤 자산</th>
                 <th className="num">누적 수익</th>
-                <th className="num">집 자기자금 도달</th>
               </tr>
             </thead>
             <tbody>
@@ -237,7 +241,6 @@ export default function SimulationPanel({ rows, sim, onChange, annualRaisePct, l
                   </td>
                   <td className="num">{fmtWon(o.final)}원</td>
                   <td className="num">{fmtWon(o.profit)}원</td>
-                  <td className="num">{evalCtx.equityNeeded <= 0 ? "-" : o.housingYear === null ? `${sim.years}년 안에 못 닿음` : `${o.housingYear}년차 (${thisYear + o.housingYear}년)`}</td>
                 </tr>
               ))}
             </tbody>
@@ -256,7 +259,7 @@ export default function SimulationPanel({ rows, sim, onChange, annualRaisePct, l
           />
         </div>
         <p className="note">
-          '집 자기자금 도달'은 연금저축·IRP를 뺀 집 마련 가용자산에 같은 수익률·적립 가정을 적용했을 때, '내 집 마련' 탭 목표 집값의 필요 자기자금(부대비용 포함)에 처음 닿는 해야. 미래 수익률은 알 수 없으니 여러 가정을 비교해 보는 용도로만 써줘.
+          전체 투자자산(연금저축·IRP 포함)의 장기 성장을 보는 화면이야. 집 마련 시점과 자금은 개요의 '집 마련 자금'과 '내 집 마련' 탭에서 봐줘(수익률 반영 여부도 거기서 고를 수 있어). 미래 수익률은 알 수 없으니 여러 가정을 비교해 보는 용도로만 써줘.
         </p>
       </div>
     </section>

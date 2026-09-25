@@ -296,7 +296,8 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
 
         {pensionAnnualContribution > 0 && (
           <p className="note" style={{ marginTop: 12 }}>
-            연금저축·IRP {fmtWon(pensionAnnualContribution)}원/년 납입 중 (환급 {fmtWon((pensionAnnualContribution * (pensionTaxCreditRate || 0)) / 100)}원/년 재투자 포함)
+            연금저축·IRP {fmtWon(pensionAnnualContribution)}원/년 납입 중 (환급 {fmtWon((pensionAnnualContribution * (pensionTaxCreditRate || 0)) / 100)}원/년은{" "}
+            {budget.refundTo === "house" ? "집 자금에 더함" : "노후 자금으로"})
             {pensionDelayMonths !== null && pensionDelayMonths > 0 ? ` → 최소 자기자금 도달이 ${pensionDelayMonths}개월 늦어져.` : "."}{" "}
             <button className="link-btn" onClick={() => onNavigate("budget")}>
               내 정보에서 수정

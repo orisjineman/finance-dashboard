@@ -91,10 +91,12 @@ describe("합계 계산", () => {
     expect(autoAnnualContribution({ ...budget, monthlyNetIncome: 100, pensionAnnualContribution: 0 })).toBe(0); // 적자면 0
   });
 
-  it("집 마련 월 저축액은 연금 납입을 빼고 세액공제 환급을 더한다", () => {
+  it("집 마련 월 저축액은 연금 납입을 빼고, 환급은 사용처가 집 마련일 때만 더한다", () => {
     const budget = { monthlyNetIncome: 400, annualRaisePct: 0, expenseCategories: [{ id: "a", name: "생활", amount: 150 }], pensionAnnualContribution: 0, pensionTaxCreditRate: 16.5 };
     expect(monthlyHouseSavings(budget)).toBe(250);
-    expect(monthlyHouseSavings({ ...budget, pensionAnnualContribution: 600 })).toBeCloseTo(250 - 50 + 8.25, 9);
+    expect(monthlyHouseSavings({ ...budget, pensionAnnualContribution: 600 })).toBeCloseTo(250 - 50, 9); // 기본: 환급은 노후 자금으로
+    expect(monthlyHouseSavings({ ...budget, pensionAnnualContribution: 600, refundTo: "retirement" })).toBeCloseTo(250 - 50, 9);
+    expect(monthlyHouseSavings({ ...budget, pensionAnnualContribution: 600, refundTo: "house" })).toBeCloseTo(250 - 50 + 8.25, 9);
   });
 });
 

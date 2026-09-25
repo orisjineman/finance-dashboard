@@ -41,12 +41,13 @@ export function computeLoanEquity(price: number, ltv: number, closingCost = 0): 
   return price * (1 - Math.min(1, Math.max(0, ltv || 0))) + Math.max(0, closingCost);
 }
 
-// 집 마련에 매달 모을 수 있는 돈 = 월 저축 가능액 − 연금 납입(월) + 세액공제 환급(월). 연금 납입 계획이 없으면 저축 가능액 그대로.
+// 집 마련에 매달 모을 수 있는 돈 = 월 저축 가능액 − 연금 납입(월).
+// 연금 세액공제 환급은 '환급 사용처'가 집 마련(house)일 때만 더한다 (기본은 연금저축 등 노후 자금으로 넣는다고 본다).
 export function monthlyHouseSavings(budget: BudgetData): number {
   const savings = budget.monthlyNetIncome - budget.expenseCategories.reduce((sum, c) => sum + c.amount, 0);
   const pension = budget.pensionAnnualContribution || 0;
-  if (pension <= 0) return savings;
-  return savings - pension / 12 + (pension * (budget.pensionTaxCreditRate || 0)) / 100 / 12;
+  const refund = budget.refundTo === "house" ? (pension * (budget.pensionTaxCreditRate || 0)) / 100 / 12 : 0;
+  return savings - pension / 12 + refund;
 }
 
 export interface CurrentReturn {

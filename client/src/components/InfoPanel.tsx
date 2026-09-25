@@ -124,7 +124,7 @@ export default function InfoPanel({ budget, onBudgetChange, home, onHomeChange, 
           <div className="field">
             <label>연간 납입액 (원)</label>
             <MoneyInput value={budget.pensionAnnualContribution} onChange={(v) => setBudget({ pensionAnnualContribution: v })} />
-            <Uses where={["집 마련 월 저축액(납입만큼 빠짐)", "시뮬레이션 적립액(환급 포함)", "개요 연금 비교"]} />
+            <Uses where={["집 마련 월 저축액(납입만큼 빠짐)", "시뮬레이션 적립액", "개요 연금 비교"]} />
           </div>
           <div className="field">
             <label>세액공제율 (자동)</label>
@@ -137,8 +137,16 @@ export default function InfoPanel({ budget, onBudgetChange, home, onHomeChange, 
             </p>
           </div>
         </div>
+        <div className="field" style={{ maxWidth: 420 }}>
+          <label>연말정산 환급은 어디에 넣나요?</label>
+          <select value={budget.refundTo === "house" ? "house" : "retirement"} onChange={(e) => setBudget({ refundTo: e.target.value as "retirement" | "house" })}>
+            <option value="retirement">연금저축 등 노후 자금 (집 자금에 안 더함)</option>
+            <option value="house">집 마련 자금 (월로 나눠 더함)</option>
+          </select>
+          <Uses where={["집 마련 월 저축액", "개요 집 마련 예상 경로", "내 집 마련 '더 모을 돈'"]} />
+        </div>
         <div className="result-line">
-          <span className="k">연금 납입·환급을 반영한 집 마련 월 저축액</span>
+          <span className="k">집 마련 월 저축액 (저축 가능액 − 연금 납입{budget.refundTo === "house" ? " + 환급" : ""})</span>
           <span className="v">{fmtWon(monthlyHouseSavings({ ...budget, pensionTaxCreditRate: pensionRate }))}원</span>
         </div>
         <p className="note">올해 실제로 납입한 금액은 연말정산 탭에서 입력해 (올해 누적값이라 해가 바뀌면 0부터 시작).</p>

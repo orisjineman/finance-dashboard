@@ -54,7 +54,7 @@ export function monthsToReach(g: GrowthInput, target: number, maxMonths = 600): 
 export interface HousingPlan {
   withReturns: boolean;
   current: number; // 지금 집 마련 가용자산 ('집자금' 체크 항목 합계)
-  monthly: number; // 집 마련 월 저축액 (연금 납입·환급 반영)
+  monthly: number; // 집 마련 월 저축액 (연금 납입분 제외, 환급은 사용처가 집 마련일 때만)
   monthsLeft: number; // 매수 예정일까지 남은 달
   atPurchase: number; // 매수 예정일의 예상 가용자산
   extra: number; // 매수 때까지 늘어나는 금액 (= atPurchase − current)

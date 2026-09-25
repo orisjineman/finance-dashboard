@@ -75,6 +75,7 @@ export function defaultData(): DashboardData {
       ],
       pensionAnnualContribution: 900,
       pensionTaxCreditRate: 16.5,
+      refundTo: "retirement",
       taxPrep: defaultTaxPrep()
     },
     rebalance: {

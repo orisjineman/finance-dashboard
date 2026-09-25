@@ -74,7 +74,7 @@ export default function SimulationPanel({ rows, sim: stored, onChange, annualRai
               <>
                 <MoneyInput value={Math.round(autoContribution)} readOnly />
                 <p className="note" style={{ margin: "4px 0 0" }}>
-                  월 저축 가능액 × 12 + 연금 세액공제 환급. 월급에서 쓰고 남는 돈을 모두 투자한다고 봐. 생활 예비비로 따로 떼어 두는 돈이 있으면 직접 입력으로 바꿔줘.
+                  월 저축 가능액 × 12 + 연금 세액공제 환급(환급도 어딘가에 투자한다고 봐). 월급에서 쓰고 남는 돈을 모두 투자한다고 봐. 생활 예비비로 따로 떼어 두는 돈이 있으면 직접 입력으로 바꿔줘.
                 </p>
               </>
             ) : (

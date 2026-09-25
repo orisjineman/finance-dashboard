@@ -133,7 +133,7 @@ export default function HomeSimulator({ rows, groups, home, onChange, loan, onLo
               <>
                 <MoneyInput value={Math.round(assets.extra)} readOnly />
                 <p className="note" style={{ margin: "4px 0 0" }}>
-                  월 {fmtWon(monthlySavings)}원(연금 납입·환급 반영) × {monthsLeft}달{home.projectWithReturns ? " + 기대수익" : ""}. 스냅샷 잔액이 늘면 남은 달이 줄어서 이중으로 세지 않아.
+                  월 {fmtWon(monthlySavings)}원(연금 납입분 제외{budget.refundTo === "house" ? ", 환급 포함" : ""}) × {monthsLeft}달{home.projectWithReturns ? " + 기대수익" : ""}. 스냅샷 잔액이 늘면 남은 달이 줄어서 이중으로 세지 않아.
                 </p>
                 <label className="toggle" htmlFor="home-returns" style={{ marginTop: 6 }}>
                   <input id="home-returns" type="checkbox" checked={!!home.projectWithReturns} onChange={(e) => set("projectWithReturns", e.target.checked)} />

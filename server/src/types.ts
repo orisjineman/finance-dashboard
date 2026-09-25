@@ -77,6 +77,24 @@ export interface BudgetCategory {
   amount: number; // 만원, 월 예산
 }
 
+export interface TaxPrepPolicy {
+  rent: { incomeMax: number; lowIncomeMax: number; rateLowPct: number; ratePct: number; limit: number }; // 월세 세액공제 (만원, %)
+  subscription: { incomeMax: number; limit: number; ratePct: number }; // 주택청약 소득공제
+  card: { thresholdPct: number; creditRatePct: number; debitRatePct: number; limitLow: number; limitHigh: number; limitIncome: number }; // 신용·체크카드 소득공제
+  marginalRatePct: number; // 소득공제액을 세금으로 환산할 때 쓰는 한계세율(지방소득세 포함)
+  updatedAt: string; // 숫자를 마지막으로 확인한 날 (YYYY-MM-DD)
+}
+
+export interface TaxPrepInput {
+  year?: number; // 아래 '올해' 값들이 어느 해 것인지 (해가 바뀌면 0으로 본다)
+  rentMonthly: number; // 만원, 월세
+  rentPaid: number; // 만원, 올해 이미 낸 월세
+  subscriptionPaid: number; // 만원, 올해 주택청약 납입액
+  creditCardUsed: number; // 만원, 올해 신용카드 사용액
+  debitCardUsed: number; // 만원, 올해 체크카드·현금영수증 사용액
+  policy: TaxPrepPolicy;
+}
+
 export interface BudgetData {
   monthlyNetIncome: number; // 만원, 월 실수령액
   annualRaisePct: number; // %, 예상 연간 월급 상승률
@@ -85,6 +103,7 @@ export interface BudgetData {
   pensionTaxCreditRate: number; // %, 세액공제율 (13.2 또는 16.5)
   pensionCreditLimit?: number; // 만원, 세액공제 대상 납입 한도 (연금저축+IRP 합산). 없으면 900
   pensionPaidThisYear?: number; // 만원, 올해 실제로 납입한 금액
+  taxPrep?: TaxPrepInput; // 연말정산 준비 카드
   pensionPaidYear?: number; // pensionPaidThisYear 가 어느 해의 값인지 (해가 바뀌면 0으로 본다)
 }
 

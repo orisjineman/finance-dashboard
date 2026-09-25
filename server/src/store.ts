@@ -2,7 +2,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { DashboardData } from "./types.js";
-import { defaultData } from "./defaults.js";
+import { defaultData, defaultTaxPrep } from "./defaults.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const DATA_DIR = process.env.FD_DATA_DIR ? path.resolve(process.env.FD_DATA_DIR) : path.resolve(__dirname, "../../data");
@@ -38,7 +38,25 @@ export function migrate(parsed: Partial<DashboardData> & Record<string, unknown>
     rows: (parsed.rows ?? d.rows).map((r) => ({ ...r, housingEligible: r.housingEligible ?? true })),
     simulation: { ...d.simulation, ...(parsed.simulation ?? {}) },
     loan,
-    budget: { ...d.budget, ...(parsed.budget ?? {}) },
+    budget: (() => {
+      const t = defaultTaxPrep();
+      const p = parsed.budget?.taxPrep;
+      return {
+        ...d.budget,
+        ...(parsed.budget ?? {}),
+        taxPrep: {
+          ...t,
+          ...(p ?? {}),
+          policy: {
+            ...t.policy,
+            ...(p?.policy ?? {}),
+            rent: { ...t.policy.rent, ...(p?.policy?.rent ?? {}) },
+            subscription: { ...t.policy.subscription, ...(p?.policy?.subscription ?? {}) },
+            card: { ...t.policy.card, ...(p?.policy?.card ?? {}) },
+          },
+        },
+      };
+    })(),
     strategy,
     rebalance: { ...d.rebalance, ...(parsed.rebalance ?? {}) },
     home: {

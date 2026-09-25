@@ -191,6 +191,31 @@ describe("computeAlerts", () => {
     expect(light.filter((x) => x.startsWith("home-target"))).toEqual([]);
     expect(ids(data({ rows, strategy, home, loan: { price: 0, ratePct: 4 } })).filter((x) => x.startsWith("home-target"))).toEqual([]);
   });
+  it("연말정산 기준 숫자가 오래됐거나, 연말 전 청약 한도가 남으면 알린다", () => {
+    const base = data();
+    const taxPrep = {
+      year: 2026,
+      rentMonthly: 0,
+      rentPaid: 0,
+      subscriptionPaid: 100,
+      creditCardUsed: 0,
+      debitCardUsed: 0,
+      policy: {
+        rent: { incomeMax: 8000, lowIncomeMax: 5500, rateLowPct: 17, ratePct: 15, limit: 1000 },
+        subscription: { incomeMax: 7000, limit: 300, ratePct: 40 },
+        card: { thresholdPct: 25, creditRatePct: 15, debitRatePct: 30, limitLow: 300, limitHigh: 250, limitIncome: 7000 },
+        marginalRatePct: 16.5,
+        updatedAt: "2026-09-25",
+      },
+    };
+    const home = { ...base.home, currentIncome: 5000 };
+    expect(ids(data({ home, budget: { ...base.budget, taxPrep } }))).toContain("tax-subscription");
+    expect(ids(data({ home, budget: { ...base.budget, taxPrep: { ...taxPrep, subscriptionPaid: 300 } } }))).not.toContain("tax-subscription");
+    expect(ids(data({ home, budget: { ...base.budget, taxPrep: { ...taxPrep, subscriptionPaid: 0 } } }))).not.toContain("tax-subscription"); // 납입 안 하는 중이면 조용히
+    expect(ids(data({ home: { ...home, currentIncome: 8000 }, budget: { ...base.budget, taxPrep } }))).not.toContain("tax-subscription"); // 소득 기준 초과
+    const old = { ...taxPrep, policy: { ...taxPrep.policy, updatedAt: "2025-01-01" } };
+    expect(ids(data({ home, budget: { ...base.budget, taxPrep: old } }))).toContain("tax-policy-stale");
+  });
   it("연말이 가깝고 한도가 남았을 때만 세액공제를 알린다", () => {
     expect(ids(data())).not.toContain("pension-limit"); // 한도를 다 채움
     expect(ids(data({ budget: budget() }))).toContain("pension-limit");

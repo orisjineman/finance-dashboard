@@ -54,6 +54,16 @@ describe("migrate", () => {
     expect(kept.home.policy.bogeumjari.ltv).toBe(0.5);
   });
 
+  it("연말정산 준비 설정이 없거나 일부만 있으면 기본값으로 채운다", () => {
+    const d = store.migrate({ budget: { monthlyNetIncome: 1, taxPrep: { rentMonthly: 50, policy: { rent: { limit: 750 } } } } as never });
+    expect(d.budget.monthlyNetIncome).toBe(1);
+    expect(d.budget.taxPrep?.rentMonthly).toBe(50);
+    expect(d.budget.taxPrep?.policy.rent.limit).toBe(750);
+    expect(d.budget.taxPrep?.policy.rent.incomeMax).toBe(8000);
+    expect(d.budget.taxPrep?.policy.card.thresholdPct).toBe(25);
+    expect(store.migrate({}).budget.taxPrep?.subscriptionPaid).toBe(0);
+  });
+
   it("없어진 ISA·CMA 탭 데이터는 버린다", () => {
     const d = store.migrate({ strategy: { housePurchaseDate: "2030-01-01", isaPortfolio: { riskPct: 1 }, cmaLadder: { rungs: [] } } as never });
     expect(d.strategy.housePurchaseDate).toBe("2030-01-01");

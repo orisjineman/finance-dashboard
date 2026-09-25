@@ -3,27 +3,20 @@ import { fmtWon, newId } from "../utils";
 import MoneyInput from "./MoneyInput";
 import BudgetBreakdown from "./BudgetBreakdown";
 import SectionTitle from "./SectionTitle";
-import { computePensionCredit, DEFAULT_PENSION_LIMIT } from "../pension";
+import TaxPrepCard from "./TaxPrepCard";
 
 interface Props {
   budget: BudgetData;
   onChange: (budget: BudgetData) => void;
+  grossIncome: number; // 만원, 내 집 마련 탭의 연 총보수 (연말정산 준비 카드의 총급여)
 }
 
-export default function BudgetPanel({ budget, onChange }: Props) {
+export default function BudgetPanel({ budget, onChange, grossIncome }: Props) {
   const { monthlyNetIncome, annualRaisePct, expenseCategories } = budget;
   const totalBudget = expenseCategories.reduce((sum, c) => sum + c.amount, 0);
   const savings = monthlyNetIncome - totalBudget;
   const savingsRate = monthlyNetIncome > 0 ? (savings / monthlyNetIncome) * 100 : 0;
   const nextYearIncome = monthlyNetIncome * (1 + (annualRaisePct || 0) / 100);
-
-  const now = new Date();
-  const credit = computePensionCredit(budget, now);
-  const creditPct = credit.limit > 0 ? Math.min(100, Math.round((credit.paid / credit.limit) * 100)) : 0;
-
-  function setPaid(v: number) {
-    onChange({ ...budget, pensionPaidThisYear: v, pensionPaidYear: now.getFullYear() });
-  }
 
   function setIncome(v: number) {
     onChange({ ...budget, monthlyNetIncome: v });
@@ -128,49 +121,7 @@ export default function BudgetPanel({ budget, onChange }: Props) {
         <p className="note">저축률 {savingsRate.toFixed(1)}%</p>
       </div>
 
-      <SectionTitle>연금저축·IRP 세액공제 (올해)</SectionTitle>
-      <div className="card">
-        <div className="field-row">
-          <div className="field">
-            <label>올해 납입한 금액 (원)</label>
-            <MoneyInput value={credit.paid} onChange={setPaid} />
-          </div>
-          <div className="field">
-            <label>세액공제 대상 한도 (원)</label>
-            <MoneyInput value={credit.limit} onChange={(v) => onChange({ ...budget, pensionCreditLimit: v > 0 ? v : DEFAULT_PENSION_LIMIT })} />
-          </div>
-          <div className="field">
-            <label>세액공제율 (%)</label>
-            <select value={budget.pensionTaxCreditRate} onChange={(e) => onChange({ ...budget, pensionTaxCreditRate: parseFloat(e.target.value) })}>
-              <option value={16.5}>16.5% (총급여 5,500만원 이하)</option>
-              <option value={13.2}>13.2% (총급여 5,500만원 초과)</option>
-            </select>
-          </div>
-        </div>
-        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13.5, marginBottom: 6 }}>
-          <span>납입 {fmtWon(credit.paid)}원</span>
-          <span style={{ color: "var(--ink-soft)" }}>한도 {fmtWon(credit.limit)}원</span>
-        </div>
-        <div style={{ height: 14, borderRadius: 999, background: "var(--line)", overflow: "hidden" }}>
-          <div style={{ width: `${creditPct}%`, height: "100%", background: credit.remaining <= 0 ? "var(--safe)" : "var(--gold)" }} />
-        </div>
-        <div className="result-line" style={{ marginTop: 12 }}>
-          <span className="k">남은 한도</span>
-          <span className="v">{fmtWon(credit.remaining)}원</span>
-        </div>
-        <div className="result-line">
-          <span className="k">지금까지 예상 세액공제액</span>
-          <span className="v">{fmtWon(credit.refund)}원</span>
-        </div>
-        <div className="result-line total">
-          <span className="k">남은 한도를 채우면 더 받을 수 있는 금액</span>
-          <span className="v">{fmtWon(credit.extraRefundIfFilled)}원</span>
-        </div>
-        <p className="note">
-          올해 연말까지 {credit.daysToYearEnd}일 남았어. 해가 바뀌면 납입액은 자동으로 0부터 다시 시작해. 한도(연금저축+IRP 합산)와 공제율은 세법에 따라 바뀔 수 있으니 국세청 안내를 확인해서 고쳐줘.
-          연금계좌에 넣은 돈은 집 마련에 쓸 수 없다는 점도 함께 고려해줘.
-        </p>
-      </div>
+      <TaxPrepCard budget={budget} onChange={onChange} grossIncome={grossIncome} />
     </section>
   );
 }

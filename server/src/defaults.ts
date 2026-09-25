@@ -1,4 +1,22 @@
-import type { DashboardData } from "./types.js";
+import type { DashboardData, TaxPrepInput } from "./types.js";
+
+// 연말정산 준비 카드의 기본값. 공제 기준 숫자는 세법 개정으로 자주 바뀌니 화면에서 확인·수정하게 한다.
+export function defaultTaxPrep(): TaxPrepInput {
+  return {
+    rentMonthly: 0,
+    rentPaid: 0,
+    subscriptionPaid: 0,
+    creditCardUsed: 0,
+    debitCardUsed: 0,
+    policy: {
+      rent: { incomeMax: 8000, lowIncomeMax: 5500, rateLowPct: 17, ratePct: 15, limit: 1000 },
+      subscription: { incomeMax: 7000, limit: 300, ratePct: 40 },
+      card: { thresholdPct: 25, creditRatePct: 15, debitRatePct: 30, limitLow: 300, limitHigh: 250, limitIncome: 7000 },
+      marginalRatePct: 16.5,
+      updatedAt: "2026-09-25"
+    }
+  };
+}
 
 export function defaultData(): DashboardData {
   return {
@@ -54,7 +72,8 @@ export function defaultData(): DashboardData {
         { id: "b3", name: "기타", amount: 0 }
       ],
       pensionAnnualContribution: 900,
-      pensionTaxCreditRate: 16.5
+      pensionTaxCreditRate: 16.5,
+      taxPrep: defaultTaxPrep()
     },
     rebalance: {
       tolerancePct: 5,

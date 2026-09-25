@@ -209,7 +209,7 @@ export default function App() {
           <SnapshotPanel rows={data.rows} onChange={updateRows} history={data.history} onHistoryChange={updateHistory} />
         )}
         {tab === "rebalance" && <RebalancePanel rows={data.rows} strategy={data.strategy} settings={data.rebalance} onChange={updateRebalance} onRowsChange={updateRows} onStrategyChange={updateStrategy} />}
-        {tab === "budget" && <BudgetPanel budget={data.budget} onChange={updateBudget} />}
+        {tab === "budget" && <BudgetPanel budget={data.budget} onChange={updateBudget} grossIncome={data.home.currentIncome} />}
         {tab === "sim" && (
           <SimulationPanel rows={data.rows} sim={data.simulation} onChange={updateSim} annualRaisePct={data.budget.annualRaisePct} loan={data.loan} closingCost={data.home.closingCost} ltv={data.home.policy.bogeumjari.ltv} />
         )}

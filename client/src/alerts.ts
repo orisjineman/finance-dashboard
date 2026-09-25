@@ -2,6 +2,7 @@ import type { DashboardData } from "./types";
 import { computeRebalance, groupTarget } from "./rebalance";
 import { computePensionCredit } from "./pension";
 import { evaluateTarget, incomeAt, policyStale } from "./home";
+import { computeSubscription, thisYearValues } from "./tax";
 
 export interface Alert {
   id: string;
@@ -101,6 +102,25 @@ export function computeAlerts(data: DashboardData, now: Date = new Date()): Aler
           tab: "loan",
         });
       }
+    }
+  }
+
+  // 연말정산 준비: 공제 기준 숫자가 오래됐거나, 연말이 가까운데 주택청약 소득공제 한도가 남았으면
+  const tp = data.budget.taxPrep;
+  if (tp) {
+    if (policyStale(tp.policy.updatedAt, now)) {
+      out.push({ id: "tax-policy-stale", level: "info", text: `연말정산 공제 기준 숫자를 마지막으로 확인한 날(${tp.policy.updatedAt})이 1년 넘게 지났어. 월급·예산 탭에서 다시 확인해줘.`, tab: "budget" });
+    }
+    const income = data.home?.currentIncome ?? 0;
+    const sub = computeSubscription(thisYearValues(tp, now), income);
+    // 올해 납입액을 입력한 경우(청약을 넣고 있는 경우)에만 알린다
+    if (sub.eligible && sub.paid > 0 && sub.remaining > 0 && pension.daysToYearEnd <= PENSION_WARN_DAYS) {
+      out.push({
+        id: "tax-subscription",
+        level: "info",
+        text: `주택청약 소득공제 한도까지 ${Math.round(sub.remaining * 10000).toLocaleString("ko-KR")}원 더 넣을 수 있어 (연말까지 ${pension.daysToYearEnd}일).`,
+        tab: "budget",
+      });
     }
   }
 

@@ -59,10 +59,14 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
   const close = monthlyClose({ rows, history, strategy, budget }, alerts, new Date());
   const closeDone = close.steps.filter((st) => st.done).length;
   const md = (iso: string) => `${Number(iso.slice(5, 7))}/${Number(iso.slice(8))}`;
-  // '변동 없음': 이번 달엔 새로 넣은 게 없다고 표시만 한다
-  function markNoChange(key: MonthlyEditKey) {
+  const [closeOpen, setCloseOpen] = useState(false);
+  // '변동 없음': 이번 달엔 새로 넣은 게 없다고 표시만 한다. '되돌리기'는 그 표시를 지워서 다시 안 한 상태로 만든다.
+  function setEdited(key: MonthlyEditKey, on: boolean) {
     if (!budget.taxPrep) return;
-    onBudgetChange({ ...budget, taxPrep: { ...budget.taxPrep, editedAt: { ...budget.taxPrep.editedAt, [key]: isoDate(new Date()) } } });
+    const editedAt = { ...budget.taxPrep.editedAt };
+    if (on) editedAt[key] = isoDate(new Date());
+    else delete editedAt[key];
+    onBudgetChange({ ...budget, taxPrep: { ...budget.taxPrep, editedAt } });
   }
   const targetReturn = strategy.targetReturnPct ?? 7;
   const lastPeriod = yearlyReturns(history).at(-1) ?? null;
@@ -151,8 +155,13 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
         이번 달 정리 <small className="close-progress">{closeDone}/{close.steps.length}{close.due ? ` · 기록일 ${md(close.due)}` : ""}</small>
       </SectionTitle>
       <div className="card">
-        {closeDone === close.steps.length ? (
-          <p className="note" style={{ margin: 0 }}>이번 달 정리 끝 ✓ ({md(close.start)}부터 한 것 기준)</p>
+        {closeDone === close.steps.length && !closeOpen ? (
+          <p className="note" style={{ margin: 0 }}>
+            이번 달 정리 끝 ✓ ({md(close.start)}부터 한 것 기준){" "}
+            <button className="link-btn" onClick={() => setCloseOpen(true)}>
+              펼치기
+            </button>
+          </p>
         ) : (
           <ul className="close-list">
             {close.steps.map((st) => (
@@ -162,9 +171,9 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
                   {st.label}
                   {st.detail && <small> {st.detail}</small>}
                 </span>
-                {!st.done && st.canSkip && (
-                  <button className="btn ghost sm" onClick={() => markNoChange(st.key as MonthlyEditKey)}>
-                    변동 없음
+                {st.canSkip && (
+                  <button className="btn ghost sm" onClick={() => setEdited(st.key as MonthlyEditKey, !st.done)}>
+                    {st.done ? "되돌리기" : "변동 없음"}
                   </button>
                 )}
                 {!st.done && (

@@ -255,9 +255,13 @@ export default function SnapshotPanel({ rows, onChange, history, onHistoryChange
                   />
                 </td>
                 <td style={{ whiteSpace: "nowrap" }}>
-                  {stale && (
+                  {stale ? (
                     <button className="btn ghost sm" title="잔액이 그대로면 확인만 표시" onClick={() => updateRow(i, { updatedAt: isoDate(new Date()) })}>
                       확인
+                    </button>
+                  ) : (
+                    <button className="btn ghost sm row-undo" title="갱신 표시 취소 (이번 달 안 고친 행으로)" onClick={() => updateRow(i, { updatedAt: undefined })}>
+                      ✓
                     </button>
                   )}{" "}
                   <button

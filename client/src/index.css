@@ -754,6 +754,9 @@ table.grid tr.row-stale td.num input {
   color: var(--ink-soft);
   font-style: italic;
 }
+.row-undo {
+  color: var(--safe);
+}
 .close-progress {
   margin-left: 6px;
   font-size: 12.5px;

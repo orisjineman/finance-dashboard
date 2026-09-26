@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { HistoryEntry } from "./types";
-import { lastRecordDue, overallReturn, periodReturn, yearlyReturns } from "./returns";
+import { describePeriod, lastRecordDue, overallReturn, periodReturn, yearlyReturns } from "./returns";
 
 // 날짜, 누적원금, 평가금액만 의미 있는 기록
 const rec = (date: string, principal: number, value: number): HistoryEntry => ({
@@ -81,5 +81,38 @@ describe("lastRecordDue", () => {
     expect(lastRecordDue(25, new Date("2026-09-26T00:00:00"))).toBe("2026-09-25");
     expect(lastRecordDue(25, new Date("2026-09-10T00:00:00"))).toBe("2026-08-25");
     expect(lastRecordDue(25, new Date("2026-01-10T00:00:00"))).toBe("2025-12-25");
+  });
+});
+
+describe("1월~12월 단위 구간", () => {
+  // 매달 말일쯤 기록하는 습관
+  const h = [
+    rec("2026-09-25", 1000, 1000),
+    rec("2026-12-29", 1000, 1030),
+    rec("2027-06-30", 1100, 1150),
+    rec("2027-12-30", 1200, 1300),
+    rec("2028-01-05", 1200, 1310), // 연초 휴일로 늦게 한 기록도 전년 끝으로
+    rec("2028-03-30", 1200, 1350),
+  ];
+  const ys = yearlyReturns(h);
+  it("전년 12월 말 기록 → 그해 12월 말 기록이 한 해", () => {
+    expect(ys.map((p) => [p.year, p.start.date, p.end.date])).toEqual([
+      [2026, "2026-09-25", "2026-12-29"],
+      [2027, "2026-12-29", "2028-01-05"],
+      [2028, "2028-01-05", "2028-03-30"],
+    ]);
+  });
+  it("첫해는 일부 기간, 지난해는 1월~12월, 올해는 1월~최근 기록(진행 중)", () => {
+    const now = new Date("2028-04-02T00:00:00");
+    expect(describePeriod(ys[0], now, 7)).toMatchObject({ kind: "partial", range: "9/25~12월" });
+    expect(describePeriod(ys[1], now, 7)).toMatchObject({ kind: "full", range: "1월~12월" });
+    expect(describePeriod(ys[1], now, 7).target).toBeCloseTo(0.07, 9);
+    const ytd = describePeriod(ys[2], now, 7);
+    expect(ytd).toMatchObject({ kind: "ytd", range: "1월~3/30" });
+    expect(ytd.target).toBeCloseTo(Math.pow(1.07, ys[2].days / 365) - 1, 9); // 지난 기간만큼 줄인 목표
+  });
+  it("연말 기록이 없던 지난해는 일부 기간으로 본다", () => {
+    const y = yearlyReturns([rec("2026-12-29", 1000, 1000), rec("2027-11-29", 1000, 1050)]);
+    expect(describePeriod(y[0], new Date("2028-02-01T00:00:00"), 7)).toMatchObject({ kind: "partial", range: "1월~11/29" });
   });
 });

@@ -4,7 +4,7 @@ import { computeCurrentReturn, computeHousingLiquid, computeLoanEquity, computeR
 import { yearsUntil } from "../rebalance";
 import { planHousing, reachDate, monthsToReach } from "../housing";
 import { assetsNeededAffordable, evaluateTarget } from "../home";
-import { yearlyReturns } from "../returns";
+import { describePeriod, yearlyReturns } from "../returns";
 import LineChart from "./LineChart";
 import ProgressBar from "./ProgressBar";
 import type { Alert } from "../alerts";
@@ -55,6 +55,7 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
   const currentReturn = computeCurrentReturn(rows, history);
   const targetReturn = strategy.targetReturnPct ?? 7;
   const lastPeriod = yearlyReturns(history).at(-1) ?? null;
+  const lastView = lastPeriod ? describePeriod(lastPeriod, new Date(), targetReturn) : null;
   const [editingSummary, setEditingSummary] = useState(false);
   const [draft, setDraft] = useState(strategy.overviewSummary.join("\n"));
 
@@ -150,11 +151,10 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
             {targetReturn}
             <small>% 이상</small>
           </div>
-          {lastPeriod && (
+          {lastPeriod && lastView && (
             <div className="sub">
-              {lastPeriod.annualRate !== null
-                ? `${lastPeriod.year}년 ${(lastPeriod.annualRate * 100).toFixed(1)}% · ${lastPeriod.annualRate * 100 >= targetReturn ? "달성" : "미달"}`
-                : `${Number(lastPeriod.start.date.slice(5, 7))}/${Number(lastPeriod.start.date.slice(8))}부터 ${(lastPeriod.rate * 100).toFixed(1)}% (부분)`}
+              {lastPeriod.year}년 {lastView.range} {(lastPeriod.rate * 100).toFixed(1)}% ·{" "}
+              {lastView.kind === "full" ? (lastPeriod.rate >= lastView.target ? "달성" : "미달") : lastPeriod.rate >= lastView.target ? "순항" : "뒤처짐"}
             </div>
           )}
         </div>

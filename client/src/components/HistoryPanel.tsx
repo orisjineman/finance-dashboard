@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { AssetRow, HistoryEntry, StrategyData } from "../types";
 import { computeCurrentReturn, computeHousingLiquid, computeReturnTotals, computeTotals, fmtEok, fmtWon, newId } from "../utils";
-import { overallReturn, yearlyReturns, type PeriodReturn } from "../returns";
+import { describePeriod, overallReturn, yearlyReturns } from "../returns";
 import LineChart from "./LineChart";
 import MoneyInput from "./MoneyInput";
 import SectionTitle from "./SectionTitle";
@@ -23,17 +23,13 @@ function pct(n: number): string {
   return `${(n * 100).toFixed(1)}%`;
 }
 
-const md = (iso: string) => `${Number(iso.slice(5, 7))}/${Number(iso.slice(8))}`;
-
-// 연도별 수익률 표의 기간 표시: 1년이면 '연도', 부분 기간이면 날짜 범위
-function periodLabel(p: PeriodReturn): string {
-  return p.annualRate !== null ? `${p.start.date.slice(2).replace(/-/g, ".")} ~ ${p.end.date.slice(2).replace(/-/g, ".")}` : `${md(p.start.date)} ~ ${md(p.end.date)} (부분)`;
-}
+const KIND_LABEL = { full: "", ytd: " (진행 중)", partial: " (일부 기간)" };
 
 export default function HistoryPanel({ rows, history, onChange, strategy, onStrategyChange }: Props) {
   const targetPct = strategy.targetReturnPct ?? 7;
   const periods = yearlyReturns(history);
   const overall = overallReturn(periods);
+  const now = new Date();
   const [date, setDate] = useState(todayIso());
   const [principalInput, setPrincipalInput] = useState<number | null>(null);
 
@@ -116,30 +112,31 @@ export default function HistoryPanel({ rows, history, onChange, strategy, onStra
                   <th className="num">넣은 돈 (원)</th>
                   <th className="num">수익 (원)</th>
                   <th className="num">수익률</th>
-                  <th>목표 {targetPct}%</th>
+                  <th>목표 (연 {targetPct}%)</th>
                 </tr>
               </thead>
               <tbody>
                 {[...periods].reverse().map((p) => {
-                  const r = p.annualRate ?? p.rate;
-                  const tone = r >= 0 ? "var(--safe)" : "var(--risk)";
+                  const v = describePeriod(p, now, targetPct);
+                  const tone = p.rate >= 0 ? "var(--safe)" : "var(--risk)";
+                  const met = p.rate >= v.target;
                   return (
                     <tr key={p.year}>
                       <td>{p.year}</td>
-                      <td>{periodLabel(p)}</td>
+                      <td>
+                        {v.range}
+                        {KIND_LABEL[v.kind]}
+                      </td>
                       <td className="num">{fmtWon(p.flows)}</td>
                       <td className="num" style={{ color: tone }}>
                         {fmtWon(p.profit)}
                       </td>
                       <td className="num" style={{ color: tone, fontWeight: 700 }}>
-                        {pct(r)}
+                        {pct(p.rate)}
                       </td>
-                      <td>
-                        {p.annualRate === null ? (
-                          <span style={{ color: "var(--ink-soft)", fontSize: 12 }}>1년 차면 비교</span>
-                        ) : (
-                          <span className={`tag ${p.annualRate * 100 >= targetPct ? "safe" : "risk"}`}>{p.annualRate * 100 >= targetPct ? "달성" : "미달"}</span>
-                        )}
+                      <td style={{ whiteSpace: "nowrap" }}>
+                        <span className={`tag ${met ? "safe" : "risk"}`}>{v.kind === "full" ? (met ? "달성" : "미달") : met ? "순항" : "뒤처짐"}</span>
+                        {v.kind !== "full" && <span style={{ color: "var(--ink-soft)", fontSize: 12 }}> 기간 목표 {pct(v.target)}</span>}
                       </td>
                     </tr>
                   );
@@ -162,7 +159,7 @@ export default function HistoryPanel({ rows, history, onChange, strategy, onStra
             <input type="number" step={0.5} value={targetPct} onChange={(e) => onStrategyChange({ ...strategy, targetReturnPct: parseFloat(e.target.value) || 0 })} />
           </div>
           <div className="field">
-            <label>매달 기록일 (1~28일, 0이면 끔)</label>
+            <label>매달 기록일 (1~28일, 28 = 월말, 0이면 끔)</label>
             <input
               type="number"
               min={0}
@@ -173,7 +170,7 @@ export default function HistoryPanel({ rows, history, onChange, strategy, onStra
           </div>
         </div>
         <p className="note">
-          넣은 돈을 빼고 계산한 순수 운용 수익률이야. 매달 투자금을 넣은 직후 같은 날 기록하면 가장 정확해. 1년이 안 된 기간은 연환산하지 않아.
+          넣은 돈을 뺀 순수 운용 수익률. 해마다 1월~12월로 끊고(12월 말 기록 기준), 올해는 1월~최근 기록까지. 진행 중인 해는 지난 기간만큼 줄인 목표와 비교해.
           {strategy.recordDay ? ` 기록일이 지나면 알림이 떠.` : ""}
         </p>
       </div>

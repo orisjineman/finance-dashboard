@@ -43,8 +43,10 @@ export function periodReturn(records: HistoryEntry[], year: number): PeriodRetur
   return { year, start, end, days, flows, profit, rate, annualRate };
 }
 
-// 해마다 한 구간: 시작 = 그해 1월 1일 이전(당일 포함) 마지막 기록 (없으면 그해 첫 기록), 끝 = 다음 해 1월 1일 이전(당일 포함) 마지막 기록.
+// 해마다 한 구간 (1월~12월): 시작 = 그해 1월 10일까지의 마지막 기록 (없으면 그해 첫 기록), 끝 = 다음 해 1월 10일까지의 마지막 기록.
+// 월말(28~31일)에 기록하면 전년 12월 말 기록 → 그해 12월 말 기록이 한 해가 된다. 연말연시 휴일로 1월 초에 기록해도 같은 해 끝으로 본다.
 // 앞 구간의 끝이 다음 구간의 시작이라 구간이 빈틈없이 이어진다.
+const YEAR_CUTOFF = "01-10";
 export function yearlyReturns(history: HistoryEntry[]): PeriodReturn[] {
   const sorted = [...history].sort((a, b) => a.date.localeCompare(b.date));
   if (sorted.length < 2) return [];
@@ -53,9 +55,9 @@ export function yearlyReturns(history: HistoryEntry[]): PeriodReturn[] {
   const lastIndexOnOrBefore = (iso: string) => sorted.reduce((idx, h, i) => (h.date <= iso ? i : idx), -1);
   const out: PeriodReturn[] = [];
   for (let y = firstYear; y <= lastYear; y++) {
-    let s = lastIndexOnOrBefore(`${y}-01-01`);
+    let s = lastIndexOnOrBefore(`${y}-${YEAR_CUTOFF}`);
     if (s === -1) s = sorted.findIndex((h) => h.date.startsWith(`${y}-`));
-    const e = lastIndexOnOrBefore(`${y + 1}-01-01`);
+    const e = lastIndexOnOrBefore(`${y + 1}-${YEAR_CUTOFF}`);
     if (s === -1 || e <= s) continue;
     const p = periodReturn(sorted.slice(s, e + 1), y);
     if (p) out.push(p);
@@ -76,4 +78,25 @@ export function lastRecordDue(recordDay: number, now: Date): string {
   const day = Math.min(28, Math.max(1, Math.round(recordDay)));
   const d = now.getDate() >= day ? new Date(now.getFullYear(), now.getMonth(), day) : new Date(now.getFullYear(), now.getMonth() - 1, day);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+// 연말·연초로 볼 기록 날짜 범위 (12월 15일 ~ 다음 해 1월 10일)
+const nearYearEnd = (iso: string, year: number) => iso >= `${year}-12-15` && iso <= `${year + 1}-${YEAR_CUTOFF}`;
+
+export interface PeriodView {
+  kind: "full" | "ytd" | "partial"; // full: 그해 1~12월, ytd: 올해 1월~최근 기록, partial: 기록이 중간부터 시작했거나 연말 기록이 없는 해
+  range: string; // 예: "1월~12월", "1월~9/29", "9/25~12월"
+  target: number; // 비교할 목표 (0~1): 1년이면 목표 연 수익률, 아니면 기간만큼 줄인 목표
+}
+
+const md = (iso: string) => `${Number(iso.slice(5, 7))}/${Number(iso.slice(8))}`;
+
+export function describePeriod(p: PeriodReturn, now: Date, targetPct: number): PeriodView {
+  const fromJan = nearYearEnd(p.start.date, p.year - 1) || p.start.date === `${p.year}-01-01`;
+  const toDec = nearYearEnd(p.end.date, p.year);
+  const range = `${fromJan ? "1월" : md(p.start.date)}~${toDec ? "12월" : md(p.end.date)}`;
+  const kind = fromJan && toDec ? "full" : fromJan && p.year === now.getFullYear() ? "ytd" : "partial";
+  const t = targetPct / 100;
+  const target = kind === "full" ? t : Math.pow(1 + t, p.days / 365) - 1;
+  return { kind, range, target };
 }

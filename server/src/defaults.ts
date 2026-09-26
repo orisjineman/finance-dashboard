@@ -56,6 +56,7 @@ export function defaultData(): DashboardData {
     strategy: {
       housePurchaseDate: "",
       isaDutyEndDate: "",
+      targetReturnPct: 7,
       overviewSummary: ["여기에 나만의 요약 메모를 적어보세요 (개요 편집에서 수정 가능)"],
       glidePath: [
         { id: "g1", yearsLeft: 5, riskPct: 50 },

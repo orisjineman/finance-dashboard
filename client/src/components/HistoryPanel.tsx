@@ -1,6 +1,7 @@
 import { useState } from "react";
-import type { AssetRow, HistoryEntry } from "../types";
+import type { AssetRow, HistoryEntry, StrategyData } from "../types";
 import { computeCurrentReturn, computeHousingLiquid, computeReturnTotals, computeTotals, fmtEok, fmtWon, newId } from "../utils";
+import { overallReturn, yearlyReturns, type PeriodReturn } from "../returns";
 import LineChart from "./LineChart";
 import MoneyInput from "./MoneyInput";
 import SectionTitle from "./SectionTitle";
@@ -9,6 +10,8 @@ interface Props {
   rows: AssetRow[];
   history: HistoryEntry[];
   onChange: (history: HistoryEntry[]) => void;
+  strategy: StrategyData;
+  onStrategyChange: (strategy: StrategyData) => void;
 }
 
 function todayIso(): string {
@@ -20,7 +23,17 @@ function pct(n: number): string {
   return `${(n * 100).toFixed(1)}%`;
 }
 
-export default function HistoryPanel({ rows, history, onChange }: Props) {
+const md = (iso: string) => `${Number(iso.slice(5, 7))}/${Number(iso.slice(8))}`;
+
+// 연도별 수익률 표의 기간 표시: 1년이면 '연도', 부분 기간이면 날짜 범위
+function periodLabel(p: PeriodReturn): string {
+  return p.annualRate !== null ? `${p.start.date.slice(2).replace(/-/g, ".")} ~ ${p.end.date.slice(2).replace(/-/g, ".")}` : `${md(p.start.date)} ~ ${md(p.end.date)} (부분)`;
+}
+
+export default function HistoryPanel({ rows, history, onChange, strategy, onStrategyChange }: Props) {
+  const targetPct = strategy.targetReturnPct ?? 7;
+  const periods = yearlyReturns(history);
+  const overall = overallReturn(periods);
   const [date, setDate] = useState(todayIso());
   const [principalInput, setPrincipalInput] = useState<number | null>(null);
 
@@ -89,6 +102,80 @@ export default function HistoryPanel({ rows, history, onChange }: Props) {
         ) : (
           <p className="note">아직 기록된 투자원금이 없어. 아래에서 첫 기록을 추가하면(현재 총 투자원금 = 지금까지 실제로 넣은 돈 전체) 수익률이 계산돼.</p>
         )}
+      </div>
+
+      <SectionTitle>연도별 수익률</SectionTitle>
+      <div className="card">
+        {periods.length > 0 ? (
+          <div className="table-scroll">
+            <table className="grid">
+              <thead>
+                <tr>
+                  <th>연도</th>
+                  <th>기간</th>
+                  <th className="num">넣은 돈 (원)</th>
+                  <th className="num">수익 (원)</th>
+                  <th className="num">수익률</th>
+                  <th>목표 {targetPct}%</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[...periods].reverse().map((p) => {
+                  const r = p.annualRate ?? p.rate;
+                  const tone = r >= 0 ? "var(--safe)" : "var(--risk)";
+                  return (
+                    <tr key={p.year}>
+                      <td>{p.year}</td>
+                      <td>{periodLabel(p)}</td>
+                      <td className="num">{fmtWon(p.flows)}</td>
+                      <td className="num" style={{ color: tone }}>
+                        {fmtWon(p.profit)}
+                      </td>
+                      <td className="num" style={{ color: tone, fontWeight: 700 }}>
+                        {pct(r)}
+                      </td>
+                      <td>
+                        {p.annualRate === null ? (
+                          <span style={{ color: "var(--ink-soft)", fontSize: 12 }}>1년 차면 비교</span>
+                        ) : (
+                          <span className={`tag ${p.annualRate * 100 >= targetPct ? "safe" : "risk"}`}>{p.annualRate * 100 >= targetPct ? "달성" : "미달"}</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="note" style={{ marginTop: 0 }}>기록이 2개 이상 쌓이면 기간별 수익률이 나와.</p>
+        )}
+        {overall && overall.annualRate !== null && periods.length > 1 && (
+          <div className="result-line">
+            <span className="k">첫 기록부터 연평균 ({Math.round((overall.days / 365) * 10) / 10}년)</span>
+            <span className="v">{pct(overall.annualRate)}</span>
+          </div>
+        )}
+        <div className="field-row" style={{ marginTop: 12 }}>
+          <div className="field">
+            <label>목표 연 수익률 (%)</label>
+            <input type="number" step={0.5} value={targetPct} onChange={(e) => onStrategyChange({ ...strategy, targetReturnPct: parseFloat(e.target.value) || 0 })} />
+          </div>
+          <div className="field">
+            <label>매달 기록일 (1~28일, 0이면 끔)</label>
+            <input
+              type="number"
+              min={0}
+              max={28}
+              value={strategy.recordDay ?? 0}
+              onChange={(e) => onStrategyChange({ ...strategy, recordDay: Math.min(28, Math.max(0, Math.round(parseFloat(e.target.value) || 0))) })}
+            />
+          </div>
+        </div>
+        <p className="note">
+          넣은 돈을 빼고 계산한 순수 운용 수익률이야. 매달 투자금을 넣은 직후 같은 날 기록하면 가장 정확해. 1년이 안 된 기간은 연환산하지 않아.
+          {strategy.recordDay ? ` 기록일이 지나면 알림이 떠.` : ""}
+        </p>
       </div>
 
       <SectionTitle>히스토리</SectionTitle>

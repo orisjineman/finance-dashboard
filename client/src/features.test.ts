@@ -145,6 +145,11 @@ describe("computeAlerts", () => {
     expect(ids(data())).toContain("snapshot-none");
     expect(ids(data({ history: [entry("2026-08-01")] }))).toContain("snapshot-stale");
     expect(ids(data({ history: [entry("2026-10-01")] }))).not.toContain("snapshot-stale");
+    // 매달 기록일을 정하면 30일 경과 대신 기록일 기준으로 알린다 (3일 일찍 기록해도 괜찮음)
+    const withDay = (date: string, day: number) => data({ history: [entry(date)], strategy: { housePurchaseDate: "", isaDutyEndDate: "", overviewSummary: [], glidePath: [], recordDay: day } });
+    expect(ids(withDay("2026-08-26", 20))).toContain("snapshot-due");
+    expect(ids(withDay("2026-09-18", 20))).not.toContain("snapshot-due");
+    expect(ids(withDay("2026-08-26", 20))).not.toContain("snapshot-stale");
   });
   it("허용 오차를 벗어난 묶음을 경고한다", () => {
     const rows: AssetRow[] = [

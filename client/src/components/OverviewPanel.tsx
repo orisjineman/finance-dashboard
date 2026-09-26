@@ -4,6 +4,7 @@ import { computeCurrentReturn, computeHousingLiquid, computeLoanEquity, computeR
 import { yearsUntil } from "../rebalance";
 import { planHousing, reachDate, monthsToReach } from "../housing";
 import { assetsNeededAffordable, evaluateTarget } from "../home";
+import { yearlyReturns } from "../returns";
 import LineChart from "./LineChart";
 import ProgressBar from "./ProgressBar";
 import type { Alert } from "../alerts";
@@ -52,6 +53,8 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
   const dday = daysUntil(strategy.isaDutyEndDate);
   const houseYears = yearsUntil(strategy.housePurchaseDate);
   const currentReturn = computeCurrentReturn(rows, history);
+  const targetReturn = strategy.targetReturnPct ?? 7;
+  const lastPeriod = yearlyReturns(history).at(-1) ?? null;
   const [editingSummary, setEditingSummary] = useState(false);
   const [draft, setDraft] = useState(strategy.overviewSummary.join("\n"));
 
@@ -144,8 +147,16 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
         <div className="stat">
           <div className="label">목표 연 수익률</div>
           <div className="value">
-            7<small>% 이상</small>
+            {targetReturn}
+            <small>% 이상</small>
           </div>
+          {lastPeriod && (
+            <div className="sub">
+              {lastPeriod.annualRate !== null
+                ? `${lastPeriod.year}년 ${(lastPeriod.annualRate * 100).toFixed(1)}% · ${lastPeriod.annualRate * 100 >= targetReturn ? "달성" : "미달"}`
+                : `${Number(lastPeriod.start.date.slice(5, 7))}/${Number(lastPeriod.start.date.slice(8))}부터 ${(lastPeriod.rate * 100).toFixed(1)}% (부분)`}
+            </div>
+          )}
         </div>
         <div className="stat">
           <div className="label">ISA 의무가입 종료</div>

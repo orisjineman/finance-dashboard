@@ -212,7 +212,7 @@ export default function App() {
           />
         )}
         {tab === "snapshot" && (
-          <SnapshotPanel rows={data.rows} onChange={updateRows} history={data.history} onHistoryChange={updateHistory} />
+          <SnapshotPanel rows={data.rows} onChange={updateRows} history={data.history} onHistoryChange={updateHistory} strategy={data.strategy} onStrategyChange={updateStrategy} />
         )}
         {tab === "rebalance" && <RebalancePanel rows={data.rows} strategy={data.strategy} settings={data.rebalance} onChange={updateRebalance} onRowsChange={updateRows} onStrategyChange={updateStrategy} onEditInfo={() => setTab("budget")} />}
         {tab === "budget" && (

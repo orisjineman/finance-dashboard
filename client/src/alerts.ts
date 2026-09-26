@@ -3,6 +3,7 @@ import { computeRebalance, groupTarget } from "./rebalance";
 import { computePensionCredit } from "./pension";
 import { evaluateTarget, incomeAt, policyStale } from "./home";
 import { computeSubscription, thisYearValues } from "./tax";
+import { lastRecordDue } from "./returns";
 
 export interface Alert {
   id: string;
@@ -32,6 +33,15 @@ export function computeAlerts(data: DashboardData, now: Date = new Date()): Aler
   const latest = [...data.history].sort((a, b) => b.date.localeCompare(a.date))[0];
   if (!latest) {
     out.push({ id: "snapshot-none", level: "info", text: "히스토리 기록이 없어. 스냅샷 탭에서 첫 기록을 남겨줘.", tab: "snapshot" });
+  } else if (data.strategy.recordDay) {
+    // 매달 기록일을 정했으면: 가장 최근 기록일 3일 전 이후 기록이 없을 때 알린다 (조금 일찍 기록해도 괜찮게)
+    const due = lastRecordDue(data.strategy.recordDay, now);
+    const grace = new Date(`${due}T00:00:00`);
+    grace.setDate(grace.getDate() - 3);
+    const graceIso = `${grace.getFullYear()}-${String(grace.getMonth() + 1).padStart(2, "0")}-${String(grace.getDate()).padStart(2, "0")}`;
+    if (latest.date < graceIso) {
+      out.push({ id: "snapshot-due", level: "warn", text: `기록일(${Number(due.slice(5, 7))}월 ${Number(due.slice(8))}일)이 지났어. 잔액 갱신 후 히스토리에 기록해줘.`, tab: "snapshot" });
+    }
   } else {
     const age = daysBetween(latest.date, now);
     if (age !== null && age >= SNAPSHOT_STALE_DAYS) {

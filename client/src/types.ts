@@ -62,6 +62,8 @@ export interface StrategyData {
   isaDutyEndDate: string;
   overviewSummary: string[];
   glidePath: GlidePathRow[];
+  targetReturnPct?: number; // %, 목표 연 수익률 (없으면 7)
+  recordDay?: number; // 매달 히스토리를 기록할 날 (1~28). 없거나 0이면 기록일 알림 대신 30일 경과 알림
 }
 
 export interface HistoryEntry {

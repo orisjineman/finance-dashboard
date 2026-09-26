@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import type { AssetCategory, AssetRow, HistoryEntry, ImportPreviewRow } from "../types";
+import type { AssetCategory, AssetRow, HistoryEntry, ImportPreviewRow, StrategyData } from "../types";
 import { fmtWon, newId, uniqueAccounts } from "../utils";
 import ImportXlsxModal from "./ImportXlsxModal";
 import HistoryPanel from "./HistoryPanel";
@@ -11,6 +11,8 @@ interface Props {
   onChange: (rows: AssetRow[]) => void;
   history: HistoryEntry[];
   onHistoryChange: (history: HistoryEntry[]) => void;
+  strategy: StrategyData;
+  onStrategyChange: (strategy: StrategyData) => void;
 }
 
 const catLabel: Record<AssetCategory, string> = { risk: "위험", safe: "안전", cash: "현금성" };
@@ -24,7 +26,7 @@ const catColor: Record<AssetCategory, { bg: string; fg: string }> = {
   cash: { bg: "var(--gold-soft)", fg: "var(--gold)" },
 };
 
-export default function SnapshotPanel({ rows, onChange, history, onHistoryChange }: Props) {
+export default function SnapshotPanel({ rows, onChange, history, onHistoryChange, strategy, onStrategyChange }: Props) {
   const [showImport, setShowImport] = useState(false);
   const [accountFilter, setAccountFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<AssetCategory | "">("");
@@ -286,7 +288,7 @@ export default function SnapshotPanel({ rows, onChange, history, onHistoryChange
         </div>
       </div>
 
-      <HistoryPanel rows={rows} history={history} onChange={onHistoryChange} />
+      <HistoryPanel rows={rows} history={history} onChange={onHistoryChange} strategy={strategy} onStrategyChange={onStrategyChange} />
 
       {showImport && <ImportXlsxModal onClose={() => setShowImport(false)} onImport={handleImport} />}
     </section>

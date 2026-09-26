@@ -151,6 +151,14 @@ describe("computeAlerts", () => {
     expect(ids(withDay("2026-09-18", 20))).not.toContain("snapshot-due");
     expect(ids(withDay("2026-08-26", 20))).not.toContain("snapshot-stale");
   });
+
+  it("날짜를 정한 체크리스트는 7일 전부터 알리고, 지나면 경고", () => {
+    const cl = (due: string, done = false) => data({ checklist: [{ id: "x", text: "할 일", done, due }] });
+    expect(computeAlerts(cl("2026-10-20"), now).find((a) => a.id === "checklist-x")?.level).toBe("info");
+    expect(computeAlerts(cl("2026-10-10"), now).find((a) => a.id === "checklist-x")?.level).toBe("warn");
+    expect(ids(cl("2026-11-30"))).not.toContain("checklist-x");
+    expect(ids(cl("2026-10-10", true))).not.toContain("checklist-x");
+  });
   it("허용 오차를 벗어난 묶음을 경고한다", () => {
     const rows: AssetRow[] = [
       { id: "1", account: "ISA", item: "S&P", category: "risk", amount: 800, housingEligible: true },

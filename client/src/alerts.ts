@@ -4,12 +4,13 @@ import { computePensionCredit } from "./pension";
 import { evaluateTarget, incomeAt, policyStale } from "./home";
 import { computeSubscription, thisYearValues } from "./tax";
 import { lastRecordDue } from "./returns";
+import { DUE_ALERT_DAYS, daysUntilDue, dueLabel } from "./checklist";
 
 export interface Alert {
   id: string;
   level: "warn" | "info";
   text: string;
-  tab?: "snapshot" | "rebalance" | "budget" | "tax" | "overview" | "loan";
+  tab?: "snapshot" | "rebalance" | "budget" | "tax" | "overview" | "loan" | "checklist";
 }
 
 const DAY = 86400000;
@@ -151,6 +152,14 @@ export function computeAlerts(data: DashboardData, now: Date = new Date()): Aler
     if (!row.bogeumjari.ok) {
       out.push({ id: "home-target-bogeumjari", level: "info", text: `목표 ${price}: 보금자리론 불가 (${row.bogeumjari.reasons.join(", ")})`, tab: "loan" });
     }
+  }
+
+  // 8) 날짜를 정한 체크리스트 항목이 다가왔거나 지났는지
+  for (const item of data.checklist) {
+    if (item.done) continue;
+    const days = daysUntilDue(item.due, now);
+    if (days === null || days > DUE_ALERT_DAYS) continue;
+    out.push({ id: `checklist-${item.id}`, level: days < 0 ? "warn" : "info", text: `${item.text} (${dueLabel(days)})`, tab: "checklist" });
   }
 
   return out;

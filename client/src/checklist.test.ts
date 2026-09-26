@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { BudgetData, ChecklistItem } from "./types";
-import { autoAmount, moveUndone, normalizeOrder, toggleItem } from "./checklist";
+import { autoAmount, daysUntilDue, dueLabel, moveUndone, normalizeOrder, splitUpcoming, toggleItem } from "./checklist";
 
 const item = (id: string, done = false): ChecklistItem => ({ id, text: id, done });
 const ids = (xs: ChecklistItem[]) => xs.map((x) => `${x.id}${x.done ? "✓" : ""}`).join(",");
@@ -54,5 +54,23 @@ describe("체크리스트 자동 금액", () => {
   });
   it("자동 금액이 없는 항목은 null", () => {
     expect(autoAmount(undefined, budget, 5000, now)).toBeNull();
+  });
+});
+
+describe("체크리스트 날짜", () => {
+  const now = new Date("2026-09-26T00:00:00");
+  const item = (id: string, due?: string): ChecklistItem => ({ id, text: id, done: false, due });
+  it("남은 날과 표시", () => {
+    expect(daysUntilDue("2026-10-01", now)).toBe(5);
+    expect(daysUntilDue("2026-09-20", now)).toBe(-6);
+    expect(daysUntilDue(undefined, now)).toBeNull();
+    expect(dueLabel(5)).toBe("D-5");
+    expect(dueLabel(0)).toBe("오늘");
+    expect(dueLabel(-6)).toBe("6일 지남");
+  });
+  it("한 달보다 먼 항목은 예정으로 빼고 날짜순", () => {
+    const { current, upcoming } = splitUpcoming([item("a"), item("b", "2027-02-28"), item("c", "2026-10-10"), item("d", "2026-12-15")], now);
+    expect(current.map((i) => i.id)).toEqual(["a", "c"]);
+    expect(upcoming.map((i) => i.id)).toEqual(["d", "b"]);
   });
 });

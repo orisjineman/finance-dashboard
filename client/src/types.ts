@@ -13,6 +13,7 @@ export interface AssetRow {
   excludeFromReturn?: boolean; // true면 투자 수익률 계산에서 제외 (입출금 통장, 전세·월세 보증금 등). 비어 있으면 포함
   costBasis?: number; // 만원, 이 행의 매입 원금. 일반 과세 계좌에서 팔 때 예상 세금을 계산하는 데 쓴다
   housingEligible: boolean; // false면 집 마련 가용자산 계산에서 제외 (연금저축·IRP 등)
+  updatedAt?: string; // YYYY-MM-DD, 잔액을 마지막으로 고치거나 '확인'한 날 (월말 정리 진행 표시용)
 }
 
 export interface SimulationAssumptions {
@@ -49,6 +50,7 @@ export interface ChecklistItem {
   text: string;
   done: boolean;
   auto?: ChecklistAuto;
+  due?: string; // YYYY-MM-DD, 할 날짜. 한 달보다 멀면 '예정'으로 빼두고, 가까워지면 알림
 }
 
 export interface GlidePathRow {
@@ -105,8 +107,13 @@ export interface TaxPrepInput {
   debitCardUsed: number; // 만원, 올해 체크카드·현금영수증 사용액
   rentSplit?: RentShare[]; // 월세를 누군가와 나눠 낼 때 구간별 분담액. 월세 세액공제 중 상대 몫은 환급 후 돌려준다고 본다
   rentSplitName?: string; // 화면에 보일 분담자 이름
+  rentPaidManual?: boolean; // true면 올해 낸 월세를 직접 입력, 아니면 월세(분담 구간) × 1월~이번 달로 자동 계산
+  editedAt?: Partial<Record<MonthlyEditKey, string>>; // 매달 입력하는 값(연금·청약·카드)을 마지막으로 고치거나 '변동 없음'으로 확인한 날
   policy: TaxPrepPolicy;
 }
+
+// 월말 정리 때 직접 입력하는 올해 누적값
+export type MonthlyEditKey = "pension" | "subscription" | "card";
 
 export interface RentShare {
   from: string; // YYYY-MM

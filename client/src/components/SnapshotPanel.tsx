@@ -3,6 +3,7 @@ import type { AssetCategory, AssetRow, HistoryEntry, ImportPreviewRow, StrategyD
 import { fmtWon, newId, uniqueAccounts } from "../utils";
 import ImportXlsxModal from "./ImportXlsxModal";
 import HistoryPanel from "./HistoryPanel";
+import { cycleStart, isoDate, rowUpToDate } from "../monthly";
 import MoneyInput from "./MoneyInput";
 import SectionTitle from "./SectionTitle";
 
@@ -33,6 +34,12 @@ export default function SnapshotPanel({ rows, onChange, history, onHistoryChange
   const [itemSearch, setItemSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  // '안 고친 행만'은 켠 순간의 목록으로 고정한다 (잔액을 고치자마자 행이 사라지지 않게)
+  const [staleIds, setStaleIds] = useState<Set<string> | null>(null);
+  const staleOnly = staleIds !== null;
+  // 이번 정리 주기(기록일 3일 전부터)에 잔액을 고치거나 '확인'한 행인지
+  const start = cycleStart(strategy.recordDay, new Date());
+  const updatedCount = rows.filter((r) => rowUpToDate(r, start)).length;
 
   const accounts = useMemo(() => uniqueAccounts(rows), [rows]);
 
@@ -51,9 +58,10 @@ export default function SnapshotPanel({ rows, onChange, history, onHistoryChange
         ({ r }) =>
           (accountFilter === "" || r.account === accountFilter) &&
           (categoryFilter === "" || r.category === categoryFilter) &&
-          (q === "" || r.item.toLowerCase().includes(q))
+          (q === "" || r.item.toLowerCase().includes(q)) &&
+          (!staleIds || staleIds.has(r.id))
       );
-  }, [rows, accountFilter, categoryFilter, itemSearch]);
+  }, [rows, accountFilter, categoryFilter, itemSearch, staleIds]);
 
   const sorted = useMemo(() => {
     if (!sortKey) {
@@ -76,7 +84,7 @@ export default function SnapshotPanel({ rows, onChange, history, onHistoryChange
 
   const filteredTotal = filtered.reduce((sum, { r }) => sum + r.amount, 0);
   const grandTotal = rows.reduce((sum, r) => sum + r.amount, 0);
-  const filtersActive = accountFilter !== "" || categoryFilter !== "" || itemSearch.trim() !== "";
+  const filtersActive = accountFilter !== "" || categoryFilter !== "" || itemSearch.trim() !== "" || staleOnly;
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -151,6 +159,15 @@ export default function SnapshotPanel({ rows, onChange, history, onHistoryChange
           </div>
         </div>
 
+        <div className="update-progress">
+          <span>
+            이번 달 잔액 갱신 <strong>{updatedCount}/{rows.length}</strong> <small>({Number(start.slice(5, 7))}/{Number(start.slice(8))}부터)</small>
+          </span>
+          <label className="toggle" htmlFor="stale-only">
+            <input id="stale-only" type="checkbox" checked={staleOnly} onChange={(e) => setStaleIds(e.target.checked ? new Set(rows.filter((r) => !rowUpToDate(r, start)).map((r) => r.id)) : null)} />안 고친 행만
+          </label>
+        </div>
+
         <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 14, fontSize: 12, color: "var(--ink-soft)", flexWrap: "wrap" }}>
           <span>분류 색:</span>
           <span className="tag risk">위험</span>
@@ -186,8 +203,9 @@ export default function SnapshotPanel({ rows, onChange, history, onHistoryChange
               const accountTint = hue === undefined ? undefined : `hsl(${hue} 55% 52% / 0.13)`;
               const newGroup = idx > 0 && sorted[idx - 1].r.account !== r.account;
               const cat = catColor[r.category];
+              const stale = !rowUpToDate(r, start);
               return (
-              <tr key={r.id} style={newGroup ? { borderTop: "2px solid var(--ink-soft)" } : undefined}>
+              <tr key={r.id} className={stale ? "row-stale" : undefined} style={newGroup ? { borderTop: "2px solid var(--ink-soft)" } : undefined}>
                 <td style={{ borderLeft: `5px solid ${accountSolid}`, background: accountTint }}>
                   <input
                     type="text"
@@ -236,7 +254,12 @@ export default function SnapshotPanel({ rows, onChange, history, onHistoryChange
                     title="투자 수익률 계산에 포함"
                   />
                 </td>
-                <td>
+                <td style={{ whiteSpace: "nowrap" }}>
+                  {stale && (
+                    <button className="btn ghost sm" title="잔액이 그대로면 확인만 표시" onClick={() => updateRow(i, { updatedAt: isoDate(new Date()) })}>
+                      확인
+                    </button>
+                  )}{" "}
                   <button
                     className="btn ghost sm"
                     onClick={() => removeRow(i)}

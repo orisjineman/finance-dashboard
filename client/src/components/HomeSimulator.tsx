@@ -322,8 +322,10 @@ export default function HomeSimulator({ rows, groups, home, onChange, loan, onLo
         </div>
       </div>
 
-      <SectionTitle>메모</SectionTitle>
+      <SectionTitle>참고 · 설정</SectionTitle>
       <div className="card">
+        <details className="fold">
+          <summary>메모</summary>
         <ul className="plain">
           <li>40년 만기: 월 상환은 줄지만 총이자가 늘어. 연봉이 오르면 조기상환 전제로 봐줘.</li>
           <li>
@@ -332,14 +334,13 @@ export default function HomeSimulator({ rows, groups, home, onChange, loan, onLo
           </li>
           <li>세후 월급은 비율표 × 실수령 보정 추정치야. 정확한 한도는 매수 1년 전 은행·HF 상담으로 확인해.</li>
         </ul>
-      </div>
-
-      <SectionTitle>정책 숫자 (설정)</SectionTitle>
-      <div className="card">
-        <p className="note" style={{ marginTop: 0, color: stale ? "var(--risk)" : undefined }}>
-          마지막 확인 {home.policy.updatedAt}
-          {stale ? " · 1년 넘음, 다시 확인해줘" : " · 매수 전에 다시 확인"}
-        </p>
+        </details>
+        <details className="fold" open={stale || undefined}>
+          <summary style={stale ? { color: "var(--risk)" } : undefined}>
+            정책 숫자 · 마지막 확인 {home.policy.updatedAt}
+            {stale ? " · 1년 넘음, 다시 확인해줘" : ""}
+          </summary>
+          <p className="note" style={{ marginTop: 0 }}>매수 전에 다시 확인해줘.</p>
         <div className="field-row">
           <div className="field">
             <label>보금자리론 집값 상한 (원)</label>
@@ -422,6 +423,7 @@ export default function HomeSimulator({ rows, groups, home, onChange, loan, onLo
         <button className="btn ghost" style={{ marginTop: 12 }} onClick={() => setPolicy({ updatedAt: new Date().toISOString().slice(0, 10) })}>
           오늘 날짜로 확인 완료 표시
         </button>
+        </details>
       </div>
     </>
   );

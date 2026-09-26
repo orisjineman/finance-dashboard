@@ -5,6 +5,8 @@ import { yearsUntil } from "../rebalance";
 import { planHousing, reachDate, monthsToReach } from "../housing";
 import { assetsNeededAffordable, evaluateTarget } from "../home";
 import { describePeriod, yearlyReturns } from "../returns";
+import { isoDate, monthlyClose } from "../monthly";
+import type { MonthlyEditKey } from "../types";
 import LineChart from "./LineChart";
 import ProgressBar from "./ProgressBar";
 import type { Alert } from "../alerts";
@@ -23,6 +25,7 @@ interface Props {
   onHomeChange: (home: HomeSimInput) => void;
   rebalance: RebalanceSettings;
   simulation: SimulationAssumptions;
+  onBudgetChange: (budget: BudgetData) => void;
   onNavigate: (tab: NonNullable<Alert["tab"]>) => void;
 }
 
@@ -47,12 +50,20 @@ function daysUntil(dateStr: string): number | null {
   return Math.ceil((target.getTime() - today.getTime()) / 86400000);
 }
 
-export default function OverviewPanel({ rows, strategy, onStrategyChange, budget, loan, history, alerts, home, onHomeChange, rebalance, simulation, onNavigate }: Props) {
+export default function OverviewPanel({ rows, strategy, onStrategyChange, budget, loan, history, alerts, home, onHomeChange, rebalance, simulation, onBudgetChange, onNavigate }: Props) {
   const t = computeTotals(rows);
   const inv = computeReturnTotals(rows);
   const dday = daysUntil(strategy.isaDutyEndDate);
   const houseYears = yearsUntil(strategy.housePurchaseDate);
   const currentReturn = computeCurrentReturn(rows, history);
+  const close = monthlyClose({ rows, history, strategy, budget }, alerts, new Date());
+  const closeDone = close.steps.filter((st) => st.done).length;
+  const md = (iso: string) => `${Number(iso.slice(5, 7))}/${Number(iso.slice(8))}`;
+  // '변동 없음': 이번 달엔 새로 넣은 게 없다고 표시만 한다
+  function markNoChange(key: MonthlyEditKey) {
+    if (!budget.taxPrep) return;
+    onBudgetChange({ ...budget, taxPrep: { ...budget.taxPrep, editedAt: { ...budget.taxPrep.editedAt, [key]: isoDate(new Date()) } } });
+  }
   const targetReturn = strategy.targetReturnPct ?? 7;
   const lastPeriod = yearlyReturns(history).at(-1) ?? null;
   const lastView = lastPeriod ? describePeriod(lastPeriod, new Date(), targetReturn) : null;
@@ -127,6 +138,37 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
                 <span className="alert-text">{al.text}</span>
                 {al.tab && al.tab !== "overview" && (
                   <button className="btn ghost sm" onClick={() => onNavigate(al.tab!)}>
+                    열기
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <SectionTitle>
+        이번 달 정리 <small className="close-progress">{closeDone}/{close.steps.length}{close.due ? ` · 기록일 ${md(close.due)}` : ""}</small>
+      </SectionTitle>
+      <div className="card">
+        {closeDone === close.steps.length ? (
+          <p className="note" style={{ margin: 0 }}>이번 달 정리 끝 ✓ ({md(close.start)}부터 한 것 기준)</p>
+        ) : (
+          <ul className="close-list">
+            {close.steps.map((st) => (
+              <li key={st.key} className={st.done ? "done" : ""}>
+                <span className="close-mark" aria-hidden="true">{st.done ? "✓" : ""}</span>
+                <span className="close-label">
+                  {st.label}
+                  {st.detail && <small> {st.detail}</small>}
+                </span>
+                {!st.done && st.canSkip && (
+                  <button className="btn ghost sm" onClick={() => markNoChange(st.key as MonthlyEditKey)}>
+                    변동 없음
+                  </button>
+                )}
+                {!st.done && (
+                  <button className="btn ghost sm" onClick={() => onNavigate(st.tab)}>
                     열기
                   </button>
                 )}

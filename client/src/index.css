@@ -533,6 +533,28 @@ ul.plain {
   display: inline-flex;
   gap: 4px;
 }
+.check-item.upcoming .check-text {
+  color: var(--ink-soft);
+}
+.check-due {
+  cursor: pointer;
+  white-space: nowrap;
+  border: none;
+  font: inherit;
+  font-size: 12px;
+}
+.check-due:not(.risk):not(.cash) {
+  background: var(--line);
+  color: var(--ink-soft);
+}
+.check-due-edit {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+.check-due-edit input {
+  width: 150px;
+}
 .check-done-title {
   margin: 18px 0 2px;
   font-size: 12px;
@@ -713,6 +735,71 @@ table.grid .btn {
   border-left-color: var(--gold);
   background: var(--gold-soft);
 }
+.update-progress {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--gold-soft);
+  font-size: 13px;
+}
+.update-progress small {
+  color: var(--ink-soft);
+}
+table.grid tr.row-stale td.num input {
+  color: var(--ink-soft);
+  font-style: italic;
+}
+.close-progress {
+  margin-left: 6px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink-soft);
+}
+.close-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.close-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13.5px;
+  min-height: 30px;
+}
+.close-list li.done {
+  color: var(--ink-soft);
+}
+.close-mark {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: var(--paper-raised);
+}
+.close-list li.done .close-mark {
+  background: var(--safe);
+  border-color: var(--safe);
+}
+.close-label {
+  flex: 1;
+}
+.close-label small {
+  color: var(--ink-soft);
+  margin-left: 4px;
+}
 .cost-box {
   margin-top: 12px;
   padding: 10px 14px;
@@ -742,6 +829,19 @@ table.grid tr.target-row td {
   margin: 22px 0 10px;
   padding-top: 16px;
   border-top: 1px solid var(--line);
+}
+.fold + .fold {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.fold summary {
+  cursor: pointer;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.fold[open] summary {
+  margin-bottom: 10px;
 }
 .policy-details {
   margin-top: 20px;

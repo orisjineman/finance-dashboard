@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { BudgetData, TaxPrepInput } from "./types";
-import { computeCardDeduction, computeRefundSplit, computeRentCredit, computeSubscription, computeTaxPrep, rentOtherRatio, thisYearValues } from "./tax";
+import { autoRentPaid, computeCardDeduction, computeRefundSplit, computeRentCredit, computeSubscription, computeTaxPrep, rentOtherRatio, thisYearValues } from "./tax";
 
 const policy: TaxPrepInput["policy"] = {
   rent: { incomeMax: 8000, lowIncomeMax: 5500, rateLowPct: 17, ratePct: 15, limit: 1000 },
@@ -109,7 +109,7 @@ describe("computeTaxPrep", () => {
     pensionPaidYear: 2026,
   };
   it("남은 달 수와 항목별 합계를 계산한다", () => {
-    const r = computeTaxPrep(budget, input({ rentPaid: 450, subscriptionPaid: 240 }), 6000, now);
+    const r = computeTaxPrep(budget, input({ rentPaid: 450, rentPaidManual: true, subscriptionPaid: 240 }), 6000, now);
     expect(r.monthsLeft).toBe(3);
     expect(r.pension.refund).toBeCloseTo(99, 9);
     expect(r.totalTaxSaved).toBeCloseTo(99 + 450 * 0.15 + 96 * 0.165, 9);
@@ -142,5 +142,20 @@ describe("월세 분담 (환급 중 분담자 몫)", () => {
     expect(s.other).toBeCloseTo(600 * 0.17 * 0.4, 9);
     expect(s.total).toBeCloseTo(600 * 0.165 + 600 * 0.17, 9);
     expect(s.mine).toBeCloseTo(s.total - s.other, 9);
+  });
+});
+
+describe("올해 낸 월세 자동 계산", () => {
+  it("분담 구간이 없으면 월세 × 1월~이번 달", () => {
+    expect(autoRentPaid(input({ rentMonthly: 50 }), now)).toBe(450); // 9월
+  });
+  it("분담 구간이 있으면 그 달의 내 몫 + 상대 몫, 구간 밖은 월세", () => {
+    const t = input({ rentMonthly: 50, rentSplit: [{ from: "2026-03", to: "2026-12", mine: 30, other: 30 }] });
+    expect(autoRentPaid(t, now)).toBe(50 * 2 + 60 * 7);
+  });
+  it("자동이면 계산값, 직접 입력이면 입력값으로 공제를 계산한다", () => {
+    const budget = { monthlyNetIncome: 0, annualRaisePct: 0, expenseCategories: [], pensionAnnualContribution: 0, pensionTaxCreditRate: 16.5 } as BudgetData;
+    expect(computeTaxPrep(budget, input({ rentMonthly: 50, rentPaid: 100 }), 6000, now).rent.paid).toBe(450);
+    expect(computeTaxPrep(budget, input({ rentMonthly: 50, rentPaid: 100, rentPaidManual: true }), 6000, now).rent.paid).toBe(100);
   });
 });

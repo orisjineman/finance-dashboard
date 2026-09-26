@@ -1,7 +1,8 @@
-import type { BudgetData, RentShare, TaxPrepInput, TaxPrepPolicy } from "../types";
+import type { BudgetData, MonthlyEditKey, RentShare, TaxPrepInput, TaxPrepPolicy } from "../types";
 import { expectedRefund, fmtWon } from "../utils";
 import { DEFAULT_PENSION_LIMIT } from "../pension";
-import { computeRefundSplit, computeTaxPrep } from "../tax";
+import { autoRentPaid, computeRefundSplit, computeTaxPrep } from "../tax";
+import { isoDate } from "../monthly";
 import { policyStale } from "../home";
 import MoneyInput from "./MoneyInput";
 import ProgressBar from "./ProgressBar";
@@ -50,6 +51,8 @@ export default function TaxPanel({ budget, onChange, grossIncome, onEditInfo }: 
     onChange({ ...budget, taxPrep: { ...base, ...patch, year } });
   };
   const setTp = (patch: Partial<TaxPrepInput>) => onChange({ ...budget, taxPrep: { ...tp, ...patch } });
+  // 매달 입력하는 값(연금·청약·카드)을 고치면 날짜를 찍어서 개요의 '이번 달 정리'에 반영한다
+  const edited = (key: MonthlyEditKey) => ({ editedAt: { ...tp.editedAt, [key]: isoDate(now) } });
   const setPolicy = (patch: Partial<TaxPrepPolicy>) => setTp({ policy: { ...tp.policy, ...patch } });
   const setSplit = (i: number, patch: Partial<RentShare>) => setTp({ rentSplit: rentSplit.map((x, j) => (j === i ? { ...x, ...patch } : x)) });
   const p = tp.policy;
@@ -76,7 +79,7 @@ export default function TaxPanel({ budget, onChange, grossIncome, onEditInfo }: 
         <div className="field-row">
           <div className="field">
             <label>올해 납입한 금액 (원)</label>
-            <MoneyInput value={r.pension.paid} onChange={(val) => onChange({ ...budget, pensionPaidThisYear: val, pensionPaidYear: year })} />
+            <MoneyInput value={r.pension.paid} onChange={(val) => onChange({ ...budget, pensionPaidThisYear: val, pensionPaidYear: year, taxPrep: { ...tp, ...edited("pension") } })} />
           </div>
           <div className="field">
             <label>세액공제 대상 한도 (원)</label>
@@ -102,12 +105,22 @@ export default function TaxPanel({ budget, onChange, grossIncome, onEditInfo }: 
           </div>
           <div className="field">
             <label>올해 이미 낸 월세 (원)</label>
-            <MoneyInput value={v.rentPaid} onChange={(val) => setYearly({ rentPaid: val })} />
-            {tp.rentMonthly > 0 && v.rentPaid !== tp.rentMonthly * (now.getMonth() + 1) && (
-              <button className="btn ghost sm" style={{ marginTop: 6 }} onClick={() => setYearly({ rentPaid: tp.rentMonthly * (now.getMonth() + 1) })}>
-                1월~{now.getMonth() + 1}월 {now.getMonth() + 1}달치({won(tp.rentMonthly * (now.getMonth() + 1))})로 채우기
-              </button>
+            {tp.rentPaidManual ? (
+              <MoneyInput value={v.rentPaid} onChange={(val) => setYearly({ rentPaid: val })} />
+            ) : (
+              <div className="info-value">
+                <span>{won(r.rent.paid)}</span>
+              </div>
             )}
+            <label className="toggle" htmlFor="rent-manual" style={{ marginTop: 6 }}>
+              <input
+                id="rent-manual"
+                type="checkbox"
+                checked={!tp.rentPaidManual}
+                onChange={(e) => (e.target.checked ? setTp({ rentPaidManual: false }) : setYearly({ rentPaidManual: true, rentPaid: autoRentPaid(v, now) }))}
+              />
+              자동 (1월~{now.getMonth() + 1}월{rentSplit.length > 0 ? ", 분담 구간 합계" : ""})
+            </label>
           </div>
         </div>
         {r.rent.eligible ? (
@@ -181,7 +194,7 @@ export default function TaxPanel({ budget, onChange, grossIncome, onEditInfo }: 
         <h3 className="sub-title">주택청약 소득공제</h3>
         <div className="field" style={{ maxWidth: 280 }}>
           <label>올해 납입한 금액 (원)</label>
-          <MoneyInput value={v.subscriptionPaid} onChange={(val) => setYearly({ subscriptionPaid: val })} />
+          <MoneyInput value={v.subscriptionPaid} onChange={(val) => setYearly({ subscriptionPaid: val, ...edited("subscription") })} />
         </div>
         {r.subscription.eligible ? (
           <>
@@ -199,11 +212,11 @@ export default function TaxPanel({ budget, onChange, grossIncome, onEditInfo }: 
         <div className="field-row">
           <div className="field">
             <label>올해 신용카드 사용액 (원)</label>
-            <MoneyInput value={v.creditCardUsed} onChange={(val) => setYearly({ creditCardUsed: val })} />
+            <MoneyInput value={v.creditCardUsed} onChange={(val) => setYearly({ creditCardUsed: val, ...edited("card") })} />
           </div>
           <div className="field">
             <label>올해 체크카드·현금영수증 (원)</label>
-            <MoneyInput value={v.debitCardUsed} onChange={(val) => setYearly({ debitCardUsed: val })} />
+            <MoneyInput value={v.debitCardUsed} onChange={(val) => setYearly({ debitCardUsed: val, ...edited("card") })} />
           </div>
         </div>
         {grossIncome > 0 && (

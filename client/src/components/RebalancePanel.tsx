@@ -180,9 +180,6 @@ export default function RebalancePanel({ rows, strategy, settings, onChange, onR
             <>
               <SectionTitle>집 매수 예정일 · 목표 비중표</SectionTitle>
               <GlidePathEditor strategy={strategy} onChange={onStrategyChange} onEditInfo={onEditInfo} />
-              <p className="note">
-                비중은 묶음 전체(위험 상품 없는 계좌 포함) 기준이야.
-              </p>
             </>
           )}
           <SectionTitle>{activeGroup.name} 리밸런싱</SectionTitle>

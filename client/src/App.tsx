@@ -6,6 +6,7 @@ import { computeAlerts } from "./alerts";
 import SnapshotPanel from "./components/SnapshotPanel";
 import InfoPanel from "./components/InfoPanel";
 import { deriveData } from "./derive";
+import { isoDate, stampRowUpdates } from "./monthly";
 import RebalancePanel from "./components/RebalancePanel";
 import SimulationPanel from "./components/SimulationPanel";
 import LoanPanel from "./components/LoanPanel";
@@ -126,7 +127,8 @@ export default function App() {
     }, SAVE_DELAY_MS);
   }
 
-  const updateRows = (rows: AssetRow[]) => update("rows", rows);
+  // 잔액이 바뀐 행에는 오늘 날짜를 찍어서 월말 정리의 '잔액 갱신' 진행에 쓴다
+  const updateRows = (rows: AssetRow[]) => update("rows", stampRowUpdates(rawData?.rows ?? [], rows, isoDate(new Date())));
   const updateSim = (sim: SimulationAssumptions) => update("simulation", sim);
   const updateLoan = (loan: LoanInput) => update("loan", loan);
   const updateChecklist = (items: ChecklistItem[]) => update("checklist", items);
@@ -208,6 +210,7 @@ export default function App() {
             onHomeChange={updateHome}
             rebalance={data.rebalance}
             simulation={data.simulation}
+            onBudgetChange={updateBudget}
             onNavigate={setTab}
           />
         )}

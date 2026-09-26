@@ -42,6 +42,8 @@ export default function GlidePathEditor({ strategy, onChange, onEditInfo }: Prop
       <p className="note" style={{ marginTop: 0, marginBottom: 12 }}>
         {yearsLeft === null || todayTarget === null ? "매수 예정일이 있어야 목표를 계산해." : `매수까지 ${yearsLeft.toFixed(1)}년 · 지금 목표 위험 ${todayTarget.toFixed(1)}%`}
       </p>
+      <details className="fold">
+        <summary>남은 기간별 목표 비중표 ({glidePath.length}개 지점)</summary>
       <div className="table-scroll">
 <table className="grid">
         <thead>
@@ -81,7 +83,7 @@ export default function GlidePathEditor({ strategy, onChange, onEditInfo }: Prop
         </tbody>
       </table>
 </div>
-      <p className="note">표에 없는 기간은 양옆 지점을 직선으로 이어서 계산해. 가장 먼 지점보다 멀면 그 지점 값을, 가장 가까운 지점보다 가까우면 그 지점 값을 그대로 써.</p>
+      <p className="note">표에 없는 기간은 양옆 지점을 직선으로 이어서 계산해 (범위 밖은 끝 지점 값). 비중은 묶음 전체(위험 상품 없는 계좌 포함) 기준.</p>
       <button
         className="btn ghost"
         style={{ marginTop: 10 }}
@@ -89,6 +91,7 @@ export default function GlidePathEditor({ strategy, onChange, onEditInfo }: Prop
       >
         + 지점 추가
       </button>
+      </details>
     </div>
   );
 }

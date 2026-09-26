@@ -102,8 +102,25 @@ export function computeCardDeduction(t: TaxPrepInput, income: number): CardDeduc
   };
 }
 
+// 올해 낸 월세 자동 계산: 1월~이번 달, 달마다 분담 구간이 있으면 (내 몫 + 상대 몫), 없으면 계약상 월세
+export function autoRentPaid(t: TaxPrepInput, now: Date): number {
+  const year = now.getFullYear();
+  let sum = 0;
+  for (let m = 0; m <= now.getMonth(); m++) {
+    const idx = year * 12 + m;
+    const seg = (t.rentSplit ?? []).find((s) => {
+      const a = monthIndex(s.from);
+      const b = monthIndex(s.to);
+      return a !== null && b !== null && a <= idx && idx <= b;
+    });
+    sum += seg ? Math.max(0, seg.mine) + Math.max(0, seg.other) : Math.max(0, t.rentMonthly);
+  }
+  return sum;
+}
+
 export function computeTaxPrep(budget: BudgetData, taxPrep: TaxPrepInput, income: number, now: Date): TaxPrepResult {
-  const t = thisYearValues(taxPrep, now);
+  const y = thisYearValues(taxPrep, now);
+  const t = y.rentPaidManual ? y : { ...y, rentPaid: autoRentPaid(y, now) };
   const monthsLeft = 11 - now.getMonth();
   const pension = computePensionCredit(budget, now);
   const rent = computeRentCredit(t, income, monthsLeft);

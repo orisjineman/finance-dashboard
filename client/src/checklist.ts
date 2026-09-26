@@ -53,3 +53,28 @@ export function autoAmount(auto: ChecklistAuto | undefined, budget: BudgetData, 
   const split = computeRefundSplit(budget, tp, income, now);
   return { amount: auto === "refundOther" ? split.other : split.mine, kind: "refund", filled: false };
 }
+
+// 할 날짜까지 남은 날 (지났으면 음수). 날짜가 없거나 형식이 틀리면 null
+export function daysUntilDue(due: string | undefined, now: Date): number | null {
+  if (!due) return null;
+  const d = new Date(`${due}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return null;
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.round((d.getTime() - today.getTime()) / 86400000);
+}
+
+export const UPCOMING_DAYS = 30; // 할 날짜가 이보다 멀면 '예정'으로 빼둔다
+export const DUE_ALERT_DAYS = 7; // 이 안으로 들어오면 알림
+
+// 안 한 항목을 '지금 할 것'과 '예정'(날짜 가까운 순)으로 나눈다
+export function splitUpcoming(undone: ChecklistItem[], now: Date): { current: ChecklistItem[]; upcoming: ChecklistItem[] } {
+  const far = (i: ChecklistItem) => (daysUntilDue(i.due, now) ?? 0) > UPCOMING_DAYS;
+  return {
+    current: undone.filter((i) => !far(i)),
+    upcoming: undone.filter(far).sort((a, b) => (a.due ?? "").localeCompare(b.due ?? "")),
+  };
+}
+
+export function dueLabel(days: number): string {
+  return days < 0 ? `${-days}일 지남` : days === 0 ? "오늘" : `D-${days}`;
+}

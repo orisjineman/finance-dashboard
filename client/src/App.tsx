@@ -67,6 +67,19 @@ function todayTag(): string {
   return `${t.getFullYear()}.${String(t.getMonth() + 1).padStart(2, "0")}.${String(t.getDate()).padStart(2, "0")}`;
 }
 
+// 새로고침해도 보던 탭을 그대로 연다 (저장된 값이 없거나 지금 없는 탭이면 개요)
+const TAB_STORAGE_KEY = "fd_tab";
+
+function initialTab(): TabKey {
+  let saved: string | null = null;
+  try {
+    saved = localStorage.getItem(TAB_STORAGE_KEY);
+  } catch {
+    // 저장소를 못 쓰면 개요부터
+  }
+  return VISIBLE_TABS.find((t) => t.key === saved)?.key ?? "overview";
+}
+
 function initialTheme(): Theme {
   let saved: string | null = null;
   try {
@@ -82,12 +95,20 @@ export default function App() {
   const [rawData, setData] = useState<DashboardData | null>(null);
   // 입력값끼리 정해지는 값(연금 세액공제율 등)을 계산한 결과를 화면에 쓴다. 저장은 원본(rawData) 기준.
   const data = useMemo(() => (rawData ? deriveData(rawData) : null), [rawData]);
-  const [tab, setTab] = useState<TabKey>("overview");
+  const [tab, setTab] = useState<TabKey>(initialTab);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveFailed, setSaveFailed] = useState(false);
   const [conflict, setConflict] = useState(false);
   const [theme, setTheme] = useState<Theme>(initialTheme);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(TAB_STORAGE_KEY, tab);
+    } catch {
+      // 저장 못 해도 동작에는 문제없다
+    }
+  }, [tab]);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);

@@ -266,7 +266,6 @@ export default function App() {
               home={data.home}
               onChange={updateHome}
               loan={data.loan}
-              onLoanChange={updateLoan}
               strategy={data.strategy}
               budget={data.budget}
               simulation={data.simulation}

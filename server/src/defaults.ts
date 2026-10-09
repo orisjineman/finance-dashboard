@@ -99,7 +99,7 @@ export function defaultData(): DashboardData {
       netPayCorrection: true,
       targetRatioPct: 34,
       areaM2: 0,
-      prices: [40000, 50000, 60000],
+      prices: [40000, 60000],
       incomeThreshold: 7000,
       policy: {
         bogeumjari: { maxHousePrice: 60000, maxIncome: 7000, maxLoanFirstTime: 42000, ltv: 0.7 },

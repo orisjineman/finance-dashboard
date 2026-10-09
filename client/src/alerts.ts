@@ -57,7 +57,7 @@ export function computeAlerts(data: DashboardData, now: Date = new Date()): Aler
   for (const g of data.rebalance.groups) {
     const target = groupTarget(g, data.strategy);
     if (target === null) continue;
-    const r = computeRebalance(data.rows, g.accounts, target, data.rebalance.tolerancePct, data.rebalance.riskAccess ?? {}, data.rebalance.depositLimit ?? {});
+    const r = computeRebalance(data.rows, g.accounts, target, data.rebalance.tolerancePct, data.rebalance.depositLimit ?? {});
     if (r.needsRebalance) {
       out.push({
         id: `rebalance-${g.id}`,
@@ -138,7 +138,7 @@ export function computeAlerts(data: DashboardData, now: Date = new Date()): Aler
     }
   }
 
-  // 7) 목표 집값(내 집 마련 탭 '목표로')이 LTV·대출 자격에 걸리는지 (상환 부담 판정은 개요 요약 카드에 늘 보이니 알림에서는 뺀다)
+  // 7) 목표 집값(내 정보 탭)이 LTV·대출 자격에 걸리는지 (상환 부담 판정은 개요 요약 카드에 늘 보이니 알림에서는 뺀다)
   const target = evaluateTarget(data, now);
   if (target) {
     const { row } = target;

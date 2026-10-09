@@ -248,7 +248,7 @@ export default function InfoPanel({ budget, onBudgetChange, home, onHomeChange, 
             </div>
           )}
         </div>
-        <p className="note">내 집 마련 비교표의 '목표로'로도 바꿀 수 있어</p>
+        <p className="note">내 집 마련 탭 비교표는 이 목표 집값을 첫 줄로 두고 다른 집값과 견줘 보여줘</p>
       </div>
 
       <SectionTitle>주요 날짜</SectionTitle>

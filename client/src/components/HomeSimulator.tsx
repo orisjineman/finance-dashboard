@@ -12,7 +12,6 @@ interface Props {
   home: HomeSimInput;
   onChange: (home: HomeSimInput) => void;
   loan: LoanInput;
-  onLoanChange: (loan: LoanInput) => void;
   strategy: StrategyData;
   budget: BudgetData;
   simulation: SimulationAssumptions;
@@ -37,7 +36,7 @@ function Badge({ label, e }: { label: string; e: Eligibility }) {
 }
 
 // '내 집 마련' 탭의 시뮬레이터. 집값 후보별로 필요 대출, 월 상환액, 상환 비중, 대출 자격을 비교한다.
-export default function HomeSimulator({ rows, home, onChange, loan, onLoanChange, strategy, budget, simulation, onEditInfo }: Props) {
+export default function HomeSimulator({ rows, home, onChange, loan, strategy, budget, simulation, onEditInfo }: Props) {
   const now = new Date();
   const [newPrice, setNewPrice] = useState(0);
   // 매수 때까지 더 모을 돈(자동) = 개요의 '이대로 모으면' 예상 경로에서 매수 예정일까지 늘어나는 금액 (수익률 반영 토글 공유)
@@ -46,9 +45,9 @@ export default function HomeSimulator({ rows, home, onChange, loan, onLoanChange
   const monthlySavings = plan.monthly;
   const assets = computeHomeAssets(rows, home, plan.extra);
   const raisePct = budget.annualRaisePct || 0;
-  // 비교 목록에 목표 집값이 없으면(예전에 따로 입력한 값) 표에 함께 보여준다
-  const targetInList = home.prices.includes(loan.price);
-  const shownPrices = loan.price > 0 && !targetInList ? [...home.prices, loan.price] : home.prices;
+  // 목표 집값(내 정보 탭)은 늘 첫 줄로 들어가고, 이 목록은 견줘 볼 다른 집값만 담는다
+  const candidates = home.prices.filter((p) => p !== loan.price);
+  const shownPrices = loan.price > 0 ? [...candidates, loan.price] : candidates;
   const netFactor = netPayFactor(home, budget.monthlyNetIncome);
   const r = computeHome({ ...home, prices: shownPrices }, assets.equity, loan.ratePct, strategy.housePurchaseDate, now, raisePct, netFactor);
   const stale = policyStale(home.policy.updatedAt, now);
@@ -229,21 +228,10 @@ export default function HomeSimulator({ rows, home, onChange, loan, onLoanChange
                     </div>
                   </td>
                   <td style={{ whiteSpace: "nowrap" }}>
-                    {x.price === loan.price ? (
-                      !targetInList && (
-                        <button className="btn ghost sm" onClick={() => set("prices", [...home.prices, x.price])}>
-                          비교 목록에 추가
-                        </button>
-                      )
-                    ) : (
-                      <>
-                        <button className="btn ghost sm" title="개요·시뮬레이션·알림이 이 집값을 기준으로 바뀌어" onClick={() => onLoanChange({ ...loan, price: x.price })}>
-                          목표로
-                        </button>{" "}
-                        <button className="btn ghost sm" onClick={() => set("prices", home.prices.filter((p) => p !== x.price))}>
-                          삭제
-                        </button>
-                      </>
+                    {x.price !== loan.price && (
+                      <button className="btn ghost sm" onClick={() => set("prices", home.prices.filter((p) => p !== x.price))}>
+                        삭제
+                      </button>
                     )}
                   </td>
                 </tr>
@@ -252,13 +240,13 @@ export default function HomeSimulator({ rows, home, onChange, loan, onLoanChange
           </table>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 10, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 13 }}>집값 추가 (원)</span>
+          <span style={{ fontSize: 13 }}>견줘 볼 집값 추가 (원)</span>
           <div style={{ width: 200 }}>
             <MoneyInput value={newPrice} onChange={setNewPrice} />
           </div>
           <button
             className="btn ghost sm"
-            disabled={newPrice <= 0 || home.prices.includes(newPrice)}
+            disabled={newPrice <= 0 || newPrice === loan.price || home.prices.includes(newPrice)}
             onClick={() => {
               set("prices", [...home.prices, newPrice]);
               setNewPrice(0);
@@ -268,6 +256,7 @@ export default function HomeSimulator({ rows, home, onChange, loan, onLoanChange
           </button>
         </div>
         <p className="note">
+          목표 집값은 <button className="link-btn" onClick={onEditInfo}>내 정보</button>에서 바꿔 (개요·알림이 그 값을 기준으로 해). 
           세후 월급 대비 월 상환 {home.targetRatioPct}% 이하 적정 · {Math.round(home.policy.judge.tightMax * 1000) / 10}% 이하 빠듯 · 초과 부담. 보금자리론은 매수 시점 총보수로 판정.
         </p>
       </div>

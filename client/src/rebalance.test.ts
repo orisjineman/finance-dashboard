@@ -141,13 +141,6 @@ describe("computeRebalance — 규칙", () => {
     expect(buys.length).toBe(1);
     expect(buys[0].item).toBe("R2");
   });
-
-  it("위험자산 편입 불가 계좌는 위험을 사는 거래에서 빠지고 안내가 붙는다", () => {
-    const rows = [row("ISA", "S&P", "risk", 200), row("ISA", "채권", "safe", 800)];
-    const r = computeRebalance(rows, ["ISA"], 50, 5, { ISA: "blocked" });
-    expect(r.trades).toEqual([]);
-    expect(r.notes.some((n) => n.includes("편입 불가"))).toBe(true);
-  });
 });
 
 describe("computeRebalance — 1주 단위", () => {
@@ -209,7 +202,7 @@ describe("computeRebalance — 계좌 간 이동", () => {
   });
 
   it("입금 가능 금액이 있으면 CMA에서 빼서 위탁계좌로 옮기고 목표를 맞춘다", () => {
-    const r = computeRebalance(build(), [ISA, CMA, TOSS], 40, 5, {}, { [TOSS]: 500 });
+    const r = computeRebalance(build(), [ISA, CMA, TOSS], 40, 5, { [TOSS]: 500 });
     expect(r.transfers).toHaveLength(1);
     expect(r.transfers[0]).toMatchObject({ from: CMA, to: TOSS });
     expect(r.transfers[0].amount).toBeCloseTo(280, 6);
@@ -219,19 +212,14 @@ describe("computeRebalance — 계좌 간 이동", () => {
   });
 
   it("입금 한도는 넘지 않는다", () => {
-    const r = computeRebalance(build(), [ISA, CMA, TOSS], 40, 5, {}, { [TOSS]: 100 });
+    const r = computeRebalance(build(), [ISA, CMA, TOSS], 40, 5, { [TOSS]: 100 });
     expect(r.transfers[0].amount).toBeCloseTo(100, 6);
     expect(r.notes.some((n) => n.includes("못 맞췄어"))).toBe(true);
   });
 
-  it("위험자산 편입 불가 계좌로는 위험을 사기 위해 옮기지 않는다", () => {
-    const r = computeRebalance(build(), [ISA, CMA, TOSS], 40, 5, { [TOSS]: "blocked" }, { [TOSS]: 500 });
-    expect(r.transfers).toEqual([]);
-  });
-
   it("세금 우대 계좌(ISA)에서는 다른 계좌로 돈을 빼지 않는다", () => {
     const rows = [row(ISA, "채권", "safe", 1000), row(ISA, "S&P", "risk", 0), row(TOSS, "SPY", "risk", 0)];
-    const r = computeRebalance(rows, [ISA, TOSS], 50, 5, {}, { [TOSS]: 5000 });
+    const r = computeRebalance(rows, [ISA, TOSS], 50, 5, { [TOSS]: 5000 });
     expect(r.transfers).toEqual([]);
   });
 });
@@ -252,26 +240,10 @@ describe("deriveGroupPlan", () => {
     expect(p.feasible).toBe(true);
     expect(p.capableRiskPct).toBeCloseTo(50, 6);
     expect(p.maxRiskPct).toBeCloseTo(50, 6);
-    expect(p.minRiskPct).toBe(0);
   });
 
   it("목표가 최대 비중보다 높으면 불가능", () => {
     const p = deriveGroupPlan(rows, ["A", "B"], 60);
-    expect(p.feasible).toBe(false);
-    expect(p.tooLow).toBe(false);
-  });
-
-  it("편입 가능으로 지정하면 위험 상품이 없는 계좌도 위험을 담을 수 있다", () => {
-    const p = deriveGroupPlan(rows, ["A", "B"], 60, { B: "allowed" });
-    expect(p.capable.map((a) => a.account).sort()).toEqual(["A", "B"]);
-    expect(p.feasible).toBe(true);
-  });
-
-  it("편입 불가 계좌에 이미 있는 위험자산 때문에 목표가 너무 낮으면 tooLow", () => {
-    const p = deriveGroupPlan(rows, ["A", "B"], 10, { A: "blocked" });
-    expect(p.fixedRisk).toBe(500);
-    expect(p.minRiskPct).toBeCloseTo(25, 6);
-    expect(p.tooLow).toBe(true);
     expect(p.feasible).toBe(false);
   });
 

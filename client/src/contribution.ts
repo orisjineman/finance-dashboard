@@ -48,8 +48,7 @@ export function computeContribution(
   groupAccounts: string[],
   targetRiskPct: number,
   account: string,
-  amount: number,
-  riskAccess: Record<string, "allowed" | "blocked"> = {}
+  amount: number
 ): ContributionPlan {
   const included = new Set(groupAccounts);
   const scope = rows.filter((r) => included.has(r.account) && (r.category === "risk" || r.category === "safe"));
@@ -82,10 +81,6 @@ export function computeContribution(
   const inAccount = scope.filter((r) => r.account === account);
   const spendOn = (category: "risk" | "safe", want: number) => {
     if (want <= EPS) return;
-    if (category === "risk" && riskAccess[account] === "blocked") {
-      plan.notes.push(`${account}는 위험자산 편입 불가라 ${won(want)}원을 못 샀어. 다른 계좌를 골라줘.`);
-      return;
-    }
     const cands = inAccount.filter((r) => r.category === category && r.rebalanceRule !== "hold");
     const preferred = cands.filter((r) => r.rebalanceRule === "preferred");
     const targets = preferred.length > 0 ? preferred : cands;
@@ -126,17 +121,14 @@ export function computeContribution(
 
 const won = (m: number) => Math.round(m * 10000).toLocaleString("ko-KR");
 
-// 새 돈을 넣을 계좌를 고른다. 해당 자산(위험/안전) 상품이 있고 편입 불가가 아닌 계좌 중, '입금 가능 금액'이 설정된 계좌를 먼저 쓴다.
+// 새 돈을 넣을 계좌를 고른다. 해당 자산(위험/안전) 상품이 있는 계좌 중, '입금 가능 금액'이 설정된 계좌를 먼저 쓴다.
 export function pickAccount(
   rows: AssetRow[],
   accounts: string[],
   category: "risk" | "safe",
-  riskAccess: Record<string, "allowed" | "blocked"> = {},
   depositLimit: Record<string, number> = {}
 ): string | null {
-  const usable = accounts.filter(
-    (a) => !(category === "risk" && riskAccess[a] === "blocked") && rows.some((r) => r.account === a && r.category === category && r.rebalanceRule !== "hold")
-  );
+  const usable = accounts.filter((a) => rows.some((r) => r.account === a && r.category === category && r.rebalanceRule !== "hold"));
   return usable.find((a) => (depositLimit[a] ?? 0) > 0) ?? usable[0] ?? null;
 }
 
@@ -156,7 +148,6 @@ export function recommendTopUp(
   accounts: string[],
   targetRiskPct: number,
   trades: RebalanceTrade[],
-  riskAccess: Record<string, "allowed" | "blocked"> = {},
   depositLimit: Record<string, number> = {}
 ): TopUpRecommendation | null {
   const after = applyTrades(rows, trades);
@@ -167,11 +158,11 @@ export function recommendTopUp(
   const needed = contributionNeeded(risk, total, targetRiskPct);
   if (needed === null || needed <= EPS) return null;
   const category = (risk / total) * 100 < targetRiskPct ? "risk" : "safe";
-  const account = pickAccount(after, accounts, category, riskAccess, depositLimit);
+  const account = pickAccount(after, accounts, category, depositLimit);
   if (!account) return null;
-  const plan = computeContribution(after, accounts, targetRiskPct, account, needed, riskAccess);
+  const plan = computeContribution(after, accounts, targetRiskPct, account, needed);
   const rec: TopUpRecommendation = { account, category, needed, plan };
-  if (plan.buys.length === 0 && !plan.notes.some((n) => n.includes("편입 불가"))) {
+  if (plan.buys.length === 0) {
     const priceOf = makePriceOf(after);
     const cands = after.filter((r) => r.account === account && r.category === category && r.rebalanceRule !== "hold");
     const preferred = cands.filter((r) => r.rebalanceRule === "preferred");

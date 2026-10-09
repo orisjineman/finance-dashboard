@@ -156,7 +156,7 @@ export interface RebalanceGroup {
 export interface RebalanceSettings {
   tolerancePct: number; // 허용 오차 (%p), 이 안이면 리밸런싱 불필요
   groups: RebalanceGroup[];
-  riskAccess?: Record<string, "allowed" | "blocked">; // 계좌별 위험자산 편입 가능/불가. 없으면 위험 상품이 있는 계좌를 가능으로 자동 판단
+
   feePct?: number; // 매매 수수료율(%). 없으면 0.015
   taxRatePct?: number; // 일반 과세 계좌 매도 차익에 붙는 세율(%). 없으면 15.4
   depositLimit?: Record<string, number>; // 계좌별 '이번에 넣을 수 있는 금액'(만원). 다른 계좌에서 옮겨 올 수 있는 한도이고, 없으면 0
@@ -180,7 +180,7 @@ export interface HomeSimInput {
   netPayCorrection?: boolean; // 세후 월급 추정을 실수령액 기준으로 보정할지 (기본: 보정)
   targetRatioPct: number; // %, 세후 월급 대비 목표 월 상환 비중 = '적정' 판정 상한
   areaM2: number; // 예상 전용면적(㎡), 0이면 미입력
-  prices: number[]; // 만원, 비교할 집값
+  prices: number[]; // 만원, 목표 집값(loan.price)과 견줘 볼 다른 집값
   incomeThreshold: number; // 만원, 도달 연도를 볼 연봉 기준 (보금자리론 소득 기준과 같게 두면 됨)
   policy: HomePolicy;
 }

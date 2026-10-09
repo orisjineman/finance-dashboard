@@ -44,6 +44,7 @@ describe("migrate", () => {
     expect(store.migrate({ home: { raisePct: 3 } as never }).home).not.toHaveProperty("raisePct"); // 인상률은 budget 하나로
     expect(store.migrate({ home: { assetSource: "group" } as never }).home).not.toHaveProperty("assetSource"); // 가용자산 기준은 하나로
     expect(store.migrate({ simulation: { scenarios: [] } as never }).simulation).not.toHaveProperty("scenarios");
+    expect(store.migrate({ rebalance: { riskAccess: { ISA: "blocked" } } as never }).rebalance).not.toHaveProperty("riskAccess");
     expect(store.migrate({ home: { extraAssets: 5 } as never }).home.extraMode).toBe("auto"); // 더 모을 돈은 기본 자동 계산
     expect(store.migrate({ simulation: { annualContribution: 2000 } as never }).simulation.contributionMode).toBe("auto");
     expect(store.migrate({}).home.projectWithReturns).toBe(false);

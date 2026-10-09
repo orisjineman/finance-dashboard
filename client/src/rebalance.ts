@@ -64,7 +64,6 @@ export function computeRebalance(
   accounts: string[],
   targetRiskPct: number,
   tolerancePct: number,
-  riskAccess: Record<string, "allowed" | "blocked"> = {},
   depositLimit: Record<string, number> = {}
 ): RebalanceResult {
   const included = new Set(accounts);
@@ -100,15 +99,10 @@ export function computeRebalance(
       return { account, sellRows, buyRows, capacity: sellRows.reduce((s, r) => s + r.amount, 0) };
     })
     .filter((p) => p.capacity > 0 && p.buyRows.length > 0)
-    .filter((p) => !(buyCategory === "risk" && riskAccess[p.account] === "blocked"))
     .sort((a, b) => Number(isTaxAdvantaged(b.account)) - Number(isTaxAdvantaged(a.account)) || b.capacity - a.capacity);
 
   const sellLabel = sellCategory === "risk" ? "위험" : "안전";
-  const blockedSkipped = buyCategory === "risk" ? accountList.filter((a) => riskAccess[a] === "blocked" && scope.some((r) => r.account === a && r.category === "safe" && r.amount > 0)) : [];
-  if (blockedSkipped.length > 0) {
-    result.notes.push(`${blockedSkipped.join(", ")}: 위험자산 편입 불가라 매수에서 제외.`);
-  }
-  const skipped = accountList.filter((a) => !blockedSkipped.includes(a) && !plans.some((p) => p.account === a) && scope.some((r) => r.account === a && r.category === sellCategory && r.amount > 0 && r.rebalanceRule !== "hold"));
+  const skipped = accountList.filter((a) => !plans.some((p) => p.account === a) && scope.some((r) => r.account === a && r.category === sellCategory && r.amount > 0 && r.rebalanceRule !== "hold"));
   if (skipped.length > 0) {
     result.notes.push(`${skipped.join(", ")}: 계좌 안에 살 상품이 없거나 '매매 안 함'이라 제외.`);
   }
@@ -212,7 +206,7 @@ export function computeRebalance(
       let avail = src.avail;
       while (remaining * 10000 > 1000 && avail > EPS) {
         const dest = accountList
-          .filter((a) => a !== src.r.account && (limitLeft.get(a) ?? 0) > EPS && !(buyCategory === "risk" && riskAccess[a] === "blocked"))
+          .filter((a) => a !== src.r.account && (limitLeft.get(a) ?? 0) > EPS)
           .map((a) => {
             const cands = scope.filter((r) => r.account === a && r.category === buyCategory && r.rebalanceRule !== "hold");
             const pref = cands.filter((r) => r.rebalanceRule === "preferred");
@@ -305,58 +299,46 @@ export interface GroupPlanAccount {
   account: string;
   amount: number; // 만원
   holdsRisk: boolean; // 스냅샷에 위험 상품 행이 하나라도 있는지
-  riskAmount: number; // 만원, 지금 들고 있는 위험자산 금액
-  policy: "allowed" | "blocked" | "auto"; // 사용자가 정한 위험자산 편입 설정 (auto = 위험 상품 유무로 자동 판단)
-  canHoldRisk: boolean; // 최종 판단: 이 계좌가 위험자산을 담을 수 있는지
+  canHoldRisk: boolean; // 이 계좌가 위험자산을 담을 수 있는지 (스냅샷에 위험 상품 행이 있으면 가능)
 }
 
 // 리밸런싱 탭의 목표(묶음 전체 기준)를 이루려면 계좌별로 어떻게 나눠야 하는지 계산한다.
-// 위험자산 편입이 불가한 계좌는 (이미 있는 위험자산은 그대로 두고) 나머지는 안전으로 고정,
-// 편입 가능한 계좌들이 남은 목표 위험 금액을 맡아야 한다.
+// 위험 상품이 없는 계좌는 안전으로 고정하고, 위험 상품이 있는 계좌들이 목표 위험 금액을 맡아야 한다.
 export interface GroupPlan {
   total: number;
   targetRiskPct: number;
   requiredRisk: number; // 묶음 전체의 목표 위험 금액
   accounts: GroupPlanAccount[];
-  safeOnly: GroupPlanAccount[]; // 위험 편입 불가(또는 위험 상품 없음)로 보는 계좌
-  capable: GroupPlanAccount[]; // 위험 편입 가능한 계좌
+  safeOnly: GroupPlanAccount[]; // 위험 상품이 없어 안전으로 고정되는 계좌
+  capable: GroupPlanAccount[]; // 위험 상품이 있어 위험자산을 담을 수 있는 계좌
   capableTotal: number;
-  fixedRisk: number; // 편입 불가 계좌가 이미 들고 있는 위험자산
   capableRiskPct: number | null; // 편입 가능 계좌들 안에서 필요한 위험 비중 (0~100 밖이면 불가능)
   maxRiskPct: number; // 이 묶음이 낼 수 있는 최대 위험 비중
-  minRiskPct: number; // 이 묶음이 낼 수 있는 최소 위험 비중 (편입 불가 계좌에 이미 있는 위험자산 때문에 0보다 클 수 있음)
   feasible: boolean;
-  tooLow: boolean; // 목표가 최소 위험 비중보다 낮아 못 맞추는 경우
 }
 
 export function deriveGroupPlan(
   rows: AssetRow[],
   accountNames: string[],
-  targetRiskPct: number,
-  riskAccess: Record<string, "allowed" | "blocked"> = {}
+  targetRiskPct: number
 ): GroupPlan {
   const included = new Set(accountNames);
   const map = new Map<string, GroupPlanAccount>();
   for (const r of rows) {
     if (!included.has(r.account) || (r.category !== "risk" && r.category !== "safe")) continue;
     const cur =
-      map.get(r.account) ?? { account: r.account, amount: 0, holdsRisk: false, riskAmount: 0, policy: riskAccess[r.account] ?? "auto", canHoldRisk: false };
+      map.get(r.account) ?? { account: r.account, amount: 0, holdsRisk: false, canHoldRisk: false };
     cur.amount += r.amount;
-    if (r.category === "risk") {
-      cur.holdsRisk = true;
-      cur.riskAmount += r.amount;
-    }
+    if (r.category === "risk") cur.holdsRisk = true;
     map.set(r.account, cur);
   }
   const accounts = Array.from(map.values()).sort((a, b) => b.amount - a.amount);
-  for (const a of accounts) a.canHoldRisk = a.policy === "allowed" || (a.policy === "auto" && a.holdsRisk);
+  for (const a of accounts) a.canHoldRisk = a.holdsRisk;
   const total = accounts.reduce((sum, a) => sum + a.amount, 0);
   const capable = accounts.filter((a) => a.canHoldRisk);
   const safeOnly = accounts.filter((a) => !a.canHoldRisk);
   const capableTotal = capable.reduce((sum, a) => sum + a.amount, 0);
-  const fixedRisk = safeOnly.reduce((sum, a) => sum + a.riskAmount, 0);
   const requiredRisk = (total * targetRiskPct) / 100;
-  const needFromCapable = requiredRisk - fixedRisk;
   const EPS = 1e-9;
   return {
     total,
@@ -366,12 +348,9 @@ export function deriveGroupPlan(
     safeOnly,
     capable,
     capableTotal,
-    fixedRisk,
-    capableRiskPct: capableTotal > 0 ? (needFromCapable / capableTotal) * 100 : null,
-    maxRiskPct: total > 0 ? ((capableTotal + fixedRisk) / total) * 100 : 0,
-    minRiskPct: total > 0 ? (fixedRisk / total) * 100 : 0,
-    feasible: needFromCapable <= capableTotal + EPS && needFromCapable >= -EPS,
-    tooLow: needFromCapable < -EPS,
+    capableRiskPct: capableTotal > 0 ? (requiredRisk / capableTotal) * 100 : null,
+    maxRiskPct: total > 0 ? (capableTotal / total) * 100 : 0,
+    feasible: requiredRisk <= capableTotal + EPS,
   };
 }
 

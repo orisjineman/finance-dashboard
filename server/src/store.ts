@@ -64,7 +64,11 @@ export function migrate(parsed: Partial<DashboardData> & Record<string, unknown>
       };
     })(),
     strategy,
-    rebalance: { ...d.rebalance, ...(parsed.rebalance ?? {}) },
+    rebalance: (() => {
+      const rb = { ...d.rebalance, ...(parsed.rebalance ?? {}) } as DashboardData["rebalance"] & Record<string, unknown>;
+      delete rb.riskAccess; // 계좌별 위험자산 편입 수동 지정은 없어짐 (위험 상품이 있는 계좌만 위험자산을 산다)
+      return rb;
+    })(),
     home: {
       ...home,
       policy: {

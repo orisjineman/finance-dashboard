@@ -15,7 +15,6 @@ interface Props {
   taxRatePct?: number;
   targetRiskPct: number | null;
   targetLabel: string;
-  riskAccess: Record<string, "allowed" | "blocked">;
   depositLimit: Record<string, number>;
   onChange: (group: RebalanceGroup) => void;
   onToggleAccount: (account: string, on: boolean) => void;
@@ -24,15 +23,15 @@ interface Props {
 const barPct = (n: number) => `${Math.max(0, Math.min(100, n))}%`;
 
 // 한 묶음(집 자금·노후 자금 등)의 목표·현재 비중, 필요한 조치, 추천 거래를 보여주는 카드
-export default function RebalanceGroupCard({ group, rows, allAccounts, tolerancePct, feePct, taxRatePct, targetRiskPct, targetLabel, riskAccess, depositLimit, onChange, onToggleAccount }: Props) {
+export default function RebalanceGroupCard({ group, rows, allAccounts, tolerancePct, feePct, taxRatePct, targetRiskPct, targetLabel, depositLimit, onChange, onToggleAccount }: Props) {
   const result = useMemo(
-    () => (targetRiskPct === null ? null : computeRebalance(rows, group.accounts, targetRiskPct, tolerancePct, riskAccess, depositLimit)),
-    [rows, group.accounts, targetRiskPct, tolerancePct, riskAccess, depositLimit]
+    () => (targetRiskPct === null ? null : computeRebalance(rows, group.accounts, targetRiskPct, tolerancePct, depositLimit)),
+    [rows, group.accounts, targetRiskPct, tolerancePct, depositLimit]
   );
 
   const plan = useMemo(
-    () => (targetRiskPct === null ? null : deriveGroupPlan(rows, group.accounts, targetRiskPct, riskAccess)),
-    [rows, group.accounts, targetRiskPct, riskAccess]
+    () => (targetRiskPct === null ? null : deriveGroupPlan(rows, group.accounts, targetRiskPct)),
+    [rows, group.accounts, targetRiskPct]
   );
 
   const sellLabel = result?.sellCategory === "risk" ? "위험자산" : "안전자산";
@@ -40,13 +39,13 @@ export default function RebalanceGroupCard({ group, rows, allAccounts, tolerance
   const [payIn, setPayIn] = useState(0);
   const [payAccount, setPayAccount] = useState("");
   const contribAccounts = group.accounts.filter((a) => rows.some((r) => r.account === a && (r.category === "risk" || r.category === "safe")));
-  const account = contribAccounts.includes(payAccount) ? payAccount : pickAccount(rows, contribAccounts, "risk", riskAccess, depositLimit) ?? contribAccounts[0] ?? "";
+  const account = contribAccounts.includes(payAccount) ? payAccount : pickAccount(rows, contribAccounts, "risk", depositLimit) ?? contribAccounts[0] ?? "";
   const scopeRows = rows.filter((r) => group.accounts.includes(r.account) && (r.category === "risk" || r.category === "safe"));
   const scopeTotal = scopeRows.reduce((sum, r) => sum + r.amount, 0);
   const scopeRisk = scopeRows.filter((r) => r.category === "risk").reduce((sum, r) => sum + r.amount, 0);
   const needed = targetRiskPct === null ? null : contributionNeeded(scopeRisk, scopeTotal, targetRiskPct);
-  const contribution = targetRiskPct !== null && payIn > 0 && account ? computeContribution(rows, group.accounts, targetRiskPct, account, payIn, riskAccess) : null;
-  const topUp = result && result.needsRebalance && targetRiskPct !== null ? recommendTopUp(rows, group.accounts, targetRiskPct, result.trades, riskAccess, depositLimit) : null;
+  const contribution = targetRiskPct !== null && payIn > 0 && account ? computeContribution(rows, group.accounts, targetRiskPct, account, payIn) : null;
+  const topUp = result && result.needsRebalance && targetRiskPct !== null ? recommendTopUp(rows, group.accounts, targetRiskPct, result.trades, depositLimit) : null;
   const costs = result && result.trades.length > 0 ? estimateCosts(result.trades, rows, { feePct, taxRatePct }) : null;
   const sells = result?.trades.filter((t) => t.action === "sell") ?? [];
   const buys = result?.trades.filter((t) => t.action === "buy") ?? [];
@@ -144,31 +143,20 @@ export default function RebalanceGroupCard({ group, rows, allAccounts, tolerance
                     <>
                       위험 <strong>{(plan.capableRiskPct ?? 0).toFixed(1)}%</strong> / 안전 {(100 - (plan.capableRiskPct ?? 0)).toFixed(1)}%로 구성
                     </>
-                  ) : plan.tooLow ? (
-                    <>편입 불가 계좌에 이미 있는 위험자산만으로도 목표보다 많아</>
                   ) : (
                     <>전부 위험자산으로 채워도 목표에 모자라</>
                   )}
                 </p>
               )}
-              {plan.capable
-                .filter((a) => !a.holdsRisk)
-                .map((a) => (
-                  <p className="note" key={`norow-${a.account}`} style={{ margin: "4px 0", color: "var(--ink-soft)" }}>
-                    {a.account}: 편입 가능이지만 스냅샷에 위험 상품이 없어. 위험 상품 행(0원도 가능)을 추가해줘.
-                  </p>
-                ))}
               {plan.safeOnly.map((a) => (
                 <p className="note" key={a.account} style={{ margin: "4px 0", color: "var(--ink)" }}>
                   <strong>{a.account}</strong> {fmtWon(a.amount)}원 ({((a.amount / plan.total) * 100).toFixed(0)}%):{" "}
-                  {a.policy === "blocked" ? `편입 불가 → 안전 유지${a.riskAmount > 0 ? ` (기존 위험 ${fmtWon(a.riskAmount)}원은 그대로)` : ""}` : "위험 상품 없음 → 안전 유지"}
+                  위험 상품 없음 → 안전 유지
                 </p>
               ))}
               {!plan.feasible && (
                 <p className="note" style={{ margin: "6px 0 0", color: "var(--risk)", fontWeight: 600 }}>
-                  {plan.tooLow
-                    ? `최소 위험 비중이 ${plan.minRiskPct.toFixed(1)}%라 목표 ${plan.targetRiskPct.toFixed(1)}%는 불가 (편입 불가 계좌의 기존 위험자산 때문).`
-                    : `최대 위험 비중이 ${plan.maxRiskPct.toFixed(1)}%라 목표 ${plan.targetRiskPct.toFixed(1)}%는 불가. 목표를 낮추거나 편입 가능 계좌를 늘려줘.`}
+                  {`최대 위험 비중이 ${plan.maxRiskPct.toFixed(1)}%라 목표 ${plan.targetRiskPct.toFixed(1)}%는 불가. 목표를 낮추거나 위험 상품이 있는 계좌를 늘려줘.`}
                 </p>
               )}
             </div>

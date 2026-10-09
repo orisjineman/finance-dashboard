@@ -20,7 +20,6 @@ interface Props {
 }
 
 
-const NO_ACCESS: Record<string, "allowed" | "blocked"> = {};
 const NO_LIMIT: Record<string, number> = {};
 
 
@@ -33,7 +32,6 @@ export default function RebalancePanel({ rows, strategy, settings, onChange, onR
   const activeGroup = settings.groups.find((g) => g.id === view) ?? (view === "settings" || view === "products" ? null : settings.groups[0] ?? null);
   const activeView = activeGroup ? activeGroup.id : view === "products" ? "products" : "settings";
 
-  const riskAccess = settings.riskAccess ?? NO_ACCESS;
   const depositLimit = settings.depositLimit ?? NO_LIMIT;
 
   function setDeposit(account: string, manwon: number) {
@@ -41,13 +39,6 @@ export default function RebalancePanel({ rows, strategy, settings, onChange, onR
     if (manwon > 0) next[account] = manwon;
     else delete next[account];
     onChange({ ...settings, depositLimit: next });
-  }
-
-  function setAccess(account: string, value: string) {
-    const next = { ...riskAccess };
-    if (value === "allowed" || value === "blocked") next[account] = value;
-    else delete next[account];
-    onChange({ ...settings, riskAccess: next });
   }
 
   const grouped = new Set(settings.groups.flatMap((g) => g.accounts));
@@ -124,14 +115,13 @@ export default function RebalancePanel({ rows, strategy, settings, onChange, onR
           추천 거래의 예상 비용 계산용. 해외 상장 상품은 세율(양도세 22% 등)을 바꿔서 봐.
         </p>
         <div className="field" style={{ marginTop: 4 }}>
-          <label>계좌별 위험자산 편입</label>
+          <label>계좌별 이번에 넣을 수 있는 금액</label>
           <div className="table-scroll">
             <table className="grid" style={{ minWidth: 700 }}>
               <thead>
                 <tr>
                   <th>계좌</th>
                   <th className="num">지금 들고 있는 위험자산</th>
-                  <th>편입 설정</th>
                   <th className="num">이번에 넣을 수 있는 금액 (원)</th>
                 </tr>
               </thead>
@@ -145,13 +135,6 @@ export default function RebalancePanel({ rows, strategy, settings, onChange, onR
                       <tr key={a}>
                         <td>{a}</td>
                         <td className="num">{holds ? `${fmtWon(riskNow)}원` : "없음"}</td>
-                        <td>
-                          <select value={riskAccess[a] ?? ""} onChange={(e) => setAccess(a, e.target.value)} style={{ textAlign: "left" }}>
-                            <option value="">자동 ({holds ? "위험 상품 있음 → 가능" : "위험 상품 없음 → 불가"})</option>
-                            <option value="allowed">위험자산 편입 가능</option>
-                            <option value="blocked">위험자산 편입 불가</option>
-                          </select>
-                        </td>
                         <td className="num">
                           <MoneyInput value={depositLimit[a] ?? 0} onChange={(v) => setDeposit(a, v)} />
                         </td>
@@ -162,8 +145,7 @@ export default function RebalancePanel({ rows, strategy, settings, onChange, onR
             </table>
           </div>
           <p className="note">
-            <strong>편입 불가</strong>: 그 계좌에서 위험자산을 사지 않음 · <strong>자동</strong>: 위험 상품이 있으면 가능.{" "}
-            <strong>넣을 수 있는 금액</strong>: 다른 계좌에서 옮겨 올 수 있는 한도 (0이면 이동 안 함, 돈은 일반 계좌에서만 뺌).
+            <strong>넣을 수 있는 금액</strong>: 다른 계좌에서 옮겨 올 수 있는 한도 (0이면 이동 안 함, 돈은 일반 계좌에서만 뺌). 위험자산은 스냅샷에 위험 상품이 있는 계좌에서만 사.
           </p>
         </div>
         <p className="note">
@@ -192,7 +174,6 @@ export default function RebalancePanel({ rows, strategy, settings, onChange, onR
             taxRatePct={settings.taxRatePct}
             targetRiskPct={activeGroup.targetType === "fixed" ? activeGroup.fixedRiskPct : glideTarget}
             targetLabel={activeGroup.targetType === "fixed" ? "고정 비중" : "글리드 패스"}
-            riskAccess={riskAccess}
             depositLimit={depositLimit}
             onChange={updateGroup}
             onToggleAccount={(a, on) => toggleAccount(activeGroup.id, a, on)}

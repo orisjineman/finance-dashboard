@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import type { AssetRow, BudgetData, ChecklistItem, DashboardData, HistoryEntry, HomeSimInput, LoanInput, RebalanceSettings, SimulationAssumptions, StrategyData } from "./types";
 import { ConflictError, fetchData, saveBudget, saveHome, saveRebalance, saveChecklist, saveHistory, saveLoan, saveRows, saveSimulation, saveStrategy } from "./api";
 import OverviewPanel from "./components/OverviewPanel";
@@ -14,16 +14,17 @@ import ChecklistPanel from "./components/ChecklistPanel";
 import DataPanel from "./components/DataPanel";
 import TaxPanel from "./components/TaxPanel";
 
+// 자주 쓰는 순서로: 매달 하는 일(개요 → 잔액 → 리밸런싱 → 연말정산)과 계획 보기가 앞, 가끔 여는 것들은 뒤쪽 보조 탭
 const TABS = [
   { key: "overview", label: "개요" },
-  { key: "budget", label: "내 정보" },
   { key: "snapshot", label: "자산 스냅샷" },
-  { key: "tax", label: "연말정산" },
   { key: "rebalance", label: "리밸런싱" },
-  { key: "sim", label: "연도별 시뮬레이션" },
+  { key: "tax", label: "연말정산" },
+  { key: "sim", label: "시뮬레이션" },
   { key: "loan", label: "내 집 마련" },
-  { key: "checklist", label: "체크리스트" },
-  { key: "data", label: "데이터" },
+  { key: "budget", label: "내 정보", secondary: true },
+  { key: "checklist", label: "체크리스트", secondary: true },
+  { key: "data", label: "데이터", secondary: true },
 ] as const;
 
 // 웹(아티팩트) 빌드에는 서버가 없어서 백업·내보내기 탭을 숨긴다.
@@ -200,10 +201,13 @@ export default function App() {
           </div>
         </div>
         <nav className="tabs">
-          {VISIBLE_TABS.map((t) => (
-            <button key={t.key} className={tab === t.key ? "active" : ""} onClick={() => setTab(t.key)}>
-              {t.label}
-            </button>
+          {VISIBLE_TABS.map((t, i) => (
+            <Fragment key={t.key}>
+              {"secondary" in t && !("secondary" in VISIBLE_TABS[i - 1]) && <span className="tabs-sep" aria-hidden="true" />}
+              <button className={`${tab === t.key ? "active" : ""}${"secondary" in t ? " secondary" : ""}`} onClick={() => setTab(t.key)}>
+                {t.label}
+              </button>
+            </Fragment>
           ))}
         </nav>
       </header>

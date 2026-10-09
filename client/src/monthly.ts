@@ -42,6 +42,7 @@ export interface CloseStep {
   label: string;
   done: boolean;
   detail?: string;
+  notes?: string[]; // 단계 아래에 한 줄씩 보여줄 설명 (리밸런싱: 벗어난 묶음)
   tab: "snapshot" | "tax" | "rebalance";
   canSkip?: boolean; // '변동 없음'으로 완료 표시할 수 있는 단계
 }
@@ -72,7 +73,7 @@ export function monthlyClose(data: Pick<DashboardData, "rows" | "history" | "str
       key: "rebalance",
       label: "리밸런싱 확인",
       done: rebalanceAlerts.length === 0,
-      detail: rebalanceAlerts.length > 0 ? `${rebalanceAlerts.length}개 묶음 조정 필요` : undefined,
+      notes: rebalanceAlerts.map((a) => a.text),
       tab: "rebalance",
     },
   ];

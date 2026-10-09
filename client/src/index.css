@@ -1023,3 +1023,25 @@ table.grid tr.target-row td {
     order: 3;
   }
 }
+
+.close-list .close-note {
+  display: block;
+  color: var(--ink-soft);
+  font-weight: 400;
+  margin-top: 2px;
+}
+
+/* 보조 탭(내 정보·체크리스트·데이터): 주 탭 뒤에 구분선을 두고 덜 눈에 띄게 */
+nav.tabs .tabs-sep {
+  flex: 0 0 1px;
+  align-self: stretch;
+  margin: 4px 6px;
+  background: var(--line);
+}
+nav.tabs button.secondary {
+  background: transparent;
+  font-size: 13px;
+}
+nav.tabs button.secondary.active {
+  background: var(--accent);
+}

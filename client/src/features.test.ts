@@ -195,14 +195,14 @@ describe("computeAlerts", () => {
     expect(ids(data({ strategy, budget: raise(3), home: { ...base.home, currentIncome: 6600 } }))).toContain("home-income");
     expect(ids(data({ strategy, home: { ...base.home, currentIncome: 0 } }))).not.toContain("home-income");
   });
-  it("목표 집값이 부담·LTV 초과·보금자리론 불가면 알리고, 여유 있으면 안 알린다", () => {
+  it("목표 집값이 LTV 초과·보금자리론 불가면 알리고, 여유 있으면 안 알린다", () => {
     const base = data();
     const rows: AssetRow[] = [{ id: "1", account: "ISA", item: "S&P", category: "risk", amount: 10000, housingEligible: true }];
     const strategy = { ...base.strategy, housePurchaseDate: "2030-06-30" };
     const home = { ...base.home, currentIncome: 5000, policy: { ...base.home.policy, afterTaxRatioTable: [[5000, 0.87]] as [number, number][] } };
     const withPrice = (price: number) => ids(data({ rows, strategy, home, loan: { price, ratePct: 4 } }));
     const heavy = withPrice(70000);
-    expect(heavy).toContain("home-target-heavy");
+    expect(heavy).not.toContain("home-target-heavy"); // 상환 부담 판정은 개요 요약 카드에서 보여준다
     expect(heavy).toContain("home-target-ltv");
     expect(heavy).toContain("home-target-bogeumjari");
     const light = withPrice(15000);

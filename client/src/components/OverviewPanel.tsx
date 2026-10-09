@@ -58,6 +58,8 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
   const houseYears = yearsUntil(strategy.housePurchaseDate);
   const currentReturn = computeCurrentReturn(rows, history);
   const close = monthlyClose({ rows, history, strategy, budget }, alerts, new Date());
+  // 기록·리밸런싱 알림은 '이번 달 정리'에서 보여주니 점검할 것에서는 뺀다
+  const todoAlerts = alerts.filter((al) => !al.id.startsWith("snapshot-") && !al.id.startsWith("rebalance-"));
   const closeDone = close.steps.filter((st) => st.done).length;
   const md = (iso: string) => `${Number(iso.slice(5, 7))}/${Number(iso.slice(8))}`;
   const [closeOpen, setCloseOpen] = useState(false);
@@ -152,6 +154,24 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
                 </div>
               );
             })}
+        {target && (
+          <div className="home-verdict">
+            <div>
+              <strong>목표 {eok(target.row.price)}</strong> · 대출 {eok(target.row.loan)} · 40년 월 {fmtWon(target.row.monthly40)}원 (세후 월급의 {(target.row.ratio40 * 100).toFixed(1)}%){" "}
+              <span className={`tag ${target.row.judge40 === "ok" ? "safe" : target.row.judge40 === "tight" ? "cash" : "risk"}`}>
+                {target.row.judge40 === "ok" ? "적정" : target.row.judge40 === "tight" ? "빠듯" : "부담"}
+              </span>
+            </div>
+            <div style={{ marginTop: 2, color: "var(--ink-soft)" }}>
+              최대 적정 집값 40년 {eok(target.result.maxPrice40)} · 30년 {eok(target.result.maxPrice30)} (매수 시점 기준){" "}
+              <button className="link-btn" onClick={() => onNavigate("loan")}>
+                자세히
+              </button>
+            </div>
+          </div>
+        )}
+        {!target && loan.price > 0 && <p className="note">내 정보 탭에서 연 총보수를 넣으면 목표 집값의 상환 부담 판정이 여기에 나와.</p>}
+
             {purchase && plan.monthsLeft > 0 && (
               <p className="note" style={{ marginBottom: 0 }}>
                 매수 예정일({ym(purchase)})에 예상 가용자산 {fmtWon(plan.atPurchase)}원 · {withReturns ? "기대수익률 반영" : "수익률 없이"} · 월 {fmtWon(plan.monthly)}원씩 모으는 기준
@@ -166,11 +186,11 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
 
       <SectionTitle>점검할 것</SectionTitle>
       <div className="card">
-        {alerts.length === 0 ? (
+        {todoAlerts.length === 0 ? (
           <p className="note" style={{ margin: 0 }}>지금은 따로 점검할 게 없어.</p>
         ) : (
           <ul className="alert-list">
-            {alerts.map((al) => (
+            {todoAlerts.map((al) => (
               <li key={al.id} className={`alert ${al.level}`}>
                 <span className="alert-text">{al.text}</span>
                 {al.tab && al.tab !== "overview" && (
@@ -203,6 +223,11 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
                 <span className="close-label">
                   {st.label}
                   {st.detail && <small> {st.detail}</small>}
+                  {st.notes?.map((n) => (
+                    <small key={n} className="close-note">
+                      {n}
+                    </small>
+                  ))}
                 </span>
                 {st.canSkip && (
                   <button className="btn ghost sm" onClick={() => setEdited(st.key as MonthlyEditKey, !st.done)}>
@@ -371,24 +396,6 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
             </p>
           </div>
         )}
-
-        {target && (
-          <div className="home-verdict">
-            <div>
-              <strong>목표 {eok(target.row.price)}</strong> · 대출 {eok(target.row.loan)} · 40년 월 {fmtWon(target.row.monthly40)}원 (세후 월급의 {(target.row.ratio40 * 100).toFixed(1)}%){" "}
-              <span className={`tag ${target.row.judge40 === "ok" ? "safe" : target.row.judge40 === "tight" ? "cash" : "risk"}`}>
-                {target.row.judge40 === "ok" ? "적정" : target.row.judge40 === "tight" ? "빠듯" : "부담"}
-              </span>
-            </div>
-            <div style={{ marginTop: 2, color: "var(--ink-soft)" }}>
-              최대 적정 집값 40년 {eok(target.result.maxPrice40)} · 30년 {eok(target.result.maxPrice30)} (매수 시점 기준){" "}
-              <button className="link-btn" onClick={() => onNavigate("loan")}>
-                자세히
-              </button>
-            </div>
-          </div>
-        )}
-        {!target && loan.price > 0 && <p className="note">내 정보 탭에서 연 총보수를 넣으면 목표 집값의 상환 부담 판정이 여기에 나와.</p>}
 
         {pensionAnnualContribution > 0 && (
           <p className="note" style={{ marginTop: 12 }}>

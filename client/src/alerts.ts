@@ -138,17 +138,11 @@ export function computeAlerts(data: DashboardData, now: Date = new Date()): Aler
     }
   }
 
-  // 7) 목표 집값(내 집 마련 탭 '목표로')이 상환 부담·LTV·대출 자격에 걸리는지
+  // 7) 목표 집값(내 집 마련 탭 '목표로')이 LTV·대출 자격에 걸리는지 (상환 부담 판정은 개요 요약 카드에 늘 보이니 알림에서는 뺀다)
   const target = evaluateTarget(data, now);
   if (target) {
     const { row } = target;
     const price = `${(row.price / 10000).toFixed(row.price % 1000 === 0 ? 1 : 2)}억`;
-    const ratio40 = `${(row.ratio40 * 100).toFixed(1)}%`;
-    if (row.judge40 === "heavy") {
-      out.push({ id: "home-target-heavy", level: "warn", text: `목표 ${price}: 40년 월 상환이 세후 월급의 ${ratio40} (부담)`, tab: "loan" });
-    } else if (row.judge40 === "tight") {
-      out.push({ id: "home-target-tight", level: "info", text: `목표 ${price}: 40년 월 상환이 세후 월급의 ${ratio40} (빠듯)`, tab: "loan" });
-    }
     if (row.overLtv) {
       out.push({ id: "home-target-ltv", level: "warn", text: `목표 ${price}: 필요 대출이 LTV 한도 초과`, tab: "loan" });
     }

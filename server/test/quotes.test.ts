@@ -129,3 +129,28 @@ describe("fetchQuote / fetchQuotes (가짜 서버)", () => {
     expect(r["111111"].ok).toBe(false);
   });
 });
+
+describe("fetchPriceSeries (가짜 서버)", () => {
+  it("기간의 일별 종가를 날짜 오름차순으로 돌려준다", async () => {
+    const r = await quotes.fetchPriceSeries("KEY", "360750", "20260901");
+    expect(r.ok).toBe(true);
+    expect(r.series).toEqual([
+      { d: "2026-09-18", p: 20000 },
+      { d: "2026-09-21", p: 20100 },
+    ]);
+    expect(r.name).toBe("TIGER 미국S&P500");
+  });
+  it("ETF에 없으면 주식 서비스에서 찾는다", async () => {
+    const r = await quotes.fetchPriceSeries("KEY", "005930", "20260901");
+    expect(r.series).toEqual([{ d: "2026-09-21", p: 70000 }]);
+  });
+  it("없는 종목이나 잘못된 키는 실패와 안내를 준다", async () => {
+    expect((await quotes.fetchPriceSeries("KEY", "111111", "20260901")).error).toContain("찾지 못했어");
+    expect((await quotes.fetchPriceSeries("BADKEY", "360750", "20260901")).error).toContain("서비스 키");
+  });
+  it("시작일을 요청에 싣는다", async () => {
+    seen.length = 0;
+    await quotes.fetchPriceSeries("KEY", "360750", "20260901");
+    expect(seen[0]).toContain("beginBasDt=20260901");
+  });
+});

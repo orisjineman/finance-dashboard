@@ -2,10 +2,12 @@ import { useState } from "react";
 import type { AssetRow, BudgetData, HistoryEntry, HomeSimInput, LoanInput, RebalanceSettings, SimulationAssumptions, StrategyData } from "../types";
 import { computeCurrentReturn, computeHousingLiquid, computeLoanEquity, computeReturnTotals, computeTotals, fmtEok, fmtWon } from "../utils";
 import { yearsUntil } from "../rebalance";
-import { planHousing, reachDate, monthsToReach } from "../housing";
+import { planHousing, monthsToReach } from "../housing";
+import { goalStatus, type GoalState, type GoalStatus } from "../goal";
 import { assetsNeededAffordable, evaluateTarget } from "../home";
 import { describePeriod, yearlyReturns } from "../returns";
 import { isoDate, monthlyClose } from "../monthly";
+import { monthlyReports } from "../report";
 import type { MonthlyEditKey } from "../types";
 import LineChart from "./LineChart";
 import ProgressBar from "./ProgressBar";
@@ -60,6 +62,7 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
   const closeDone = close.steps.filter((st) => st.done).length;
   const md = (iso: string) => `${Number(iso.slice(5, 7))}/${Number(iso.slice(8))}`;
   const [closeOpen, setCloseOpen] = useState(false);
+  const lastReport = monthlyReports(history)[0] ?? null;
   // '변동 없음': 이번 달엔 새로 넣은 게 없다고 표시만 한다. '되돌리기'는 그 표시를 지워서 다시 안 한 상태로 만든다.
   function setEdited(key: MonthlyEditKey, on: boolean) {
     if (!budget.taxPrep) return;
@@ -102,26 +105,30 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
   const purchaseT = strategy.housePurchaseDate ? new Date(`${strategy.housePurchaseDate}T00:00:00`).getTime() : NaN;
   const purchase = Number.isFinite(purchaseT) ? new Date(purchaseT) : null;
   const ltvPct = Math.round(home.policy.bogeumjari.ltv * 100);
-  const monthsBetween = (a: Date, b: Date) => (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth());
-
-  // 목표 하나에 대한 한 줄 요약: 도달 시점과 매수 예정일 대비
-  function reachSummary(need: number): { text: string; tone: "safe" | "risk" | "ink" } {
-    if (housingLiquid >= need) return { text: "이미 도달", tone: "safe" };
-    const at = reachDate(plan, need, now);
-    if (!at) return { text: "지금 속도로는 못 닿음", tone: "risk" };
-    const label = `${at.getFullYear()}.${String(at.getMonth() + 1).padStart(2, "0")} 도달`;
-    if (!purchase) return { text: label, tone: "ink" };
-    const diff = monthsBetween(at, purchase);
-    return diff >= 0 ? { text: `${label} · 예정일보다 ${diff}개월 빠름`, tone: "safe" } : { text: `${label} · 예정일보다 ${-diff}개월 늦음`, tone: "risk" };
-  }
   const goals = [
     { key: "min", title: `최소 자기자금 (대출 LTV ${ltvPct}% 다 쓸 때)`, need: equityNeeded },
     ...(affordNeeded !== null ? [{ key: "afford", title: `적정 상환 기준 (40년, 월 상환 ≤ 세후 월급 ${home.targetRatioPct}%)`, need: affordNeeded }] : []),
   ];
+  const statuses = goals.map((g) => ({ ...g, status: goalStatus(plan, g.need, purchase, now) }));
   const minReachMonths = housingLiquid < equityNeeded ? monthsToReach(plan.growth, equityNeeded) : null;
   const minReachMonthsNoPension = housingLiquid < equityNeeded ? monthsToReach(planNoPension.growth, equityNeeded) : null;
   const pensionDelayMonths = minReachMonths !== null && minReachMonthsNoPension !== null ? minReachMonths - minReachMonthsNoPension : null;
   const eok = (m: number) => `${(m / 10000).toFixed(2)}억`;
+  const ym = (d: Date) => `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}`;
+
+  // 목표 하나의 상태를 문장으로: 도달 시점, 예정일과의 차이, 늦으면 월 얼마를 더 모아야 하는지
+  function goalLine(st: GoalStatus): { tag: string; tone: "safe" | "cash" | "risk"; text: string; hint: string | null } {
+    const TAG: Record<GoalState, { tag: string; tone: "safe" | "cash" | "risk" }> = {
+      reached: { tag: "도달", tone: "safe" },
+      ontrack: { tag: "순항", tone: "safe" },
+      behind: { tag: "늦음", tone: "risk" },
+      unreachable: { tag: "못 닿음", tone: "risk" },
+    };
+    const when = st.reachAt ? `${ym(st.reachAt)} 도달` : "지금 속도로는 못 닿음";
+    const diff = st.monthsEarly === null ? "" : st.monthsEarly >= 0 ? ` · 예정일보다 ${st.monthsEarly}개월 빠름` : ` · 예정일보다 ${-st.monthsEarly}개월 늦음`;
+    const hint = st.extraMonthly !== null && st.extraMonthly > 0 ? `월 ${fmtWon(Math.ceil(st.extraMonthly))}원 더 모으면 예정일에 맞아` : null;
+    return { ...TAG[st.state], text: st.state === "reached" ? "이미 도달" : when + diff, hint };
+  }
 
   function saveSummary() {
     const lines = draft.split("\n").map((l) => l.trim()).filter(Boolean);
@@ -131,6 +138,37 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
 
   return (
     <section className="panel active" id="panel-overview">
+      <SectionTitle>집 마련, 이대로면?</SectionTitle>
+      <div className="card">
+        {equityNeeded > 0 ? (
+          <>
+            {statuses.map((g) => {
+              const line = goalLine(g.status);
+              return (
+                <div className="goal-row" key={g.key}>
+                  <div className="goal-line">
+                    <span>{g.title}</span>
+                    <span>{fmtWon(g.need)}원</span>
+                  </div>
+                  <div className="goal-meta" style={{ marginTop: 4 }}>
+                    <span className={`tag ${line.tone}`}>{line.tag}</span> <span style={{ color: `var(--${line.tone})` }}>{line.text}</span>
+                    {line.hint && <span style={{ color: "var(--ink-soft)" }}> · {line.hint}</span>}
+                  </div>
+                </div>
+              );
+            })}
+            {purchase && plan.monthsLeft > 0 && (
+              <p className="note" style={{ marginBottom: 0 }}>
+                매수 예정일({ym(purchase)})에 예상 가용자산 {fmtWon(plan.atPurchase)}원 · {withReturns ? "기대수익률 반영" : "수익률 없이"} · 월 {fmtWon(plan.monthly)}원씩 모으는 기준
+              </p>
+            )}
+            {!purchase && <p className="note" style={{ marginBottom: 0 }}>내 정보 탭에서 집 매수 예정일을 넣으면 예정일과 비교해서 보여줘.</p>}
+          </>
+        ) : (
+          <p className="note" style={{ margin: 0 }}>내 정보 탭에서 목표 집값과 매수 예정일을 넣으면 여기에 이대로 모았을 때 맞는지 보여줘.</p>
+        )}
+      </div>
+
       <SectionTitle>점검할 것</SectionTitle>
       <div className="card">
         {alerts.length === 0 ? (
@@ -184,6 +222,20 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
               </li>
             ))}
           </ul>
+        )}
+        {lastReport && (
+          <p className="note" style={{ marginBottom: 0 }}>
+            지난 기록({md(lastReport.from.date)}→{md(lastReport.to.date)}) {lastReport.coversAllAssets ? "전체 자산" : "투자 항목"}{" "}
+            <strong style={{ color: lastReport.assetsDelta < 0 ? "var(--risk)" : "var(--safe)" }}>
+              {lastReport.assetsDelta < 0 ? "−" : "+"}
+              {fmtWon(Math.abs(lastReport.assetsDelta))}원
+            </strong>{" "}
+            (넣은 돈 {fmtWon(lastReport.flows)} · 운용 수익 {fmtWon(lastReport.profit)}
+            {lastReport.coversAllAssets ? ` · 그 외 ${fmtWon(lastReport.other)}` : ""}){" "}
+            <button className="link-btn" onClick={() => onNavigate("snapshot")}>
+              월간 리포트
+            </button>
+          </p>
         )}
       </div>
 
@@ -313,21 +365,16 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
           )}
         </div>
         {equityNeeded > 0 &&
-          goals.map((g) => {
-            const r = reachSummary(g.need);
-            return (
-              <div className="goal-row" key={g.key}>
-                <div className="goal-line">
-                  <span>{g.title}</span>
-                  <span>{fmtWon(g.need)}원</span>
-                </div>
-                <ProgressBar value={housingLiquid} max={g.need} valueLabel="가용자산 (지금)" maxLabel={g.title} remainingLabel="더 모아야 할 금액" />
-                <div className="goal-meta">
-                  {g.need > 0 ? Math.min(100, Math.round((housingLiquid / g.need) * 100)) : 0}% · <span style={{ color: `var(--${r.tone})` }}>{r.text}</span>
-                </div>
+          goals.map((g) => (
+            <div className="goal-row" key={g.key}>
+              <div className="goal-line">
+                <span>{g.title}</span>
+                <span>{fmtWon(g.need)}원</span>
               </div>
-            );
-          })}
+              <ProgressBar value={housingLiquid} max={g.need} valueLabel="가용자산 (지금)" maxLabel={g.title} remainingLabel="더 모아야 할 금액" />
+              <div className="goal-meta">{g.need > 0 ? Math.min(100, Math.round((housingLiquid / g.need) * 100)) : 0}%</div>
+            </div>
+          ))}
         {equityNeeded <= 0 && <p className="note">내 정보 탭에서 목표 집값을 넣으면 필요 자기자금과 진행 막대가 나와.</p>}
 
         {equityNeeded > 0 && (

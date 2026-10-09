@@ -1,9 +1,13 @@
-import { useState } from "react";
-import type { AssetRow, HistoryEntry, StrategyData } from "../types";
-import { computeCurrentReturn, computeHousingLiquid, computeReturnTotals, computeTotals, fmtEok, fmtWon, newId } from "../utils";
+import { useEffect, useState } from "react";
+import type { AssetRow, BenchmarkSetting, HistoryEntry, StrategyData } from "../types";
+import { computeCurrentReturn, computeReturnTotals, fmtEok, fmtWon, newId } from "../utils";
 import { describePeriod, overallReturn, yearlyReturns } from "../returns";
+import { fetchBenchmarkSeries } from "../api";
+import { benchmarkReturn, benchmarksOf, DEFAULT_BENCHMARKS, earliestDate, type PricePoint } from "../benchmark";
+import { makeHistoryEntry } from "../report";
 import LineChart from "./LineChart";
 import MoneyInput from "./MoneyInput";
+import MonthlyReport from "./MonthlyReport";
 import SectionTitle from "./SectionTitle";
 
 interface Props {
@@ -23,6 +27,9 @@ function pct(n: number): string {
   return `${(n * 100).toFixed(1)}%`;
 }
 
+// 내 수익률이 비교 기준보다 얼마나 높은지(낮은지) %p
+const gapLabel = (mine: number, bench: number) => `${mine >= bench ? "+" : "−"}${(Math.abs(mine - bench) * 100).toFixed(1)}%p`;
+
 const KIND_LABEL = { full: "", ytd: " (진행 중)", partial: " (일부 기간)" };
 
 export default function HistoryPanel({ rows, history, onChange, strategy, onStrategyChange }: Props) {
@@ -41,27 +48,43 @@ export default function HistoryPanel({ rows, history, onChange, strategy, onStra
   const newContribution = principal - latestPrincipal;
 
   function addEntry() {
-    const cumulativePrincipal = principal;
-    const totalValue = t.total;
-    const profit = totalValue - cumulativePrincipal;
-    const returnRate = cumulativePrincipal !== 0 ? profit / cumulativePrincipal : 0;
-    const entry: HistoryEntry = {
-      id: newId("hist"),
-      date,
-      newContribution,
-      cumulativePrincipal,
-      totalValue,
-      riskValue: t.risk,
-      safeValue: t.safe,
-      cashValue: t.cash,
-      housingLiquid: computeHousingLiquid(rows),
-      totalAssets: computeTotals(rows).total,
-      profit,
-      returnRate,
-    };
-    onChange([...history, entry]);
+    onChange([...history, makeHistoryEntry(rows, date, principal, latestPrincipal)]);
     setPrincipalInput(null);
   }
+
+  // 비교 기준: 지수 ETF는 서버에서 일별 종가를 받아 오고(최근에 받은 건 서버가 캐시), 금리는 계산만 한다.
+  const benchmarks = benchmarksOf(strategy.benchmarks);
+  const etfCodes = Array.from(new Set(benchmarks.filter((b) => b.kind === "etf" && b.ticker?.trim()).map((b) => b.ticker!.trim())));
+  const since = earliestDate(history.map((h) => h.date));
+  const codesKey = etfCodes.join(",");
+  const [seriesByCode, setSeriesByCode] = useState<Record<string, PricePoint[]>>({});
+  const [benchNote, setBenchNote] = useState<string | null>(null);
+  useEffect(() => {
+    if (!since || codesKey === "") return;
+    let cancelled = false;
+    fetchBenchmarkSeries(codesKey.split(","), since)
+      .then((res) => {
+        if (cancelled) return;
+        const next: Record<string, PricePoint[]> = {};
+        const failed: string[] = [];
+        for (const [code, r] of Object.entries(res)) {
+          if (r.ok && r.series) next[code] = r.series;
+          else failed.push(`${code}: ${r.error ?? "시세를 찾지 못했어"}`);
+        }
+        setSeriesByCode(next);
+        setBenchNote(failed.length > 0 ? failed.join(" / ") : null);
+      })
+      .catch((e) => {
+        if (!cancelled) setBenchNote(e instanceof Error ? e.message : "비교 기준 시세를 불러오지 못했어.");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [since, codesKey]);
+
+  const rateOf = (b: BenchmarkSetting, fromIso: string, toIso: string) => benchmarkReturn(b, b.ticker ? seriesByCode[b.ticker.trim()] : undefined, fromIso, toIso);
+  const setBenchmarks = (next: BenchmarkSetting[]) => onStrategyChange({ ...strategy, benchmarks: next });
+  const patchBenchmark = (id: string, patch: Partial<BenchmarkSetting>) => setBenchmarks(benchmarks.map((b) => (b.id === id ? { ...b, ...patch } : b)));
 
   function removeEntry(id: string) {
     onChange(history.filter((h) => h.id !== id));
@@ -73,6 +96,8 @@ export default function HistoryPanel({ rows, history, onChange, strategy, onStra
 
   return (
     <>
+      <MonthlyReport rows={rows} history={history} today={todayIso()} benchmarkFor={(a, z) => benchmarks.map((b) => ({ name: b.name, rate: rateOf(b, a, z) }))} />
+
       <SectionTitle>지금 투자원금 대비 수익률</SectionTitle>
       <div className="card">
         {current ? (
@@ -112,6 +137,11 @@ export default function HistoryPanel({ rows, history, onChange, strategy, onStra
                   <th className="num">넣은 돈 (원)</th>
                   <th className="num">수익 (원)</th>
                   <th className="num">수익률</th>
+                  {benchmarks.map((b) => (
+                    <th className="num" key={b.id} title="같은 기간 비교 기준 수익률">
+                      {b.name}
+                    </th>
+                  ))}
                   <th>목표 (연 {targetPct}%)</th>
                 </tr>
               </thead>
@@ -134,6 +164,21 @@ export default function HistoryPanel({ rows, history, onChange, strategy, onStra
                       <td className="num" style={{ color: tone, fontWeight: 700 }}>
                         {pct(p.rate)}
                       </td>
+                      {benchmarks.map((b) => {
+                        const br = rateOf(b, p.start.date, p.end.date);
+                        return (
+                          <td className="num" key={b.id}>
+                            {br === null ? (
+                              <span style={{ color: "var(--ink-soft)" }}>-</span>
+                            ) : (
+                              <>
+                                {pct(br)}
+                                <div style={{ fontSize: 11.5, color: p.rate >= br ? "var(--safe)" : "var(--risk)" }}>내가 {gapLabel(p.rate, br)}</div>
+                              </>
+                            )}
+                          </td>
+                        );
+                      })}
                       <td style={{ whiteSpace: "nowrap" }}>
                         <span className={`tag ${met ? "safe" : "risk"}`}>{v.kind === "full" ? (met ? "달성" : "미달") : met ? "순항" : "뒤처짐"}</span>
                         {v.kind !== "full" && <span style={{ color: "var(--ink-soft)", fontSize: 12 }}> 기간 목표 {pct(v.target)}</span>}
@@ -153,6 +198,65 @@ export default function HistoryPanel({ rows, history, onChange, strategy, onStra
             <span className="v">{pct(overall.annualRate)}</span>
           </div>
         )}
+        {benchNote && <p className="note" style={{ color: "var(--risk)" }}>{benchNote}</p>}
+        <details style={{ marginTop: 12 }}>
+          <summary>비교 기준 설정 ({benchmarks.length}개)</summary>
+          <div className="table-scroll">
+            <table className="grid" style={{ marginTop: 8, minWidth: 520 }}>
+              <thead>
+                <tr>
+                  <th>이름</th>
+                  <th>종류</th>
+                  <th>종목코드 / 연 금리(%)</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {benchmarks.map((b) => (
+                  <tr key={b.id}>
+                    <td>
+                      <input type="text" value={b.name} onChange={(e) => patchBenchmark(b.id, { name: e.target.value })} style={{ width: 150, textAlign: "left" }} />
+                    </td>
+                    <td>
+                      <select value={b.kind} onChange={(e) => patchBenchmark(b.id, { kind: e.target.value as BenchmarkSetting["kind"] })}>
+                        <option value="etf">지수 ETF</option>
+                        <option value="rate">고정 금리</option>
+                      </select>
+                    </td>
+                    <td>
+                      {b.kind === "etf" ? (
+                        <input type="text" value={b.ticker ?? ""} placeholder="예: 360750" onChange={(e) => patchBenchmark(b.id, { ticker: e.target.value })} style={{ width: 110, textAlign: "left" }} />
+                      ) : (
+                        <input type="number" step={0.1} value={b.ratePct ?? 0} onChange={(e) => patchBenchmark(b.id, { ratePct: parseFloat(e.target.value) || 0 })} style={{ width: 90 }} />
+                      )}
+                    </td>
+                    <td>
+                      <button className="btn ghost sm" onClick={() => setBenchmarks(benchmarks.filter((x) => x.id !== b.id))}>
+                        삭제
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {benchmarks.length === 0 && (
+                  <tr>
+                    <td colSpan={4} style={{ textAlign: "center", color: "var(--ink-soft)" }}>비교 기준이 없어.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+            <button className="btn ghost" onClick={() => setBenchmarks([...benchmarks, { id: newId("bm"), name: "새 기준", kind: "etf", ticker: "" }])}>
+              + 기준 추가
+            </button>
+            <button className="btn ghost" onClick={() => onStrategyChange({ ...strategy, benchmarks: DEFAULT_BENCHMARKS.map((b) => ({ ...b })) })}>
+              기본값으로
+            </button>
+          </div>
+          <p className="note">
+            지수 ETF는 그 종목 종가가 오른 비율이야 (분배금은 빠져서 실제보다 조금 낮게 나와). 시세는 리밸런싱 탭에 등록한 공공데이터포털 키로 가져오고, 키가 없으면 금리 기준만 비교돼.
+          </p>
+        </details>
         <div className="field-row" style={{ marginTop: 12 }}>
           <div className="field">
             <label>목표 연 수익률 (%)</label>

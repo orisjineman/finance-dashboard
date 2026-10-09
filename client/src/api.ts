@@ -133,3 +133,22 @@ export async function importJson(data: unknown): Promise<void> {
     throw new Error(body.error ?? `가져오기 실패 (${res.status})`);
   }
 }
+
+export interface SeriesResult {
+  ok: boolean;
+  series?: { d: string; p: number }[];
+  name?: string;
+  error?: string;
+}
+
+// 수익률 비교 기준(ETF)의 일별 종가. from(YYYY-MM-DD)부터.
+export async function fetchBenchmarkSeries(codes: string[], from: string): Promise<Record<string, SeriesResult>> {
+  const res = await fetch("/api/benchmarks", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ codes, from }),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error ?? `비교 기준 시세 조회 실패 (${res.status})`);
+  return body.results as Record<string, SeriesResult>;
+}

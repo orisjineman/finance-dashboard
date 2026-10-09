@@ -14,6 +14,7 @@ export interface AssetRow {
   costBasis?: number; // 만원, 이 행의 매입 원금. 일반 과세 계좌에서 팔 때 예상 세금을 계산하는 데 쓴다
   housingEligible: boolean; // false면 집 마련 가용자산 계산에서 제외 (연금저축·IRP 등)
   updatedAt?: string; // YYYY-MM-DD, 잔액을 마지막으로 고치거나 '확인'한 날 (월말 정리 진행 표시용)
+  maturityDate?: string; // YYYY-MM-DD, 적금·예금·채권·ISA 등의 만기일. 가까워지면 개요에 알림
 }
 
 export interface SimulationAssumptions {
@@ -59,6 +60,15 @@ export interface GlidePathRow {
   riskPct: number; // 그때의 목표 위험자산 비중(%). 지점 사이는 직선으로 이어서 계산
 }
 
+// 수익률 비교 기준: etf는 종목코드의 종가 변화(분배금 제외), rate는 고정 연 금리(예금 등)
+export interface BenchmarkSetting {
+  id: string;
+  name: string;
+  kind: "etf" | "rate";
+  ticker?: string; // kind가 etf일 때 종목코드 (예: 360750)
+  ratePct?: number; // kind가 rate일 때 연 %
+}
+
 export interface StrategyData {
   housePurchaseDate: string; // 집 매수 예정일 (ISO), 글리드 패스 계산 기준
   isaDutyEndDate: string;
@@ -66,6 +76,7 @@ export interface StrategyData {
   glidePath: GlidePathRow[];
   targetReturnPct?: number; // %, 목표 연 수익률 (없으면 7)
   recordDay?: number; // 매달 히스토리를 기록할 날 (1~28). 없거나 0이면 기록일 알림 대신 30일 경과 알림
+  benchmarks?: BenchmarkSetting[]; // 연도별 수익률과 견줄 비교 기준 (없으면 기본값)
 }
 
 export interface HistoryEntry {
@@ -78,6 +89,7 @@ export interface HistoryEntry {
   safeValue: number;
   cashValue: number;
   totalAssets?: number; // 만원, 기록 시점의 전체 자산 (통장·보증금·청약 포함)
+  accounts?: { account: string; amount: number }[]; // 만원, 기록 시점의 계좌별 잔액 합계 (월간 리포트에서 계좌별 변화를 보는 데 쓴다)
   housingLiquid?: number; // 만원, 기록 시점의 집 마련 가용자산 (집 마련 진행 그래프용)
   profit: number;
   returnRate: number;

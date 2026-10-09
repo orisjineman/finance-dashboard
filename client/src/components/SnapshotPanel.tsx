@@ -4,6 +4,8 @@ import { fmtWon, newId, uniqueAccounts } from "../utils";
 import ImportXlsxModal from "./ImportXlsxModal";
 import HistoryPanel from "./HistoryPanel";
 import { cycleStart, isoDate, rowUpToDate } from "../monthly";
+import { daysUntilDue, dueLabel } from "../checklist";
+import { MATURITY_ALERT_DAYS, MATURITY_WARN_DAYS } from "../alerts";
 import MoneyInput from "./MoneyInput";
 import SectionTitle from "./SectionTitle";
 
@@ -36,6 +38,7 @@ export default function SnapshotPanel({ rows, onChange, history, onHistoryChange
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   // '안 고친 행만'은 켠 순간의 목록으로 고정한다 (잔액을 고치자마자 행이 사라지지 않게)
   const [staleIds, setStaleIds] = useState<Set<string> | null>(null);
+  const [maturityEditId, setMaturityEditId] = useState<string | null>(null);
   const staleOnly = staleIds !== null;
   // 이번 정리 주기(기록일 3일 전부터)에 잔액을 고치거나 '확인'한 행인지
   const start = cycleStart(strategy.recordDay, new Date());
@@ -103,6 +106,37 @@ export default function SnapshotPanel({ rows, onChange, history, onHistoryChange
   function updateRow(i: number, patch: Partial<AssetRow>) {
     const next = rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r));
     onChange(next);
+  }
+
+  // 만기일: 날짜를 넣으면 가까워질 때 개요에 알림. 만기가 한 달 안이면 남은 날을 함께 보여준다.
+  function maturityCell(r: AssetRow, i: number) {
+    if (maturityEditId === r.id) {
+      return (
+        <span className="check-due-edit">
+          <input type="date" value={r.maturityDate ?? ""} autoFocus onChange={(e) => updateRow(i, { maturityDate: e.target.value || undefined })} onBlur={() => setMaturityEditId(null)} />
+          {r.maturityDate && (
+            <button className="btn ghost sm" onMouseDown={(e) => e.preventDefault()} onClick={() => { updateRow(i, { maturityDate: undefined }); setMaturityEditId(null); }}>
+              지우기
+            </button>
+          )}
+        </span>
+      );
+    }
+    if (!r.maturityDate) {
+      return (
+        <button className="btn ghost sm" title="적금·예금·채권 등의 만기일 (가까워지면 개요에 알림)" onClick={() => setMaturityEditId(r.id)}>
+          만기
+        </button>
+      );
+    }
+    const days = daysUntilDue(r.maturityDate, new Date());
+    const tone = days === null ? "" : days <= MATURITY_WARN_DAYS ? "risk" : days <= MATURITY_ALERT_DAYS ? "cash" : "";
+    return (
+      <button className={`tag check-due ${tone}`} title="만기일 바꾸기" onClick={() => setMaturityEditId(r.id)}>
+        {r.maturityDate.slice(2).replace(/-/g, ".")}
+        {days !== null && days <= MATURITY_ALERT_DAYS ? ` · ${dueLabel(days)}` : ""}
+      </button>
+    );
   }
 
   function removeRow(i: number) {
@@ -176,7 +210,7 @@ export default function SnapshotPanel({ rows, onChange, history, onHistoryChange
           <span style={{ marginLeft: 8 }}>계좌는 왼쪽 색 띠로 구분하고, 계좌가 바뀌는 곳에는 굵은 선이 그어져.</span>
         </div>
         <div className="table-scroll">
-        <table className="grid" style={{ marginTop: 8, minWidth: 820 }}>
+        <table className="grid" style={{ marginTop: 8, minWidth: 900 }}>
           <thead>
             <tr>
               <th style={{ cursor: "pointer" }} onClick={() => toggleSort("account")}>
@@ -193,6 +227,7 @@ export default function SnapshotPanel({ rows, onChange, history, onHistoryChange
                 잔액 (원){sortIndicator("amount")}
               </th>
               <th title="투자 수익률(투자원금 대비) 계산에 포함할지">수익률</th>
+              <th title="적금·예금·채권 등의 만기일">만기</th>
               <th></th>
             </tr>
           </thead>
@@ -254,6 +289,7 @@ export default function SnapshotPanel({ rows, onChange, history, onHistoryChange
                     title="투자 수익률 계산에 포함"
                   />
                 </td>
+                <td style={{ whiteSpace: "nowrap" }}>{maturityCell(r, i)}</td>
                 <td style={{ whiteSpace: "nowrap" }}>
                   {stale ? (
                     <button className="btn ghost sm" title="잔액이 그대로면 확인만 표시" onClick={() => updateRow(i, { updatedAt: isoDate(new Date()) })}>
@@ -277,7 +313,7 @@ export default function SnapshotPanel({ rows, onChange, history, onHistoryChange
             })}
             {sorted.length === 0 && (
               <tr>
-                <td colSpan={7} style={{ textAlign: "center", color: "var(--ink-soft)" }}>
+                <td colSpan={8} style={{ textAlign: "center", color: "var(--ink-soft)" }}>
                   조건에 맞는 항목이 없어.
                 </td>
               </tr>
@@ -291,6 +327,7 @@ export default function SnapshotPanel({ rows, onChange, history, onHistoryChange
               <td className="num" style={{ fontWeight: 700 }}>
                 {fmtWon(filteredTotal)}
               </td>
+              <td></td>
               <td></td>
               <td></td>
             </tr>

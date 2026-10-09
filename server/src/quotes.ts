@@ -118,3 +118,61 @@ export async function fetchQuotes(serviceKey: string, codes: string[]): Promise<
   await Promise.all(workers);
   return out;
 }
+
+export interface PricePoint {
+  d: string; // YYYY-MM-DD
+  p: number; // 원, 종가
+}
+
+export interface SeriesResult {
+  ok: boolean;
+  series?: PricePoint[]; // 날짜 오름차순
+  name?: string;
+  error?: string;
+}
+
+const ymdToIso = (s: string) => `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
+const SERIES_PAGE = 1000;
+const SERIES_MAX_PAGES = 6;
+
+// 기간(beginYmd~오늘) 동안의 일별 종가. 시세 조회와 같은 순서(ETF → 주식)로 찾고, 값이 있는 첫 서비스의 결과를 쓴다.
+export async function fetchPriceSeries(serviceKey: string, code: string, beginYmd: string): Promise<SeriesResult> {
+  const isIsin = /^[A-Z]{2}[A-Z0-9]{9}\d$/i.test(code.trim());
+  const key = normalizeServiceKey(serviceKey);
+  const filter = isIsin ? `isinCd=${encodeURIComponent(code.trim().toUpperCase())}` : `likeSrtnCd=${encodeURIComponent(normalizeCode(code))}`;
+  let lastError = "";
+
+  for (const svc of SERVICES) {
+    const byDate = new Map<string, number>();
+    let name: string | undefined;
+    try {
+      for (let page = 1; page <= SERIES_MAX_PAGES; page++) {
+        const url = `${BASE}/${svc.service}/${svc.op}?serviceKey=${key}&resultType=json&numOfRows=${SERIES_PAGE}&pageNo=${page}&beginBasDt=${beginYmd}&${filter}`;
+        const text = await (await fetch(url, { signal: AbortSignal.timeout(15000) })).text();
+        const parsed = parseResponse(text);
+        if ("error" in parsed) {
+          lastError = parsed.error;
+          break;
+        }
+        const want = normalizeCode(code);
+        for (const it of parsed.items) {
+          const matches = normalizeCode(String(it.srtnCd ?? "")) === want || String(it.isinCd ?? "").toUpperCase() === want;
+          const price = Number(it.clpr);
+          if (matches && it.basDt && Number.isFinite(price) && price > 0) {
+            byDate.set(ymdToIso(String(it.basDt)), price);
+            name = name ?? it.itmsNm;
+          }
+        }
+        const total = Number(/"totalCount"\s*:\s*"?(\d+)/.exec(text)?.[1] ?? 0);
+        if (page * SERIES_PAGE >= total) break;
+      }
+    } catch (e) {
+      lastError = e instanceof Error && e.name === "TimeoutError" ? "응답이 너무 오래 걸려서 중단했어." : "네트워크 오류로 호출하지 못했어.";
+      continue;
+    }
+    if (byDate.size > 0) {
+      return { ok: true, name, series: [...byDate].map(([d, p]) => ({ d, p })).sort((a, b) => a.d.localeCompare(b.d)) };
+    }
+  }
+  return { ok: false, error: lastError || "이 종목코드의 시세를 찾지 못했어. 코드가 맞는지 확인해줘 (해외 상장 종목은 지원하지 않아)." };
+}

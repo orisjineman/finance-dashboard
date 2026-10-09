@@ -5,6 +5,7 @@ import { evaluateTarget, incomeAt, policyStale } from "./home";
 import { computeSubscription, thisYearValues } from "./tax";
 import { lastRecordDue } from "./returns";
 import { DUE_ALERT_DAYS, daysUntilDue, dueLabel } from "./checklist";
+import { fmtWon } from "./utils";
 
 export interface Alert {
   id: string;
@@ -18,6 +19,8 @@ export const SNAPSHOT_STALE_DAYS = 30;
 export const PRICE_STALE_DAYS = 14;
 export const ISA_DUTY_WARN_DAYS = 90;
 export const PENSION_WARN_DAYS = 100;
+export const MATURITY_ALERT_DAYS = 30; // 만기일이 이 안으로 들어오면 알림
+export const MATURITY_WARN_DAYS = 7; // 이 안이거나 이미 지났으면 조치 필요(warn)
 
 function daysBetween(fromIso: string, now: Date): number | null {
   const d = new Date(`${fromIso}T00:00:00`);
@@ -160,6 +163,23 @@ export function computeAlerts(data: DashboardData, now: Date = new Date()): Aler
     const days = daysUntilDue(item.due, now);
     if (days === null || days > DUE_ALERT_DAYS) continue;
     out.push({ id: `checklist-${item.id}`, level: days < 0 ? "warn" : "info", text: `${item.text} (${dueLabel(days)})`, tab: "checklist" });
+  }
+
+  // 9) 적금·예금·채권·ISA 등 행에 적어 둔 만기일이 다가왔거나 지났는지 (만기일을 다음 날짜로 고치면 알림이 사라진다)
+  const matured = data.rows
+    .filter((r) => r.maturityDate)
+    .map((r) => ({ r, days: daysUntilDue(r.maturityDate, now) }))
+    .filter((m): m is { r: typeof m.r; days: number } => m.days !== null && m.days <= MATURITY_ALERT_DAYS)
+    .sort((a, b) => a.days - b.days);
+  for (const { r, days } of matured) {
+    const name = [r.account, r.item].filter(Boolean).join(" ");
+    const amount = r.amount > 0 ? ` · 잔액 ${fmtWon(r.amount)}원` : "";
+    out.push({
+      id: `maturity-${r.id}`,
+      level: days <= MATURITY_WARN_DAYS ? "warn" : "info",
+      text: days < 0 ? `${name} 만기가 ${-days}일 지났어${amount}. 재투자나 인출 후 만기일을 고쳐줘.` : `${name} 만기 ${dueLabel(days)}${amount}`,
+      tab: "snapshot",
+    });
   }
 
   return out;

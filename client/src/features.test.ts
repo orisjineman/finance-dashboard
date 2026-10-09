@@ -159,6 +159,18 @@ describe("computeAlerts", () => {
     expect(ids(cl("2026-11-30"))).not.toContain("checklist-x");
     expect(ids(cl("2026-10-10", true))).not.toContain("checklist-x");
   });
+  it("행에 적어 둔 만기일이 30일 안이면 알리고, 7일 안이거나 지났으면 경고한다", () => {
+    const mat = (maturityDate?: string): AssetRow => ({ id: "m", account: "예금", item: "정기예금", category: "safe", amount: 500, housingEligible: true, maturityDate });
+    const alertOf = (date?: string) => computeAlerts(data({ rows: [mat(date)] }), now).find((a) => a.id === "maturity-m");
+    expect(alertOf("2026-11-10")?.level).toBe("info");
+    expect(alertOf("2026-11-10")?.text).toContain("D-26");
+    expect(alertOf("2026-10-20")?.level).toBe("warn");
+    expect(alertOf("2026-10-10")?.text).toContain("5일 지났어");
+    expect(alertOf("2026-10-10")?.level).toBe("warn");
+    expect(alertOf("2026-12-31")).toBeUndefined();
+    expect(alertOf(undefined)).toBeUndefined();
+    expect(alertOf("2026-11-10")?.tab).toBe("snapshot");
+  });
   it("허용 오차를 벗어난 묶음을 경고한다", () => {
     const rows: AssetRow[] = [
       { id: "1", account: "ISA", item: "S&P", category: "risk", amount: 800, housingEligible: true },

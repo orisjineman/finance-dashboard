@@ -90,6 +90,19 @@ describe("시세 키 API", () => {
   });
 });
 
+describe("POST /api/benchmarks", () => {
+  const post = (body: unknown) => fetch(`${base}/api/benchmarks`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  it("서비스 키가 없으면 400", async () => {
+    expect((await post({ codes: ["360750"], from: "2026-01-01" })).status).toBe(400);
+  });
+  it("키가 있어도 종목코드나 시작일 형식이 틀리면 400", async () => {
+    expect((await fetch(`${base}/api/quotes/key`, json({ key: "abcdefghij0123456789" }))).status).toBe(200);
+    expect((await post({ codes: [], from: "2026-01-01" })).status).toBe(400);
+    expect((await post({ codes: ["360750"], from: "내일" })).status).toBe(400);
+    expect((await post({ codes: ["bad code!"], from: "2026-01-01" })).status).toBe(400);
+  });
+});
+
 describe("POST /api/import-xlsx", () => {
   it("파일이 없으면 400", async () => {
     expect((await fetch(`${base}/api/import-xlsx`, { method: "POST" })).status).toBe(400);

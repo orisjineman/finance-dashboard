@@ -974,3 +974,52 @@ table.grid tr.target-row td {
   text-decoration: underline;
   text-underline-offset: 2px;
 }
+
+/* 월간 리포트: 전체 자산 변화를 넣은 돈·운용 수익·그 외로 나눈 막대 */
+.report-bars {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0 4px;
+}
+.report-bar-row {
+  display: grid;
+  grid-template-columns: minmax(96px, 150px) 1fr minmax(110px, auto);
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+.report-bar-label {
+  color: var(--ink-soft);
+}
+.report-bar-track {
+  display: block;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--line);
+  overflow: hidden;
+}
+.report-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+.report-bar-value {
+  text-align: right;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.report-bar-hint {
+  grid-column: 1 / -1;
+  font-size: 11.5px;
+  color: var(--ink-soft);
+}
+@media (max-width: 560px) {
+  .report-bar-row {
+    grid-template-columns: 1fr auto;
+  }
+  .report-bar-track {
+    grid-column: 1 / -1;
+    order: 3;
+  }
+}

@@ -8,6 +8,7 @@ import { backupNow, listBackups, readData, replaceAll, restoreBackup, updateData
 import { parseWorkbook } from "./xlsxImport.js";
 import { getPublicDataKey, setPublicDataKey } from "./secrets.js";
 import { fetchQuotes } from "./quotes.js";
+import { getBenchmarkSeries } from "./benchmarks.js";
 import type { DashboardData } from "./types.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -173,6 +174,23 @@ export function createApp() {
       return;
     }
     res.json({ results: await fetchQuotes(key, codes) });
+  });
+
+  // 수익률 비교 기준(ETF)의 일별 종가. from(YYYY-MM-DD)부터의 값을 돌려주고, 최근에 받은 값은 캐시에서 준다.
+  app.post("/api/benchmarks", async (req, res) => {
+    const key = await getPublicDataKey();
+    if (!key) {
+      res.status(400).json({ error: "서비스 키가 아직 등록되지 않았어." });
+      return;
+    }
+    const raw: unknown = req.body?.codes;
+    const from: unknown = req.body?.from;
+    const codes = Array.isArray(raw) ? Array.from(new Set(raw.filter((c): c is string => typeof c === "string").map((c) => c.trim()).filter((c) => /^[A-Za-z0-9]{4,12}$/.test(c)))) : [];
+    if (codes.length === 0 || codes.length > 10 || typeof from !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(from)) {
+      res.status(400).json({ error: "비교할 종목코드나 시작일이 올바르지 않아." });
+      return;
+    }
+    res.json({ results: await getBenchmarkSeries(key, codes, from) });
   });
 
   app.post("/api/import-xlsx", upload.single("file"), async (req, res) => {

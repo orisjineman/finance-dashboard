@@ -12,7 +12,6 @@ import type { MonthlyEditKey } from "../types";
 import LineChart from "./LineChart";
 import ProgressBar from "./ProgressBar";
 import type { Alert } from "../alerts";
-import BudgetBreakdown from "./BudgetBreakdown";
 import SectionTitle from "./SectionTitle";
 
 interface Props {
@@ -76,10 +75,6 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
   const lastView = lastPeriod ? describePeriod(lastPeriod, new Date(), targetReturn) : null;
   const [editingSummary, setEditingSummary] = useState(false);
   const [draft, setDraft] = useState(strategy.overviewSummary.join("\n"));
-
-  const totalBudget = budget.expenseCategories.reduce((sum, c) => sum + c.amount, 0);
-  const savings = budget.monthlyNetIncome - totalBudget;
-  const savingsRate = budget.monthlyNetIncome > 0 ? (savings / budget.monthlyNetIncome) * 100 : 0;
 
   const housingLiquid = computeHousingLiquid(rows);
   const equityNeeded = computeLoanEquity(loan.price, home.policy.bogeumjari.ltv, home.closingCost);
@@ -322,34 +317,6 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
           </div>
         </div>
         <p className="note">투자 항목 {fmtWon(inv.total)}원 기준</p>
-      </div>
-
-      <SectionTitle>이번 달 월급·예산</SectionTitle>
-      <div className="card">
-        <div className="stat-grid" style={{ marginBottom: 14 }}>
-          <div className="stat">
-            <div className="label">월 실수령액</div>
-            <div className="value">
-              {fmtWon(budget.monthlyNetIncome)}
-              <small> 원</small>
-            </div>
-          </div>
-          <div className="stat">
-            <div className="label">저축 가능액 ({savingsRate.toFixed(0)}%)</div>
-            <div className="value" style={{ color: savings >= 0 ? "var(--safe)" : "var(--risk)" }}>
-              {fmtWon(savings)}
-              <small> 원</small>
-            </div>
-          </div>
-        </div>
-        <BudgetBreakdown categories={budget.expenseCategories} savings={Math.max(savings, 0)} />
-        <p className="note">
-          실수령액·상승률·예산은{" "}
-          <button className="link-btn" onClick={() => onNavigate("budget")}>
-            내 정보
-          </button>
-          에서 고쳐.
-        </p>
       </div>
 
       <SectionTitle>집 마련 자금</SectionTitle>

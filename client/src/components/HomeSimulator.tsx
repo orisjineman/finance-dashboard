@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { AssetRow, BudgetData, HomePolicy, HomeSimInput, LoanInput, RebalanceGroup, SimulationAssumptions, StrategyData } from "../types";
+import type { AssetRow, BudgetData, HomePolicy, HomeSimInput, LoanInput, SimulationAssumptions, StrategyData } from "../types";
 import { fmtWon } from "../utils";
 import { planHousing } from "../housing";
 import { computeHome, computeHomeAssets, monthlyAfterTax, netPayFactor, policyStale, totalInterest, yearExceeding, type Eligibility, type Judge } from "../home";
@@ -9,7 +9,6 @@ import { InfoValue } from "./InfoLink";
 
 interface Props {
   rows: AssetRow[];
-  groups: RebalanceGroup[];
   home: HomeSimInput;
   onChange: (home: HomeSimInput) => void;
   loan: LoanInput;
@@ -38,14 +37,14 @@ function Badge({ label, e }: { label: string; e: Eligibility }) {
 }
 
 // '내 집 마련' 탭의 시뮬레이터. 집값 후보별로 필요 대출, 월 상환액, 상환 비중, 대출 자격을 비교한다.
-export default function HomeSimulator({ rows, groups, home, onChange, loan, onLoanChange, strategy, budget, simulation, onEditInfo }: Props) {
+export default function HomeSimulator({ rows, home, onChange, loan, onLoanChange, strategy, budget, simulation, onEditInfo }: Props) {
   const now = new Date();
   const [newPrice, setNewPrice] = useState(0);
   // 매수 때까지 더 모을 돈(자동) = 개요의 '이대로 모으면' 예상 경로에서 매수 예정일까지 늘어나는 금액 (수익률 반영 토글 공유)
   const plan = planHousing(rows, budget, simulation, strategy.housePurchaseDate, now, !!home.projectWithReturns);
   const monthsLeft = plan.monthsLeft;
   const monthlySavings = plan.monthly;
-  const assets = computeHomeAssets(rows, groups, home, plan.extra);
+  const assets = computeHomeAssets(rows, home, plan.extra);
   const raisePct = budget.annualRaisePct || 0;
   // 비교 목록에 목표 집값이 없으면(예전에 따로 입력한 값) 표에 함께 보여준다
   const targetInList = home.prices.includes(loan.price);
@@ -101,14 +100,7 @@ export default function HomeSimulator({ rows, groups, home, onChange, loan, onLo
       <div className="card">
         <div className="field-row">
           <div className="field">
-            <label>가용자산 기준</label>
-            <select value={home.assetSource} onChange={(e) => set("assetSource", e.target.value as HomeSimInput["assetSource"])}>
-              <option value="housing">자산 스냅샷에서 '집자금' 체크한 전체 (개요·시뮬레이션과 같음)</option>
-              <option value="group">리밸런싱 '{assets.groupName ?? "집 자금"}' 묶음 계좌 합계</option>
-            </select>
-          </div>
-          <div className="field">
-            <label>기준 자산 (자동, 보증금 제외)</label>
+            <label>기준 자산 (자동: 스냅샷 '집자금' 체크 행, 보증금 제외)</label>
             <MoneyInput value={assets.base} readOnly />
           </div>
         </div>

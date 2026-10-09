@@ -1,4 +1,4 @@
-import type { AssetRow, DashboardData, HomePolicy, HomeSimInput, RebalanceGroup } from "./types";
+import type { AssetRow, DashboardData, HomePolicy, HomeSimInput } from "./types";
 import { monthsUntil, planHousing } from "./housing";
 
 export { monthsUntil };
@@ -115,31 +115,24 @@ export function checkDidimdolSingle(price: number, loan: number, areaM2: number,
   return { ok: reasons.length === 0, reasons };
 }
 
-// 가용자산: 집 자금 묶음(또는 '집자금' 체크 전체) 합계 + 보증금(선택) + 추가 가용자산 - 부대비용
+// 가용자산: 스냅샷에서 '집자금' 체크한 행 합계 + 보증금(선택) + 추가 가용자산 - 부대비용
 export interface HomeAssets {
   base: number; // 보증금을 뺀 기준 자산
   extra: number; // 매수 때까지 더 모을 돈 (자동이면 월 저축액 × 남은 달)
   deposit: number; // 항목 이름에 '보증금'이 든 행의 합계
   depositItems: string[];
   equity: number; // 실투입금
-  groupName: string | null;
-}
-
-export function findHouseGroup(groups: RebalanceGroup[]): RebalanceGroup | null {
-  return groups.find((g) => g.name.includes("집")) ?? groups.find((g) => g.targetType === "glide") ?? null;
 }
 
 // autoExtra: extraMode가 auto일 때 쓸 '매수 때까지 더 모을 돈' (보통 월 저축액 × 남은 달)
-export function computeHomeAssets(rows: AssetRow[], groups: RebalanceGroup[], input: HomeSimInput, autoExtra = 0): HomeAssets {
+export function computeHomeAssets(rows: AssetRow[], input: HomeSimInput, autoExtra = 0): HomeAssets {
   const isDeposit = (r: AssetRow) => r.item.includes("보증금");
-  const group = findHouseGroup(groups);
-  const inBase = (r: AssetRow) => (input.assetSource === "group" ? !!group && group.accounts.includes(r.account) : r.housingEligible);
-  const base = rows.filter((r) => inBase(r) && !isDeposit(r)).reduce((s, r) => s + r.amount, 0);
+  const base = rows.filter((r) => r.housingEligible && !isDeposit(r)).reduce((s, r) => s + r.amount, 0);
   const deposits = rows.filter(isDeposit);
   const deposit = deposits.reduce((s, r) => s + r.amount, 0);
   const extra = input.extraMode === "auto" ? Math.max(0, autoExtra) : input.extraAssets || 0;
   const equity = base + (input.includeDeposit ? deposit : 0) + extra - (input.closingCost || 0);
-  return { base, extra, deposit, depositItems: deposits.map((r) => r.item), equity, groupName: group?.name ?? null };
+  return { base, extra, deposit, depositItems: deposits.map((r) => r.item), equity };
 }
 
 export interface PriceRow {
@@ -231,7 +224,7 @@ export function evaluateTarget(data: Pick<DashboardData, "rows" | "rebalance" | 
   if (!home || !(loan.price > 0) || !(home.currentIncome > 0)) return null;
   // '더 모을 돈'(자동)은 개요 예상 경로와 같은 계산 (수익률 반영 토글 포함)
   const autoExtra = planHousing(data.rows, data.budget, data.simulation, data.strategy.housePurchaseDate, now, !!home.projectWithReturns).extra;
-  const assets = computeHomeAssets(data.rows, data.rebalance.groups, home, autoExtra);
+  const assets = computeHomeAssets(data.rows, home, autoExtra);
   const factor = netPayFactor(home, data.budget.monthlyNetIncome);
   const result = computeHome({ ...home, prices: [loan.price] }, assets.equity, loan.ratePct, data.strategy.housePurchaseDate, now, data.budget.annualRaisePct, factor);
   return result.rows[0] ? { result, row: result.rows[0], equity: assets.equity } : null;

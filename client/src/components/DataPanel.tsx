@@ -129,14 +129,11 @@ export default function DataPanel() {
       <SectionTitle>내보내기</SectionTitle>
       <div className="card">
         <p className="note" style={{ marginTop: 0 }}>
-          JSON은 전체 데이터(다시 가져오기 가능), 엑셀은 스냅샷·히스토리 표 보기용.
+          전체 데이터를 JSON으로 내려받아. 위 백업 복원이나 아래 가져오기로 다시 쓸 수 있어.
         </p>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <a className="btn ghost" href="/api/export" download>
             JSON으로 내보내기
-          </a>
-          <a className="btn ghost" href="/api/export.xlsx" download>
-            엑셀로 내보내기
           </a>
         </div>
       </div>

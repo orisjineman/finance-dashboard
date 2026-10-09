@@ -26,6 +26,7 @@ export function migrate(parsed: Partial<DashboardData> & Record<string, unknown>
   delete strategy.cmaLadder;
   const home = { ...d.home, ...(parsed.home ?? {}) } as DashboardData["home"] & Record<string, unknown>;
   delete home.raisePct; // 인상률은 내 정보 탭(budget.annualRaisePct) 하나로 통일
+  delete home.assetSource; // 가용자산 기준은 스냅샷의 '집자금' 체크 하나로 통일
   // LTV는 정책 설정(home.policy.bogeumjari.ltv) 하나로 통일. 예전 loan.ltvPct만 있으면 그 값을 옮겨 온다.
   const loan = { ...d.loan, ...(parsed.loan ?? {}) } as DashboardData["loan"] & Record<string, unknown>;
   const oldLtvPct = typeof loan.ltvPct === "number" ? loan.ltvPct : undefined;
@@ -36,7 +37,11 @@ export function migrate(parsed: Partial<DashboardData> & Record<string, unknown>
     ...d,
     ...parsed,
     rows: (parsed.rows ?? d.rows).map((r) => ({ ...r, housingEligible: r.housingEligible ?? true })),
-    simulation: { ...d.simulation, ...(parsed.simulation ?? {}) },
+    simulation: (() => {
+      const sim = { ...d.simulation, ...(parsed.simulation ?? {}) } as DashboardData["simulation"] & Record<string, unknown>;
+      delete sim.scenarios; // 삭제된 '시나리오 비교'
+      return sim;
+    })(),
     loan,
     budget: (() => {
       const t = defaultTaxPrep();

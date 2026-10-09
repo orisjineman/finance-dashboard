@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { AssetRow, HomePolicy, HomeSimInput, RebalanceGroup } from "./types";
+import type { AssetRow, HomePolicy, HomeSimInput } from "./types";
 import {
   afterTaxRatio,
   checkBogeumjari,
@@ -37,7 +37,6 @@ const policy: HomePolicy = {
 };
 
 const input = (p: Partial<HomeSimInput> = {}): HomeSimInput => ({
-  assetSource: "group",
   includeDeposit: true,
   extraAssets: 0,
   closingCost: 1500,
@@ -155,26 +154,15 @@ describe("가용자산", () => {
     { id: "4", account: "예금", item: "통장", category: "cash", amount: 1000, housingEligible: true },
     { id: "5", account: "IRP", item: "펀드", category: "risk", amount: 9999, housingEligible: false },
   ];
-  const groups: RebalanceGroup[] = [
-    { id: "g", name: "집 자금", accounts: ["ISA", "CMA"], targetType: "glide", fixedRiskPct: 0, note: "" },
-    { id: "r", name: "노후 자금", accounts: ["IRP"], targetType: "fixed", fixedRiskPct: 100, note: "" },
-  ];
-
-  it("집 자금 묶음 + 보증금 + 추가 − 부대비용", () => {
-    const a = computeHomeAssets(rows, groups, input({ extraAssets: 500 }));
-    expect(a.base).toBe(15000);
+  it("'집자금' 체크한 행 + 보증금 + 추가 − 부대비용 (보증금은 두 번 세지 않는다)", () => {
+    const a = computeHomeAssets(rows, input({ extraAssets: 500 }));
+    expect(a.base).toBe(16000);
     expect(a.deposit).toBe(3000);
     expect(a.depositItems).toEqual(["월세보증금"]);
-    expect(a.equity).toBe(15000 + 3000 + 500 - 1500);
-    expect(a.groupName).toBe("집 자금");
+    expect(a.equity).toBe(16000 + 3000 + 500 - 1500);
   });
   it("보증금을 빼면 그만큼 줄어든다", () => {
-    expect(computeHomeAssets(rows, groups, input({ includeDeposit: false })).equity).toBe(15000 - 1500);
-  });
-  it("'집자금' 체크 전체 기준이면 보증금을 두 번 세지 않는다", () => {
-    const a = computeHomeAssets(rows, groups, input({ assetSource: "housing" }));
-    expect(a.base).toBe(16000);
-    expect(a.equity).toBe(16000 + 3000 - 1500);
+    expect(computeHomeAssets(rows, input({ includeDeposit: false })).equity).toBe(16000 - 1500);
   });
 });
 
@@ -217,7 +205,7 @@ describe("evaluateTarget", () => {
       { id: "2", account: "기타", item: "월세보증금", category: "cash" as const, amount: 3000, housingEligible: true },
     ],
     rebalance: { tolerancePct: 5, groups: [] },
-    home: input({ assetSource: "housing", currentIncome: 5000 }),
+    home: input({ currentIncome: 5000 }),
     loan: { price: 40000, ratePct: 4 },
     strategy: { housePurchaseDate: "2030-06-30", isaDutyEndDate: "", overviewSummary: [], glidePath: [] },
     budget: { monthlyNetIncome: 0, annualRaisePct: 3, expenseCategories: [], pensionAnnualContribution: 0, pensionTaxCreditRate: 16.5 },
@@ -246,9 +234,9 @@ describe("매수 때까지 더 모을 돈 (자동)", () => {
     expect(monthsUntil("", now)).toBe(0);
   });
   it("auto면 넘겨준 값(월 저축액 × 남은 달), manual이면 입력값을 쓴다", () => {
-    expect(computeHomeAssets(rows, [], input({ assetSource: "housing", extraMode: "auto", extraAssets: 999 }), 4500).extra).toBe(4500);
-    expect(computeHomeAssets(rows, [], input({ assetSource: "housing", extraMode: "manual", extraAssets: 999 }), 4500).extra).toBe(999);
-    expect(computeHomeAssets(rows, [], input({ assetSource: "housing", extraAssets: 999 }), 4500).extra).toBe(999); // 예전 데이터는 manual로 본다
+    expect(computeHomeAssets(rows, input({ extraMode: "auto", extraAssets: 999 }), 4500).extra).toBe(4500);
+    expect(computeHomeAssets(rows, input({ extraMode: "manual", extraAssets: 999 }), 4500).extra).toBe(999);
+    expect(computeHomeAssets(rows, input({ extraAssets: 999 }), 4500).extra).toBe(999); // 예전 데이터는 manual로 본다
   });
 });
 
@@ -258,7 +246,7 @@ describe("assetsNeededAffordable", () => {
     const base = {
       rows: [{ id: "1", account: "ISA", item: "S&P", category: "risk" as const, amount: 15000, housingEligible: true }],
       rebalance: { tolerancePct: 5, groups: [] },
-      home: input({ assetSource: "housing", currentIncome: 5000, extraMode: "manual", closingCost: 1000 }),
+      home: input({ currentIncome: 5000, extraMode: "manual", closingCost: 1000 }),
       loan: { price: 50000, ratePct: 4 },
       strategy: { housePurchaseDate: "2030-06-30", isaDutyEndDate: "", overviewSummary: [], glidePath: [] },
       budget: { monthlyNetIncome: 0, annualRaisePct: 3, expenseCategories: [], pensionAnnualContribution: 0, pensionTaxCreditRate: 16.5 },
@@ -300,7 +288,7 @@ describe("실수령 보정", () => {
     const data = {
       rows: [{ id: "1", account: "ISA", item: "S&P", category: "risk" as const, amount: 15000, housingEligible: true }],
       rebalance: { tolerancePct: 5, groups: [] },
-      home: input({ assetSource: "housing", currentIncome: 5000, extraMode: "manual" }),
+      home: input({ currentIncome: 5000, extraMode: "manual" }),
       loan: { price: 40000, ratePct: 4 },
       strategy: { housePurchaseDate: "2030-06-30", isaDutyEndDate: "", overviewSummary: [], glidePath: [] },
       budget: { monthlyNetIncome: 300, annualRaisePct: 0, expenseCategories: [], pensionAnnualContribution: 0, pensionTaxCreditRate: 16.5 },

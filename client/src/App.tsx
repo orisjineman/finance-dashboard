@@ -9,7 +9,7 @@ import { deriveData } from "./derive";
 import { isoDate, stampRowUpdates } from "./monthly";
 import RebalancePanel from "./components/RebalancePanel";
 import SimulationPanel from "./components/SimulationPanel";
-import LoanPanel from "./components/LoanPanel";
+import HomeSimulator from "./components/HomeSimulator";
 import ChecklistPanel from "./components/ChecklistPanel";
 import DataPanel from "./components/DataPanel";
 import TaxPanel from "./components/TaxPanel";
@@ -256,18 +256,20 @@ export default function App() {
           <SimulationPanel rows={data.rows} sim={data.simulation} onChange={updateSim} annualRaisePct={data.budget.annualRaisePct} budget={data.budget} />
         )}
         {tab === "loan" && (
-          <LoanPanel
-            rows={data.rows}
-            loan={data.loan}
-            onChange={updateLoan}
-            groups={data.rebalance.groups}
-            home={data.home}
-            onHomeChange={updateHome}
-            strategy={data.strategy}
-            budget={data.budget}
-            simulation={data.simulation}
-            onEditInfo={() => setTab("budget")}
-          />
+          <section className="panel active" id="panel-loan">
+            <HomeSimulator
+              rows={data.rows}
+              home={data.home}
+              onChange={updateHome}
+              loan={data.loan}
+              onLoanChange={updateLoan}
+              strategy={data.strategy}
+              budget={data.budget}
+              simulation={data.simulation}
+              onEditInfo={() => setTab("budget")}
+            />
+            <p className="note">지금 진행 상황과 도달 시점은 개요의 '집 마련 자금'에서 봐.</p>
+          </section>
         )}
         {tab === "checklist" && <ChecklistPanel items={data.checklist} onChange={updateChecklist} budget={data.budget} income={data.home.currentIncome} />}
         {tab === "data" && <DataPanel />}

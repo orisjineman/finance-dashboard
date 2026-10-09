@@ -90,7 +90,6 @@ export function defaultData(): DashboardData {
       ]
     },
     home: {
-      assetSource: "housing",
       includeDeposit: true,
       projectWithReturns: false,
       extraMode: "auto",

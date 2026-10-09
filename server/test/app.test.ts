@@ -163,14 +163,4 @@ describe("백업·복원·내보내기·가져오기", () => {
     const { backups } = (await (await fetch(`${base}/api/backups`)).json()) as { backups: { name: string }[] };
     expect(backups.some((b) => b.name.endsWith("-before-import.json"))).toBe(true);
   });
-
-  it("엑셀 내보내기는 자산·히스토리 시트를 가진 xlsx를 준다", async () => {
-    const res = await fetch(`${base}/api/export.xlsx`);
-    expect(res.headers.get("content-type")).toContain("spreadsheetml");
-    const XLSX = await import("xlsx");
-    const wb = XLSX.read(Buffer.from(await res.arrayBuffer()), { type: "buffer" });
-    expect(wb.SheetNames).toEqual(["자산", "히스토리"]);
-    const first = XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets["자산"])[0];
-    if (first) expect(typeof first["잔액(원)"]).toBe("number");
-  });
 });

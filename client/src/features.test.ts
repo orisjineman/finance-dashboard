@@ -3,7 +3,7 @@ import type { AssetRow, BudgetData, DashboardData, SimulationAssumptions } from 
 import type { RebalanceTrade } from "./rebalance";
 import { computePensionCredit, paidThisYear } from "./pension";
 import { estimateCosts } from "./costs";
-import { evaluateScenario, runSimulation } from "./simulation";
+import { runSimulation } from "./simulation";
 import { computeAlerts } from "./alerts";
 
 const now = new Date("2026-10-15T00:00:00");
@@ -86,8 +86,6 @@ describe("시뮬레이션", () => {
       expect(r.total).toBeCloseTo(without[i].total + 500, 9);
       expect(r.profit).toBeCloseTo(without[i].profit, 9);
     });
-    const o = evaluateScenario({ base: 1000, riskPct0: 1, raisePct: 0, idle: 500 }, sim, null);
-    expect(o.final).toBeCloseTo(without[2].total + 500, 9);
   });
   it("연봉 상승률을 적립액에 복리로 반영한다", () => {
     const r = runSimulation(0, 1, { ...sim, applySalaryRaise: true }, 10);
@@ -98,13 +96,6 @@ describe("시뮬레이션", () => {
   it("기간은 1~40년으로 제한한다", () => {
     expect(runSimulation(0, 0, { ...sim, years: 99 }, 0)).toHaveLength(40);
     expect(runSimulation(0, 0, { ...sim, years: 0 }, 0)).toHaveLength(10); // 0이면 기본 10년
-  });
-  it("시나리오는 수익률·적립액만 덮어쓰고 결과를 비교할 수 있다", () => {
-    const o = { base: 1000, riskPct0: 1, raisePct: 0 };
-    const base = evaluateScenario(o, sim, null);
-    const better = evaluateScenario(o, sim, { id: "s", name: "낙관", riskRate: 20, safeRate: 0, annualContribution: 100, contributionRiskRatio: 100 });
-    expect(better.final).toBeGreaterThan(base.final);
-    expect(better.results).toHaveLength(base.results.length);
   });
 });
 
@@ -119,7 +110,6 @@ describe("computeAlerts", () => {
     budget: budget({ pensionPaidThisYear: 900, pensionPaidYear: 2026 }),
     rebalance: { tolerancePct: 5, groups: [] },
     home: {
-      assetSource: "group",
       includeDeposit: true,
       extraAssets: 0,
       closingCost: 0,
@@ -209,7 +199,7 @@ describe("computeAlerts", () => {
     const base = data();
     const rows: AssetRow[] = [{ id: "1", account: "ISA", item: "S&P", category: "risk", amount: 10000, housingEligible: true }];
     const strategy = { ...base.strategy, housePurchaseDate: "2030-06-30" };
-    const home = { ...base.home, assetSource: "housing" as const, currentIncome: 5000, policy: { ...base.home.policy, afterTaxRatioTable: [[5000, 0.87]] as [number, number][] } };
+    const home = { ...base.home, currentIncome: 5000, policy: { ...base.home.policy, afterTaxRatioTable: [[5000, 0.87]] as [number, number][] } };
     const withPrice = (price: number) => ids(data({ rows, strategy, home, loan: { price, ratePct: 4 } }));
     const heavy = withPrice(70000);
     expect(heavy).toContain("home-target-heavy");

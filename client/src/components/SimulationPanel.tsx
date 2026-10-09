@@ -1,8 +1,7 @@
 import { useMemo } from "react";
-import type { AssetRow, BudgetData, SimulationAssumptions, SimulationScenario } from "../types";
-import { autoAnnualContribution, computeReturnTotals, computeTotals, fmtEok, fmtWon, newId } from "../utils";
-import { evaluateScenario, runSimulation } from "../simulation";
-import LineChart from "./LineChart";
+import type { AssetRow, BudgetData, SimulationAssumptions } from "../types";
+import { autoAnnualContribution, computeReturnTotals, computeTotals, fmtEok, fmtWon } from "../utils";
+import { runSimulation } from "../simulation";
 import MoneyInput from "./MoneyInput";
 import SectionTitle from "./SectionTitle";
 
@@ -28,26 +27,7 @@ export default function SimulationPanel({ rows, sim: stored, onChange, annualRai
   const startTotal = t.total + idle;
   const results = useMemo(() => runSimulation(t.total, riskPct0, sim, annualRaisePct, idle), [t.total, riskPct0, sim, annualRaisePct, idle]);
 
-  const scenarios = sim.scenarios ?? [];
-  const evalCtx = { base: t.total, riskPct0, raisePct: annualRaisePct, idle };
-  const outcomes = useMemo(
-    () => [evaluateScenario(evalCtx, sim, null), ...scenarios.map((sc) => evaluateScenario(evalCtx, sim, sc))],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [t.total, riskPct0, sim, annualRaisePct, idle]
-  );
-  const names = ["현재 입력값", ...scenarios.map((sc) => sc.name || "이름 없음")];
-  const palette = ["var(--accent)", "var(--gold)", "var(--safe)", "var(--ink-soft)", "var(--risk)"];
   const thisYear = new Date().getFullYear();
-
-  function setScenario(id: string, patch: Partial<SimulationScenario>) {
-    set("scenarios", scenarios.map((sc) => (sc.id === id ? { ...sc, ...patch } : sc)));
-  }
-  function addScenario() {
-    set("scenarios", [
-      ...scenarios,
-      { id: newId("sc"), name: `시나리오 ${scenarios.length + 1}`, riskRate: sim.riskRate, safeRate: sim.safeRate, annualContribution: sim.annualContribution, contributionRiskRatio: sim.contributionRiskRatio },
-    ]);
-  }
 
   const maxVal = Math.max(...results.map((r) => r.total), 1);
   const showEvery = sim.years > 12 ? Math.ceil(sim.years / 12) : 1;
@@ -180,105 +160,6 @@ export default function SimulationPanel({ rows, sim: stored, onChange, annualRai
         </table>
 </div>
         <p className="note">복리 · 매년 초 적립 · 1년차 = 지금부터 1년 뒤. 참고용 시나리오야.</p>
-      </div>
-
-      <SectionTitle>시나리오 비교</SectionTitle>
-      <div className="card">
-        <p className="note" style={{ marginTop: 0 }}>
-          수익률·적립액·적립 위험 비중만 바꿔서 위쪽 가정과 비교해.
-        </p>
-        <div className="table-scroll">
-          <table className="grid" style={{ minWidth: 640 }}>
-            <thead>
-              <tr>
-                <th>이름</th>
-                <th className="num">위험 수익률 (%)</th>
-                <th className="num">안전 수익률 (%)</th>
-                <th className="num">연간 적립액 (원)</th>
-                <th className="num">적립 위험 비중 (%)</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>현재 입력값</td>
-                <td className="num">{sim.riskRate}</td>
-                <td className="num">{sim.safeRate}</td>
-                <td className="num">{fmtWon(sim.annualContribution)}</td>
-                <td className="num">{sim.contributionRiskRatio}</td>
-                <td></td>
-              </tr>
-              {scenarios.map((sc) => (
-                <tr key={sc.id}>
-                  <td>
-                    <input type="text" value={sc.name} onChange={(e) => setScenario(sc.id, { name: e.target.value })} style={{ width: 120, textAlign: "left" }} />
-                  </td>
-                  <td className="num">
-                    <input type="number" step={0.5} value={sc.riskRate} onChange={(e) => setScenario(sc.id, { riskRate: parseFloat(e.target.value) || 0 })} />
-                  </td>
-                  <td className="num">
-                    <input type="number" step={0.1} value={sc.safeRate} onChange={(e) => setScenario(sc.id, { safeRate: parseFloat(e.target.value) || 0 })} />
-                  </td>
-                  <td className="num">
-                    <MoneyInput value={sc.annualContribution} onChange={(v) => setScenario(sc.id, { annualContribution: v })} />
-                  </td>
-                  <td className="num">
-                    <input type="number" value={sc.contributionRiskRatio} onChange={(e) => setScenario(sc.id, { contributionRiskRatio: parseFloat(e.target.value) || 0 })} />
-                  </td>
-                  <td>
-                    <button className="btn ghost sm" onClick={() => set("scenarios", scenarios.filter((x) => x.id !== sc.id))}>
-                      삭제
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        {scenarios.length < 4 && (
-          <button className="btn ghost" style={{ marginTop: 10 }} onClick={addScenario}>
-            + 시나리오 추가
-          </button>
-        )}
-
-        <div className="table-scroll">
-          <table className="grid" style={{ marginTop: 16, minWidth: 560 }}>
-            <thead>
-              <tr>
-                <th>시나리오</th>
-                <th className="num">{sim.years}년 뒤 자산</th>
-                <th className="num">누적 수익</th>
-              </tr>
-            </thead>
-            <tbody>
-              {outcomes.map((o, i) => (
-                <tr key={names[i] + i}>
-                  <td>
-                    <span className="swatch" style={{ background: palette[i % palette.length], display: "inline-block", marginRight: 8 }} />
-                    {names[i]}
-                  </td>
-                  <td className="num">{fmtWon(o.final)}원</td>
-                  <td className="num">{fmtWon(o.profit)}원</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div style={{ marginTop: 14 }}>
-          <LineChart
-            yFormat={fmtEok}
-            valueFormat={(v) => `${fmtWon(v)}원`}
-            series={outcomes.map((o, i) => ({
-              label: names[i],
-              color: palette[i % palette.length],
-              dots: false,
-              points: [{ t: new Date(thisYear, 0, 1).getTime(), y: startTotal }, ...o.results.map((r) => ({ t: new Date(thisYear + r.year, 0, 1).getTime(), y: r.total }))],
-            }))}
-          />
-        </div>
-        <p className="note">
-          장기 자산 성장용. 집 마련은 개요·내 집 마련 탭에서 봐.
-        </p>
       </div>
     </section>
   );

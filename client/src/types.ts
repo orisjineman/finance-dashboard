@@ -24,18 +24,8 @@ export interface SimulationAssumptions {
   riskRate: number; // %
   safeRate: number; // %
   contributionRiskRatio: number; // %
-  scenarios?: SimulationScenario[]; // 시나리오 비교용 추가 가정 (현재 입력값과 나란히 비교)
   baseMode?: "invest" | "total"; // 시뮬레이션 시작 자산: 투자자산(기본) / 전체 자산 (통장·보증금 등은 수익 0%)
   applySalaryRaise: boolean; // 매년 적립액에 연봉 상승률을 복리로 반영할지
-}
-
-export interface SimulationScenario {
-  id: string;
-  name: string;
-  riskRate: number; // %
-  safeRate: number; // %
-  annualContribution: number; // 만원
-  contributionRiskRatio: number; // %
 }
 
 export interface LoanInput {
@@ -181,7 +171,6 @@ export interface HomePolicy {
 }
 
 export interface HomeSimInput {
-  assetSource: "group" | "housing"; // 가용자산 기준: 자산 스냅샷에서 '집자금' 체크한 전체(기본, 개요·시뮬레이션과 같음) / 집 자금 리밸런싱 묶음
   includeDeposit: boolean; // 보증금(항목 이름에 '보증금'이 들어간 행)을 가용자산에 더할지
   projectWithReturns?: boolean; // 집 마련 예상 경로에 시뮬레이션 탭의 기대수익률을 반영할지 (기본: 반영 안 함)
   extraMode?: "auto" | "manual"; // auto: 집 마련 월 저축액 × 매수까지 남은 달 (개요 예상 경로와 같은 값), manual: extraAssets 그대로

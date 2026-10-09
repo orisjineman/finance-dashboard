@@ -1,4 +1,4 @@
-import type { SimulationAssumptions, SimulationScenario } from "./types";
+import type { SimulationAssumptions } from "./types";
 
 export interface YearResult {
   year: number;
@@ -31,24 +31,4 @@ export function runSimulation(base: number, riskPct0: number, sim: SimulationAss
     out.push({ year: y, contribution, total, profit: total - principal });
   }
   return out;
-}
-
-export interface ScenarioOutcome {
-  results: YearResult[];
-  final: number;
-  profit: number;
-}
-
-// 기본 가정(sim)에 시나리오의 수익률·적립 가정을 덮어써서 결과를 낸다. scenario 가 null 이면 sim 그대로.
-export function evaluateScenario(
-  o: { base: number; riskPct0: number; raisePct: number; idle?: number },
-  sim: SimulationAssumptions,
-  scenario: SimulationScenario | null
-): ScenarioOutcome {
-  const merged: SimulationAssumptions = scenario
-    ? { ...sim, riskRate: scenario.riskRate, safeRate: scenario.safeRate, annualContribution: scenario.annualContribution, contributionRiskRatio: scenario.contributionRiskRatio }
-    : sim;
-  const results = runSimulation(o.base, o.riskPct0, merged, o.raisePct, o.idle ?? 0);
-  const last = results[results.length - 1];
-  return { results, final: last.total, profit: last.profit };
 }

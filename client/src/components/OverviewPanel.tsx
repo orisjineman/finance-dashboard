@@ -12,6 +12,7 @@ import type { MonthlyEditKey } from "../types";
 import LineChart from "./LineChart";
 import ProgressBar from "./ProgressBar";
 import type { Alert } from "../alerts";
+import EmergencyCard from "./EmergencyCard";
 import SectionTitle from "./SectionTitle";
 
 interface Props {
@@ -258,6 +259,8 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
           </p>
         )}
       </div>
+
+      <EmergencyCard rows={rows} budget={budget} onBudgetChange={onBudgetChange} />
 
       <SectionTitle>지금 상태</SectionTitle>
       <div className="stat-grid">

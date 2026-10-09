@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import type { AssetRow, HistoryEntry } from "../types";
 import { fmtWon } from "../utils";
-import { buildReport, makeHistoryEntry, monthlyReports, type MonthlyReport as Report } from "../report";
+import { accountJumps, buildReport, makeHistoryEntry, monthlyReports, reportText, type MonthlyReport as Report } from "../report";
 import SectionTitle from "./SectionTitle";
 
 export interface BenchmarkRate {
@@ -24,10 +24,23 @@ const tone = (v: number) => (v < 0 ? "var(--risk)" : v > 0 ? "var(--safe)" : "va
 const pct = (r: number) => `${r >= 0 ? "+" : "−"}${(Math.abs(r) * 100).toFixed(1)}%`;
 
 // 이웃한 두 기록 사이에 자산이 얼마나, 왜 바뀌었는지. '지금'을 고르면 마지막 기록 이후 변화를 기록 전에 미리 본다.
+// 잔액이 크게 달라진 계좌 목록 (입력 실수 점검용). 기록 전 미리보기와 기록 추가 버튼 위에서도 쓴다.
+export function JumpWarning({ jumps }: { jumps: ReturnType<typeof accountJumps> }) {
+  if (jumps.length === 0) return null;
+  return (
+    <div className="alert warn" style={{ margin: "10px 0" }}>
+      <span className="alert-text">
+        잔액이 크게 달라진 계좌: {jumps.map((j) => `${j.account || "(이름 없음)"} ${j.pct === Infinity ? "새로 생김" : `${j.pct > 0 ? "+" : "−"}${Math.abs(j.pct * 100).toFixed(0)}%`}`).join(", ")}. 입력이 맞는지 확인해줘.
+      </span>
+    </div>
+  );
+}
+
 export default function MonthlyReport({ rows, history, today, benchmarkFor }: Props) {
   const reports = useMemo(() => monthlyReports(history), [history]);
   const sorted = useMemo(() => [...history].sort((a, b) => a.date.localeCompare(b.date)), [history]);
   const latest = sorted.at(-1);
+  const [copied, setCopied] = useState(false);
   const [pick, setPick] = useState<string | null>(null); // null이면 가장 최근 기록 구간 (기록이 하나뿐이면 '지금' 미리보기)
 
   const live: Report | null = useMemo(() => {
@@ -57,6 +70,7 @@ export default function MonthlyReport({ rows, history, today, benchmarkFor }: Pr
     ...(report.coversAllAssets ? [{ key: "other", label: "그 외 (통장·보증금 등)", value: report.other, hint: undefined }] : []),
   ];
   const maxAbs = Math.max(1e-9, ...parts.map((p) => Math.abs(p.value)));
+  const jumps = accountJumps(report.from, report.to);
   const bench = report.rate !== null ? benchmarkFor(report.from.date, report.to.date) : [];
 
   return (
@@ -112,6 +126,23 @@ export default function MonthlyReport({ rows, history, today, benchmarkFor }: Pr
             </span>
           </div>
         )}
+
+        <JumpWarning jumps={jumps} />
+
+        <button
+          className="btn ghost sm"
+          onClick={() => {
+            navigator.clipboard?.writeText(reportText(report)).then(
+              () => {
+                setCopied(true);
+                setTimeout(() => setCopied(false), 1500);
+              },
+              () => undefined
+            );
+          }}
+        >
+          {copied ? "복사했어 ✓" : "요약 복사"}
+        </button>
 
         <details style={{ marginTop: 12 }}>
           <summary>분류별 · 계좌별 변화</summary>

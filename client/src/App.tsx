@@ -240,7 +240,7 @@ export default function App() {
           />
         )}
         {tab === "snapshot" && (
-          <SnapshotPanel rows={data.rows} onChange={updateRows} history={data.history} onHistoryChange={updateHistory} strategy={data.strategy} onStrategyChange={updateStrategy} />
+          <SnapshotPanel rows={data.rows} onChange={updateRows} history={data.history} onHistoryChange={updateHistory} strategy={data.strategy} onStrategyChange={updateStrategy} budget={data.budget} onBudgetChange={updateBudget} />
         )}
         {tab === "rebalance" && <RebalancePanel rows={data.rows} strategy={data.strategy} settings={data.rebalance} onChange={updateRebalance} onRowsChange={updateRows} onStrategyChange={updateStrategy} onEditInfo={() => setTab("budget")} />}
         {tab === "budget" && (
@@ -255,7 +255,7 @@ export default function App() {
             onLoanChange={updateLoan}
           />
         )}
-        {tab === "tax" && <TaxPanel budget={data.budget} onChange={updateBudget} grossIncome={data.home.currentIncome} onEditInfo={() => setTab("budget")} />}
+        {tab === "tax" && <TaxPanel rows={data.rows} budget={data.budget} onChange={updateBudget} grossIncome={data.home.currentIncome} onEditInfo={() => setTab("budget")} />}
         {tab === "sim" && (
           <SimulationPanel rows={data.rows} sim={data.simulation} onChange={updateSim} annualRaisePct={data.budget.annualRaisePct} budget={data.budget} />
         )}

@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react";
-import type { AssetCategory, AssetRow, HistoryEntry, ImportPreviewRow, StrategyData } from "../types";
+import type { AssetCategory, AssetRow, BudgetData, HistoryEntry, ImportPreviewRow, StrategyData } from "../types";
 import { fmtWon, newId, uniqueAccounts } from "../utils";
 import ImportXlsxModal from "./ImportXlsxModal";
 import HistoryPanel from "./HistoryPanel";
 import { cycleStart, isoDate, rowUpToDate } from "../monthly";
 import { daysUntilDue, dueLabel } from "../checklist";
 import { MATURITY_ALERT_DAYS, MATURITY_WARN_DAYS } from "../alerts";
+import IncomePanel from "./IncomePanel";
 import MoneyInput from "./MoneyInput";
 import SectionTitle from "./SectionTitle";
 
@@ -16,6 +17,8 @@ interface Props {
   onHistoryChange: (history: HistoryEntry[]) => void;
   strategy: StrategyData;
   onStrategyChange: (strategy: StrategyData) => void;
+  budget: BudgetData;
+  onBudgetChange: (budget: BudgetData) => void;
 }
 
 const catLabel: Record<AssetCategory, string> = { risk: "위험", safe: "안전", cash: "현금성" };
@@ -29,7 +32,7 @@ const catColor: Record<AssetCategory, { bg: string; fg: string }> = {
   cash: { bg: "var(--gold-soft)", fg: "var(--gold)" },
 };
 
-export default function SnapshotPanel({ rows, onChange, history, onHistoryChange, strategy, onStrategyChange }: Props) {
+export default function SnapshotPanel({ rows, onChange, history, onHistoryChange, strategy, onStrategyChange, budget, onBudgetChange }: Props) {
   const [showImport, setShowImport] = useState(false);
   const [accountFilter, setAccountFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<AssetCategory | "">("");
@@ -353,6 +356,8 @@ export default function SnapshotPanel({ rows, onChange, history, onHistoryChange
       </div>
 
       <HistoryPanel rows={rows} history={history} onChange={onHistoryChange} strategy={strategy} onStrategyChange={onStrategyChange} />
+
+      <IncomePanel rows={rows} onRowsChange={onChange} budget={budget} onBudgetChange={onBudgetChange} />
 
       {showImport && <ImportXlsxModal onClose={() => setShowImport(false)} onImport={handleImport} />}
     </section>

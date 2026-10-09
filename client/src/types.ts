@@ -10,6 +10,7 @@ export interface AssetRow {
   ticker?: string; // 종목코드(예: 360750). 시세 자동 불러오기에 사용
   priceDate?: string; // 1주 가격을 자동으로 불러온 기준일(YYYY-MM-DD). 없으면 직접 입력한 값
   rebalanceRule?: "hold" | "preferred"; // hold: 리밸런싱 때 팔지도 더 사지도 않음(만기 보유 채권 등), preferred: 매수는 이 상품에만
+  yieldPct?: number; // 연 예상 배당·이자율(%). 예상 연 수입과 자산 위치(세금) 점검에 쓴다
   excludeFromReturn?: boolean; // true면 투자 수익률 계산에서 제외 (입출금 통장, 전세·월세 보증금 등). 비어 있으면 포함
   costBasis?: number; // 만원, 이 행의 매입 원금. 일반 과세 계좌에서 팔 때 예상 세금을 계산하는 데 쓴다
   housingEligible: boolean; // false면 집 마련 가용자산 계산에서 제외 (연금저축·IRP 등)
@@ -25,7 +26,21 @@ export interface SimulationAssumptions {
   safeRate: number; // %
   contributionRiskRatio: number; // %
   baseMode?: "invest" | "total"; // 시뮬레이션 시작 자산: 투자자산(기본) / 전체 자산 (통장·보증금 등은 수익 0%)
+  retirement?: RetirementInput;
   applySalaryRaise: boolean; // 매년 적립액에 연봉 상승률을 복리로 반영할지
+}
+
+// 은퇴 시뮬레이션 입력 (금액은 만원, 오늘 물가 기준)
+export interface RetirementInput {
+  currentAge: number;
+  retireAge: number;
+  lifeExpectancy: number; // 이 나이까지 자산이 버티는지 본다
+  monthlySpend: number; // 은퇴 후 월 생활비 (오늘 물가)
+  inflationPct: number;
+  withdrawRatePct: number; // 4% 룰의 인출률
+  postRetireRatePct: number; // 은퇴 후 자산의 연 수익률
+  pensionMonthly: number; // 국민연금 등 월 수령액 (오늘 물가)
+  pensionStartAge: number;
 }
 
 export interface LoanInput {
@@ -85,6 +100,15 @@ export interface HistoryEntry {
   returnRate: number;
 }
 
+// 받은 배당·이자 기록
+export interface IncomeEntry {
+  id: string;
+  date: string; // YYYY-MM-DD
+  account: string;
+  kind: "dividend" | "interest";
+  amount: number; // 만원, 세후 실제 입금액
+}
+
 export interface BudgetCategory {
   id: string;
   name: string;
@@ -140,6 +164,10 @@ export interface BudgetData {
   refundOtherShare?: number; // 만원, 그중 월세 분담자에게 돌려줄 몫 (화면에서 계산해서 채움)
   pensionCreditLimit?: number; // 만원, 세액공제 대상 납입 한도 (연금저축+IRP 합산). 없으면 900
   pensionPaidThisYear?: number; // 만원, 올해 실제로 납입한 금액
+  incomeLog?: IncomeEntry[]; // 받은 배당·이자 기록
+  emergencyTargetMonths?: number; // 비상금 목표(개월 치 지출). 없으면 6
+  isaKind?: "general" | "low"; // ISA 유형: 일반형(비과세 200만원) / 서민형(400만원)
+  isaPaid?: { year: number; amount: number }; // 올해 ISA 납입액 (만원)
   taxPrep?: TaxPrepInput; // 연말정산 준비 카드
   pensionPaidYear?: number; // pensionPaidThisYear 가 어느 해의 값인지 (해가 바뀌면 0으로 본다)
 }

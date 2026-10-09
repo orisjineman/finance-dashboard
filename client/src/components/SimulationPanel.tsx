@@ -3,6 +3,8 @@ import type { AssetRow, BudgetData, SimulationAssumptions } from "../types";
 import { autoAnnualContribution, computeReturnTotals, computeTotals, fmtEok, fmtWon } from "../utils";
 import { runSimulation } from "../simulation";
 import MoneyInput from "./MoneyInput";
+import RetirementCard from "./RetirementCard";
+import { SimSensitivityCard } from "./SensitivityCard";
 import SectionTitle from "./SectionTitle";
 
 interface Props {
@@ -161,6 +163,10 @@ export default function SimulationPanel({ rows, sim: stored, onChange, annualRai
 </div>
         <p className="note">복리 · 매달 적립(연간 적립액 ÷ 12) · 1년차 = 지금부터 1년 뒤. 개요의 집 마련 예상 경로와 같은 계산이고, 참고용 시나리오야.</p>
       </div>
+
+      <SimSensitivityCard base={t.total} riskPct0={riskPct0} sim={sim} raisePct={annualRaisePct} idle={idle} />
+
+      <RetirementCard stored={stored} sim={sim} onChange={onChange} base={t.total} riskPct0={riskPct0} idle={idle} raisePct={annualRaisePct} />
     </section>
   );
 }

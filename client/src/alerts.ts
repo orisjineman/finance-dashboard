@@ -6,6 +6,8 @@ import { computeSubscription, thisYearValues } from "./tax";
 import { lastRecordDue } from "./returns";
 import { DUE_ALERT_DAYS, daysUntilDue, dueLabel } from "./checklist";
 import { fmtWon } from "./utils";
+import { emergencyStatus } from "./emergency";
+import { comprehensiveStatus, isaStatus } from "./taxplan";
 
 export interface Alert {
   id: string;
@@ -174,6 +176,32 @@ export function computeAlerts(data: DashboardData, now: Date = new Date()): Aler
       text: days < 0 ? `${name} 만기가 ${-days}일 지났어${amount}. 재투자나 인출 후 만기일을 고쳐줘.` : `${name} 만기 ${dueLabel(days)}${amount}`,
       tab: "snapshot",
     });
+  }
+
+  // 10) 비상금(바로 꺼낼 현금)이 목표 개월 수보다 적은지
+  const em = emergencyStatus(data.rows, data.budget);
+  if (em.months !== null && em.months < em.targetMonths) {
+    out.push({
+      id: "emergency-low",
+      level: em.months < 3 ? "warn" : "info",
+      text: `비상금이 지출 ${em.months.toFixed(1)}개월 치야 (목표 ${em.targetMonths}개월, ${fmtWon(em.shortfall)}원 부족)`,
+      tab: "overview",
+    });
+  }
+
+  // 11) 금융소득종합과세 기준(연 2천만원)에 가까워졌는지, ISA 비과세 한도를 거의 다 썼는지
+  const compre = comprehensiveStatus(data.budget.incomeLog ?? [], data.rows, now.getFullYear());
+  if (compre.level !== "ok") {
+    out.push({
+      id: "tax-comprehensive",
+      level: compre.level === "over" ? "warn" : "info",
+      text: `일반 과세 계좌의 올해 이자·배당 ${compre.level === "over" ? "예상" : "예상(기준의 80% 이상)"} ${fmtWon(compre.expected)}원 (종합과세 기준 ${fmtWon(compre.threshold)}원)`,
+      tab: "tax",
+    });
+  }
+  const isa = isaStatus(data.budget, data.rows, now.getFullYear());
+  if (isa.isaIncome > 0 && isa.taxFreeLeft === 0) {
+    out.push({ id: "tax-isa-taxfree", level: "info", text: `ISA 올해 수입이 비과세 한도(${fmtWon(isa.taxFreeLimit)}원)를 넘었어. 초과분은 9.9% 분리과세.`, tab: "tax" });
   }
 
   return out;

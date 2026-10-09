@@ -4,10 +4,10 @@ import { computeCurrentReturn, computeReturnTotals, fmtEok, fmtWon, newId } from
 import { describePeriod, overallReturn, yearlyReturns } from "../returns";
 import { fetchBenchmarkSeries } from "../api";
 import { benchmarkReturn, benchmarksOf, DEFAULT_BENCHMARKS, earliestDate, type PricePoint } from "../benchmark";
-import { makeHistoryEntry } from "../report";
+import { accountJumps, makeHistoryEntry } from "../report";
 import LineChart from "./LineChart";
 import MoneyInput from "./MoneyInput";
-import MonthlyReport from "./MonthlyReport";
+import MonthlyReport, { JumpWarning } from "./MonthlyReport";
 import SectionTitle from "./SectionTitle";
 
 interface Props {
@@ -46,6 +46,10 @@ export default function HistoryPanel({ rows, history, onChange, strategy, onStra
   const latestPrincipal = sorted[sorted.length - 1]?.cumulativePrincipal ?? 0;
   const principal = principalInput ?? latestPrincipal;
   const newContribution = principal - latestPrincipal;
+
+  // 기록하기 전에 직전 기록과 비교해서 잔액이 크게 달라진 계좌를 알려준다 (입력 실수 방지)
+  const lastEntry = sorted.at(-1);
+  const jumps = lastEntry ? accountJumps(lastEntry, makeHistoryEntry(rows, date, principal, latestPrincipal)) : [];
 
   function addEntry() {
     onChange([...history, makeHistoryEntry(rows, date, principal, latestPrincipal)]);
@@ -295,6 +299,7 @@ export default function HistoryPanel({ rows, history, onChange, strategy, onStra
           총평가금액 = '수익률' 체크 항목 합계 {fmtWon(t.total)}원. 투자원금은 지금까지 넣은 돈 합계라 새로 넣은 만큼만 늘려줘
           {newContribution !== 0 ? ` (직전 대비 ${newContribution > 0 ? "+" : ""}${fmtWon(newContribution)}원)` : ""}.
         </p>
+        <JumpWarning jumps={jumps} />
         <button className="btn" style={{ marginTop: 10 }} onClick={addEntry}>
           + 기록 추가
         </button>

@@ -1,4 +1,4 @@
-import type { BudgetData, MonthlyEditKey, RentShare, TaxPrepInput, TaxPrepPolicy } from "../types";
+import type { AssetRow, BudgetData, MonthlyEditKey, RentShare, TaxPrepInput, TaxPrepPolicy } from "../types";
 import { expectedRefund, fmtWon } from "../utils";
 import { DEFAULT_PENSION_LIMIT } from "../pension";
 import { autoRentPaid, computeRefundSplit, computeTaxPrep } from "../tax";
@@ -6,10 +6,12 @@ import { isoDate } from "../monthly";
 import { policyStale } from "../home";
 import MoneyInput from "./MoneyInput";
 import ProgressBar from "./ProgressBar";
+import TaxShelterCard from "./TaxShelterCard";
 import SectionTitle from "./SectionTitle";
 import { InfoValue } from "./InfoLink";
 
 interface Props {
+  rows: AssetRow[];
   budget: BudgetData;
   onChange: (budget: BudgetData) => void;
   grossIncome: number; // 만원, 내 정보의 연 총보수를 총급여로 쓴다
@@ -30,7 +32,7 @@ function PctInput({ value, onChange }: { value: number; onChange: (v: number) =>
 }
 
 // '연말정산' 탭. 환급액 전체가 아니라 올해 행동으로 바꿀 수 있는 항목의 세금 절감만 추정한다.
-export default function TaxPanel({ budget, onChange, grossIncome, onEditInfo }: Props) {
+export default function TaxPanel({ rows, budget, onChange, grossIncome, onEditInfo }: Props) {
   const tp = budget.taxPrep;
   if (!tp) return null;
   const now = new Date();
@@ -310,6 +312,7 @@ export default function TaxPanel({ budget, onChange, grossIncome, onEditInfo }: 
           </button>
         </details>
       </div>
+      <TaxShelterCard rows={rows} budget={budget} onChange={onChange} />
     </section>
   );
 }

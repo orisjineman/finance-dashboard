@@ -1,8 +1,9 @@
 import { useState } from "react";
 import type { AssetRow, BudgetData, HomePolicy, HomeSimInput, LoanInput, SimulationAssumptions, StrategyData } from "../types";
-import { fmtWon } from "../utils";
+import { computeLoanEquity, fmtWon } from "../utils";
 import { planHousing } from "../housing";
-import { computeHome, computeHomeAssets, monthlyAfterTax, netPayFactor, policyStale, totalInterest, yearExceeding, type Eligibility, type Judge } from "../home";
+import { assetsNeededAffordable, computeHome, computeHomeAssets, monthlyAfterTax, netPayFactor, policyStale, totalInterest, yearExceeding, type Eligibility, type Judge } from "../home";
+import { HousingSensitivityCard } from "./SensitivityCard";
 import MoneyInput from "./MoneyInput";
 import SectionTitle from "./SectionTitle";
 import { InfoValue } from "./InfoLink";
@@ -39,6 +40,7 @@ function Badge({ label, e }: { label: string; e: Eligibility }) {
 export default function HomeSimulator({ rows, home, onChange, loan, strategy, budget, simulation, onEditInfo }: Props) {
   const now = new Date();
   const [newPrice, setNewPrice] = useState(0);
+  const [sensPick, setSensPick] = useState("min");
   // 매수 때까지 더 모을 돈(자동) = 개요의 '이대로 모으면' 예상 경로에서 매수 예정일까지 늘어나는 금액 (수익률 반영 토글 공유)
   const plan = planHousing(rows, budget, simulation, strategy.housePurchaseDate, now, !!home.projectWithReturns);
   const monthsLeft = plan.monthsLeft;
@@ -51,6 +53,12 @@ export default function HomeSimulator({ rows, home, onChange, loan, strategy, bu
   const netFactor = netPayFactor(home, budget.monthlyNetIncome);
   const r = computeHome({ ...home, prices: shownPrices }, assets.equity, loan.ratePct, strategy.housePurchaseDate, now, raisePct, netFactor);
   const stale = policyStale(home.policy.updatedAt, now);
+  // 민감도 분석의 목표: 최소 자기자금, 그리고 적정 상환 기준(40년)
+  const targetRow = loan.price > 0 ? r.rows.find((x) => x.price === loan.price) : undefined;
+  const sensNeeds = [
+    ...(loan.price > 0 ? [{ key: "min", label: "최소 자기자금 (LTV 한도까지 대출)", need: computeLoanEquity(loan.price, home.policy.bogeumjari.ltv, home.closingCost) }] : []),
+    ...(targetRow ? [{ key: "afford", label: `적정 상환 기준 (40년, 월 상환 ≤ 세후 월급 ${home.targetRatioPct}%)`, need: assetsNeededAffordable({ result: r, row: targetRow, equity: assets.equity }, 40, home.closingCost) }] : []),
+  ];
   const currentYear = now.getFullYear();
 
   const set = <K extends keyof HomeSimInput>(key: K, value: HomeSimInput[K]) => onChange({ ...home, [key]: value });
@@ -406,6 +414,7 @@ export default function HomeSimulator({ rows, home, onChange, loan, strategy, bu
         </button>
         </details>
       </div>
+      {sensNeeds.length > 0 && <HousingSensitivityCard plan={plan} needs={sensNeeds} pick={sensPick} onPick={setSensPick} now={now} hasPurchaseDate={monthsLeft > 0} />}
     </>
   );
 }

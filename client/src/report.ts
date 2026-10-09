@@ -87,3 +87,44 @@ export function monthlyReports(history: HistoryEntry[]): MonthlyReport[] {
   for (let i = 1; i < sorted.length; i++) out.push(buildReport(sorted[i - 1], sorted[i]));
   return out.reverse();
 }
+
+export interface AccountJump {
+  account: string;
+  before: number;
+  after: number;
+  delta: number;
+  pct: number; // 변화율 (0~, 부호 있음). 이전 잔액이 0이면 Infinity
+}
+
+export const JUMP_PCT = 0.1;
+export const JUMP_MIN_AMOUNT = 100; // 만원, 이보다 작은 변동은 비율이 커도 무시
+
+// 두 기록 사이에 잔액이 크게 달라진 계좌: 입력 실수(0 하나 빠뜨림 등)를 잡아내는 용도. 변화율이 큰 순.
+export function accountJumps(from: HistoryEntry, to: HistoryEntry, threshold = JUMP_PCT, minAmount = JUMP_MIN_AMOUNT): AccountJump[] {
+  if (!from.accounts || !to.accounts) return [];
+  const before = new Map(from.accounts.map((a) => [a.account, a.amount]));
+  const after = new Map(to.accounts.map((a) => [a.account, a.amount]));
+  return [...new Set([...before.keys(), ...after.keys()])]
+    .map((account) => {
+      const b = before.get(account) ?? 0;
+      const a = after.get(account) ?? 0;
+      return { account, before: b, after: a, delta: a - b, pct: b !== 0 ? (a - b) / Math.abs(b) : a === 0 ? 0 : Infinity };
+    })
+    .filter((j) => Math.abs(j.delta) >= minAmount && Math.abs(j.pct) >= threshold)
+    .sort((x, y) => Math.abs(y.pct) - Math.abs(x.pct));
+}
+
+const won = (manwon: number) => `${manwon < 0 ? "−" : "+"}${Math.round(Math.abs(manwon) * 10000).toLocaleString("ko-KR")}원`;
+
+// 월간 리포트를 메신저·메모에 붙여 넣을 수 있는 글로 만든다
+export function reportText(r: MonthlyReport): string {
+  const lines = [`[월간 리포트] ${r.from.date} → ${r.to.date} (${r.days}일)`, `${r.coversAllAssets ? "전체 자산" : "투자 항목"} 변화 ${won(r.assetsDelta)}`, `· 넣은 돈 ${won(r.flows)}`, `· 운용 수익 ${won(r.profit)}`];
+  if (r.coversAllAssets) lines.push(`· 그 외(통장·보증금 등) ${won(r.other)}`);
+  if (r.rate !== null) lines.push(`수익률(넣은 돈 제외) ${r.rate >= 0 ? "+" : "−"}${(Math.abs(r.rate) * 100).toFixed(1)}%`);
+  for (const c of r.categories) lines.push(`${c.label} ${won(c.delta)}`);
+  if (r.accounts) {
+    const top = r.accounts.slice(0, 5);
+    if (top.length > 0) lines.push("계좌별 변화: " + top.map((a) => `${a.account || "(이름 없음)"} ${won(a.delta)}`).join(", "));
+  }
+  return lines.join("\n");
+}

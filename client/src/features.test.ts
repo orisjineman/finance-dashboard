@@ -4,6 +4,7 @@ import type { RebalanceTrade } from "./rebalance";
 import { computePensionCredit, paidThisYear } from "./pension";
 import { estimateCosts } from "./costs";
 import { runSimulation } from "./simulation";
+import { growBalances } from "./housing";
 import { computeAlerts } from "./alerts";
 
 const now = new Date("2026-10-15T00:00:00");
@@ -72,12 +73,22 @@ describe("estimateCosts", () => {
 
 describe("시뮬레이션", () => {
   const sim: SimulationAssumptions = { annualContribution: 100, years: 3, riskRate: 10, safeRate: 0, contributionRiskRatio: 100, applySalaryRaise: false };
-  it("연도별로 복리 계산한다 (위험 100%, 수익 10%)", () => {
+  it("매달 적립·월 복리로 계산한다 (위험 100%, 수익 10%)", () => {
     const r = runSimulation(1000, 1, sim, 0);
     expect(r).toHaveLength(3);
-    expect(r[0].total).toBeCloseTo(1210, 6); // (1000+100)*1.1
-    expect(r[1].total).toBeCloseTo(1441, 6);
+    // 연초 한꺼번에 넣는 것(1210)보다는 적고 연말에 넣는 것(1200)보다는 많다
+    expect(r[0].total).toBeGreaterThan(1200);
+    expect(r[0].total).toBeLessThan(1210);
+    expect(r[1].total).toBeGreaterThan(r[0].total * 1.1);
     expect(r[2].profit).toBeCloseTo(r[2].total - 1300, 6);
+  });
+  it("집 마련 예상 경로와 같은 가정이면 같은 값이 나온다", () => {
+    const g = { risk: 700, safe: 300, cash: 0, monthlyAdd: 25, contribRiskPct: 40, riskRatePct: 8, safeRatePct: 3, withReturns: true };
+    const path = growBalances(g, 36);
+    const r = runSimulation(1000, 0.7, { annualContribution: 300, years: 3, riskRate: 8, safeRate: 3, contributionRiskRatio: 40, applySalaryRaise: false }, 0);
+    expect(r[0].total).toBeCloseTo(path[12], 6);
+    expect(r[1].total).toBeCloseTo(path[24], 6);
+    expect(r[2].total).toBeCloseTo(path[36], 6);
   });
   it("수익 없는 자산(idle)은 그대로 더해지고 수익에는 안 잡힌다", () => {
     const withIdle = runSimulation(1000, 1, sim, 0, 500);

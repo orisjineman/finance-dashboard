@@ -159,7 +159,7 @@ export default function SimulationPanel({ rows, sim: stored, onChange, annualRai
           </tbody>
         </table>
 </div>
-        <p className="note">복리 · 매년 초 적립 · 1년차 = 지금부터 1년 뒤. 참고용 시나리오야.</p>
+        <p className="note">복리 · 매달 적립(연간 적립액 ÷ 12) · 1년차 = 지금부터 1년 뒤. 개요의 집 마련 예상 경로와 같은 계산이고, 참고용 시나리오야.</p>
       </div>
     </section>
   );

@@ -20,6 +20,7 @@ export interface GrowthInput {
   safe: number;
   cash: number; // 보증금·통장 등, 수익 없음
   monthlyAdd: number; // 매달 새로 모으는 돈
+  addAt?: (month: number) => number; // 있으면 monthlyAdd 대신 이 값을 쓴다 (month = 1부터, 연봉 상승처럼 해마다 달라지는 적립액용. 음수면 인출)
   contribRiskPct: number; // 새로 모으는 돈 중 위험자산 비중 (%)
   riskRatePct: number; // 연 기대수익률 (%)
   safeRatePct: number;
@@ -27,16 +28,18 @@ export interface GrowthInput {
 }
 
 // month = 0..months 각 달의 잔액. 매달 초 저축액을 넣고, 한 달 치 수익(연 수익률을 월로 환산)을 붙인다.
+// 개요의 집 마련 예상 경로와 시뮬레이션 탭이 모두 이 계산 하나를 쓴다.
 export function growBalances(g: GrowthInput, months: number): number[] {
   const mr = (pct: number) => (g.withReturns ? Math.pow(1 + pct / 100, 1 / 12) - 1 : 0);
   const rr = mr(g.riskRatePct);
   const sr = mr(g.safeRatePct);
-  const add = Math.max(0, g.monthlyAdd);
+  const fixedAdd = Math.max(0, g.monthlyAdd);
   const share = Math.min(1, Math.max(0, g.contribRiskPct / 100));
   let risk = g.risk;
   let safe = g.safe;
   const out = [risk + safe + g.cash];
   for (let m = 1; m <= months; m++) {
+    const add = g.addAt ? g.addAt(m) : fixedAdd;
     risk = (risk + add * share) * (1 + rr);
     safe = (safe + add * (1 - share)) * (1 + sr);
     out.push(risk + safe + g.cash);

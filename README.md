@@ -50,6 +50,17 @@ npm start
 
 브라우저에서 `http://localhost:4300` 접속.
 
+### Windows 로그인 시 자동 실행
+
+시작프로그램에 바로가기를 등록하면 로그인할 때마다 창 없이 빌드 후 `http://localhost:4300`에 서버가 뜹니다. 로그는 프로젝트 루트의 `.finance-dashboard*.log`에 남습니다.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File bin\autostart-windows.ps1            # 등록
+powershell -ExecutionPolicy Bypass -File bin\autostart-windows.ps1 -Uninstall # 해제
+```
+
+지금 바로 띄우려면 `bin\start-windows.ps1`을 같은 방식으로 실행하면 됩니다.
+
 ## 기능
 
 탭은 **자주 쓰는 순서**대로 앞에 있고, 가끔 여는 **보조 탭**은 구분선 뒤에 있습니다.

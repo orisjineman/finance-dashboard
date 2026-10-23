@@ -61,6 +61,38 @@ powershell -ExecutionPolicy Bypass -File bin\autostart-windows.ps1 -Uninstall # 
 
 지금 바로 띄우려면 `bin\start-windows.ps1`을 같은 방식으로 실행하면 됩니다.
 
+### 여러 기기에서 같은 데이터 쓰기 (Google Drive 동기화)
+
+데이터 폴더는 환경 변수 `FD_DATA_DIR`로 바꿀 수 있습니다. 이 값을 클라우드 동기화 폴더로 지정하면 맥북·Windows가 같은 데이터를 씁니다. 서버는 요청마다 파일을 새로 읽으므로 다시 켤 필요는 없습니다.
+
+1. 두 기기 모두 [Google Drive for desktop](https://www.google.com/drive/download/)을 설치하고 같은 계정으로 로그인합니다.
+2. **처음 한 번, 데이터가 있는 기기에서**: 서버를 끄고(`bin/finance-dashboard stop`) `data/` 폴더를 `내 드라이브/finance-dashboard-data/`로 복사합니다(명령은 아래 macOS 예시). 잘 열리는 걸 확인한 뒤 원본은 `data.bak`처럼 이름을 바꿔 둡니다.
+3. 그 폴더를 두 기기 모두에서 우클릭 → **오프라인 사용 가능**으로 설정합니다. 기본 스트리밍 모드에서는 파일이 아직 안 내려온 상태일 수 있습니다.
+4. 기기마다 `FD_DATA_DIR`를 지정합니다.
+
+   macOS (zsh에서는 아직 없는 경로에 `*`를 쓰면 실패하므로, 드라이브 경로를 먼저 변수에 담습니다):
+
+   ```bash
+   GD=$(echo ~/Library/CloudStorage/GoogleDrive-*/"내 드라이브")
+   cp -R data "$GD/finance-dashboard-data"   # 2번의 복사 (처음 한 번)
+   echo "export FD_DATA_DIR=\"$GD/finance-dashboard-data\"" >> ~/.zshrc
+   source ~/.zshrc && ls "$FD_DATA_DIR/finance-dashboard.json"
+   ```
+
+   Windows (한 번 실행 후 새 터미널, 자동 실행에도 적용됨):
+
+   ```powershell
+   [Environment]::SetEnvironmentVariable("FD_DATA_DIR", "G:\내 드라이브\finance-dashboard-data", "User")
+   ```
+
+   드라이브 언어 설정에 따라 `내 드라이브`가 `My Drive`일 수 있으니 실제 경로를 확인하세요.
+
+주의할 점:
+
+- **두 기기에서 동시에 쓰지 마세요.** 충돌 방지(409)는 같은 서버에 열린 탭끼리만 동작합니다. 기기를 바꾸면 먼저 페이지를 새로고침하세요.
+- `bin/finance-dashboard start`와 `bin/start-windows.ps1`은 `FD_DATA_DIR`에 데이터 파일이 없으면 시작하지 않습니다(빈 기본값 파일이 생겨 동기화 충돌이 나는 것을 막기 위함). `npm run dev`에는 이 확인이 없으니 동기화가 끝난 뒤 실행하세요.
+- 백업(`backups/`)과 API 키(`secrets.json`)도 같은 폴더에 있어서 함께 동기화됩니다.
+
 ## 기능
 
 탭은 **자주 쓰는 순서**대로 앞에 있고, 가끔 여는 **보조 탭**은 구분선 뒤에 있습니다.

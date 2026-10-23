@@ -15,6 +15,12 @@ start() {
     echo "이미 실행 중이야 (PID $(cat "$PID_FILE")). http://localhost:$PORT"
     return 0
   fi
+  # 동기화 폴더가 아직 안 내려왔는데 서버를 켜면 빈 기본값 파일이 생겨 진짜 데이터와 충돌한다.
+  if [ -n "${FD_DATA_DIR:-}" ] && [ ! -f "$FD_DATA_DIR/finance-dashboard.json" ]; then
+    echo "데이터 파일이 없어서 시작하지 않음: $FD_DATA_DIR/finance-dashboard.json"
+    echo "클라우드 동기화가 끝났는지 확인해줘."
+    exit 1
+  fi
   echo "빌드 중..."
   (cd "$DIR" && npm run build)
   echo "서버 시작 중..."

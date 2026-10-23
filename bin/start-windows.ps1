@@ -27,6 +27,12 @@ if (Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyCon
   exit 0
 }
 
+# 동기화 폴더가 아직 안 내려왔는데 서버를 켜면 빈 기본값 파일이 생겨 진짜 데이터와 충돌한다.
+if ($env:FD_DATA_DIR -and -not (Test-Path (Join-Path $env:FD_DATA_DIR "finance-dashboard.json"))) {
+  Write-Log "데이터 파일이 없어서 시작하지 않음: $env:FD_DATA_DIR\finance-dashboard.json (클라우드 동기화 확인 필요)"
+  exit 1
+}
+
 Write-Log "빌드 중..."
 Push-Location $Dir
 try {

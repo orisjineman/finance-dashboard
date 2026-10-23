@@ -2,7 +2,9 @@
   "permissions": {
     "deny": [
       "Read(./data/**)",
-      "Edit(./data/**)"
+      "Edit(./data/**)",
+      "Read(//**/finance-dashboard-data/**)",
+      "Edit(//**/finance-dashboard-data/**)"
     ]
   }
 }

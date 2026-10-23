@@ -9,6 +9,7 @@ import { MATURITY_ALERT_DAYS, MATURITY_WARN_DAYS } from "../alerts";
 import IncomePanel from "./IncomePanel";
 import MoneyInput from "./MoneyInput";
 import SectionTitle from "./SectionTitle";
+import { useToday } from "../useToday";
 
 interface Props {
   rows: AssetRow[];
@@ -44,7 +45,8 @@ export default function SnapshotPanel({ rows, onChange, history, onHistoryChange
   const [maturityEditId, setMaturityEditId] = useState<string | null>(null);
   const staleOnly = staleIds !== null;
   // 이번 정리 주기(기록일 3일 전부터)에 잔액을 고치거나 '확인'한 행인지
-  const start = cycleStart(strategy.recordDay, new Date());
+  const today = useToday();
+  const start = cycleStart(strategy.recordDay, today);
   const updatedCount = rows.filter((r) => rowUpToDate(r, start)).length;
 
   const accounts = useMemo(() => uniqueAccounts(rows), [rows]);
@@ -132,7 +134,7 @@ export default function SnapshotPanel({ rows, onChange, history, onHistoryChange
         </button>
       );
     }
-    const days = daysUntilDue(r.maturityDate, new Date());
+    const days = daysUntilDue(r.maturityDate, today);
     const tone = days === null ? "" : days <= MATURITY_WARN_DAYS ? "risk" : days <= MATURITY_ALERT_DAYS ? "cash" : "";
     return (
       <button className={`tag check-due ${tone}`} title="만기일 바꾸기" onClick={() => setMaturityEditId(r.id)}>

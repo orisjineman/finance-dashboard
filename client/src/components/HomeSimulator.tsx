@@ -7,6 +7,7 @@ import { HousingSensitivityCard } from "./SensitivityCard";
 import MoneyInput from "./MoneyInput";
 import SectionTitle from "./SectionTitle";
 import { InfoValue } from "./InfoLink";
+import { useToday } from "../useToday";
 
 interface Props {
   rows: AssetRow[];
@@ -38,7 +39,7 @@ function Badge({ label, e }: { label: string; e: Eligibility }) {
 
 // '내 집 마련' 탭의 시뮬레이터. 집값 후보별로 필요 대출, 월 상환액, 상환 비중, 대출 자격을 비교한다.
 export default function HomeSimulator({ rows, home, onChange, loan, strategy, budget, simulation, onEditInfo }: Props) {
-  const now = new Date();
+  const now = useToday();
   const [newPrice, setNewPrice] = useState(0);
   const [sensPick, setSensPick] = useState("min");
   // 매수 때까지 더 모을 돈(자동) = 개요의 '이대로 모으면' 예상 경로에서 매수 예정일까지 늘어나는 금액 (수익률 반영 토글 공유)

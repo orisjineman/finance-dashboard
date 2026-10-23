@@ -9,6 +9,7 @@ import LineChart from "./LineChart";
 import MoneyInput from "./MoneyInput";
 import MonthlyReport, { JumpWarning } from "./MonthlyReport";
 import SectionTitle from "./SectionTitle";
+import { useToday } from "../useToday";
 
 interface Props {
   rows: AssetRow[];
@@ -36,7 +37,7 @@ export default function HistoryPanel({ rows, history, onChange, strategy, onStra
   const targetPct = strategy.targetReturnPct ?? 7;
   const periods = yearlyReturns(history);
   const overall = overallReturn(periods);
-  const now = new Date();
+  const now = useToday();
   const [date, setDate] = useState(todayIso());
   const [principalInput, setPrincipalInput] = useState<number | null>(null);
 

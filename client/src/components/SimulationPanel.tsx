@@ -6,6 +6,7 @@ import MoneyInput from "./MoneyInput";
 import RetirementCard from "./RetirementCard";
 import { SimSensitivityCard } from "./SensitivityCard";
 import SectionTitle from "./SectionTitle";
+import { useToday } from "../useToday";
 
 interface Props {
   rows: AssetRow[];
@@ -29,7 +30,7 @@ export default function SimulationPanel({ rows, sim: stored, onChange, annualRai
   const startTotal = t.total + idle;
   const results = useMemo(() => runSimulation(t.total, riskPct0, sim, annualRaisePct, idle), [t.total, riskPct0, sim, annualRaisePct, idle]);
 
-  const thisYear = new Date().getFullYear();
+  const thisYear = useToday().getFullYear();
 
   const maxVal = Math.max(...results.map((r) => r.total), 1);
   const showEvery = sim.years > 12 ? Math.ceil(sim.years / 12) : 1;

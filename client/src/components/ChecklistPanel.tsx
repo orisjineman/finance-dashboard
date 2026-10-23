@@ -3,6 +3,7 @@ import type { BudgetData, ChecklistItem } from "../types";
 import { fmtWon, newId } from "../utils";
 import { autoAmount, daysUntilDue, DUE_ALERT_DAYS, dueLabel, moveUndone, normalizeOrder, splitUpcoming, toggleItem, UPCOMING_DAYS } from "../checklist";
 import SectionTitle from "./SectionTitle";
+import { useToday } from "../useToday";
 
 interface Props {
   items: ChecklistItem[];
@@ -14,7 +15,7 @@ interface Props {
 // 안 한 항목은 끌어서(또는 ↑↓ 버튼으로) 순서를 바꾸고, 완료한 항목은 맨 아래에 모인다.
 // 할 날짜가 한 달보다 먼 항목은 '예정'으로 빼두고, 날짜가 다가오면 위로 올라오고 알림이 뜬다.
 export default function ChecklistPanel({ items, onChange, budget, income }: Props) {
-  const now = new Date();
+  const now = useToday();
   const ordered = normalizeOrder(items);
   const undone = ordered.filter((i) => !i.done);
   const done = ordered.filter((i) => i.done);

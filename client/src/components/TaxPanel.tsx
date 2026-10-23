@@ -9,6 +9,7 @@ import ProgressBar from "./ProgressBar";
 import TaxShelterCard from "./TaxShelterCard";
 import SectionTitle from "./SectionTitle";
 import { InfoValue } from "./InfoLink";
+import { useToday } from "../useToday";
 
 interface Props {
   rows: AssetRow[];
@@ -33,9 +34,9 @@ function PctInput({ value, onChange }: { value: number; onChange: (v: number) =>
 
 // '연말정산' 탭. 환급액 전체가 아니라 올해 행동으로 바꿀 수 있는 항목의 세금 절감만 추정한다.
 export default function TaxPanel({ rows, budget, onChange, grossIncome, onEditInfo }: Props) {
+  const now = useToday();
   const tp = budget.taxPrep;
   if (!tp) return null;
-  const now = new Date();
   const year = now.getFullYear();
   const r = computeTaxPrep(budget, tp, grossIncome, now);
   const split = computeRefundSplit(budget, tp, grossIncome, now);

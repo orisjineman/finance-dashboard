@@ -4,6 +4,7 @@ import { fmtWon } from "../utils";
 import MoneyInput from "./MoneyInput";
 import ProgressBar from "./ProgressBar";
 import SectionTitle from "./SectionTitle";
+import { useToday } from "../useToday";
 
 interface Props {
   rows: AssetRow[];
@@ -15,7 +16,7 @@ const LEVEL = { ok: { tag: "safe", text: "여유" }, near: { tag: "cash", text: 
 
 // ISA 납입·비과세 한도, 금융소득종합과세 접근, 배당·이자 큰 상품의 계좌 위치를 점검한다.
 export default function TaxShelterCard({ rows, budget, onChange }: Props) {
-  const year = new Date().getFullYear();
+  const year = useToday().getFullYear();
   const isa = isaStatus(budget, rows, year);
   const compre = comprehensiveStatus(budget.incomeLog ?? [], rows, year);
   const tips = placementTips(rows);

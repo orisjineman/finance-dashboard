@@ -23,17 +23,28 @@ export default function DataPanel() {
   const [pendingImport, setPendingImport] = useState<{ name: string; data: unknown } | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const loadFailed = (e: unknown) => {
+    setMessage(e instanceof Error ? e.message : "백업 목록을 불러오지 못했어.");
+    setBackups([]);
+  };
+
   async function refresh() {
     try {
       setBackups(await listBackups());
     } catch (e) {
-      setMessage(e instanceof Error ? e.message : "백업 목록을 불러오지 못했어.");
-      setBackups([]);
+      loadFailed(e);
     }
   }
 
+  // 처음 열 때 백업 목록을 불러온다. 응답 전에 패널을 닫으면 결과는 버린다.
   useEffect(() => {
-    void refresh();
+    let alive = true;
+    listBackups()
+      .then((list) => alive && setBackups(list))
+      .catch((e: unknown) => alive && loadFailed(e));
+    return () => {
+      alive = false;
+    };
   }, []);
 
   async function run(task: () => Promise<void>, done: string) {

@@ -14,6 +14,7 @@ import ProgressBar from "./ProgressBar";
 import type { Alert } from "../alerts";
 import EmergencyCard from "./EmergencyCard";
 import SectionTitle from "./SectionTitle";
+import { useToday } from "../useToday";
 
 interface Props {
   rows: AssetRow[];
@@ -53,12 +54,13 @@ function daysUntil(dateStr: string): number | null {
 }
 
 export default function OverviewPanel({ rows, strategy, onStrategyChange, budget, loan, history, alerts, home, onHomeChange, rebalance, simulation, onBudgetChange, onNavigate }: Props) {
+  const now = useToday();
   const t = computeTotals(rows);
   const inv = computeReturnTotals(rows);
   const dday = daysUntil(strategy.isaDutyEndDate);
   const houseYears = yearsUntil(strategy.housePurchaseDate);
   const currentReturn = computeCurrentReturn(rows, history);
-  const close = monthlyClose({ rows, history, strategy, budget }, alerts, new Date());
+  const close = monthlyClose({ rows, history, strategy, budget }, alerts, now);
   // 기록·리밸런싱 알림은 '이번 달 정리'에서 보여주니 점검할 것에서는 뺀다
   const todoAlerts = alerts.filter((al) => !al.id.startsWith("snapshot-") && !al.id.startsWith("rebalance-"));
   const closeDone = close.steps.filter((st) => st.done).length;
@@ -69,13 +71,13 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
   function setEdited(key: MonthlyEditKey, on: boolean) {
     if (!budget.taxPrep) return;
     const editedAt = { ...budget.taxPrep.editedAt };
-    if (on) editedAt[key] = isoDate(new Date());
+    if (on) editedAt[key] = isoDate(now);
     else delete editedAt[key];
     onBudgetChange({ ...budget, taxPrep: { ...budget.taxPrep, editedAt } });
   }
   const targetReturn = strategy.targetReturnPct ?? 7;
   const lastPeriod = yearlyReturns(history).at(-1) ?? null;
-  const lastView = lastPeriod ? describePeriod(lastPeriod, new Date(), targetReturn) : null;
+  const lastView = lastPeriod ? describePeriod(lastPeriod, now, targetReturn) : null;
   const [editingSummary, setEditingSummary] = useState(false);
   const [draft, setDraft] = useState(strategy.overviewSummary.join("\n"));
 
@@ -83,7 +85,6 @@ export default function OverviewPanel({ rows, strategy, onStrategyChange, budget
   const equityNeeded = computeLoanEquity(loan.price, home.policy.bogeumjari.ltv, home.closingCost);
 
   const { pensionAnnualContribution } = budget;
-  const now = new Date();
   const withReturns = !!home.projectWithReturns;
   // 집 마련 예상 경로 (내 집 마련 탭의 '더 모을 돈'과 같은 계산). 수익률 반영은 토글로 고른다.
   const plan = planHousing(rows, budget, simulation, strategy.housePurchaseDate, now, withReturns);

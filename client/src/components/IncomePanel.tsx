@@ -5,6 +5,7 @@ import { fmtWon, newId, uniqueAccounts } from "../utils";
 import { isoDate } from "../monthly";
 import MoneyInput from "./MoneyInput";
 import SectionTitle from "./SectionTitle";
+import { useToday } from "../useToday";
 
 interface Props {
   rows: AssetRow[];
@@ -18,11 +19,12 @@ const KIND_LABEL = { dividend: "배당", interest: "이자" } as const;
 // 받은 배당·이자를 기록하고, 상품별 예상 수익률로 앞으로의 연 수입을 본다.
 export default function IncomePanel({ rows, onRowsChange, budget, onBudgetChange }: Props) {
   const log = budget.incomeLog ?? [];
-  const year = new Date().getFullYear();
+  const today = useToday();
+  const year = today.getFullYear();
   const summary = yearIncome(log, year);
   const expected = expectedAnnualIncome(rows);
   const accounts = uniqueAccounts(rows);
-  const [date, setDate] = useState(isoDate(new Date()));
+  const [date, setDate] = useState(isoDate(today));
   const [account, setAccount] = useState("");
   const [kind, setKind] = useState<IncomeEntry["kind"]>("dividend");
   const [amount, setAmount] = useState(0);
@@ -35,7 +37,7 @@ export default function IncomePanel({ rows, onRowsChange, budget, onBudgetChange
   }
   const setYield = (id: string, v: string) => onRowsChange(rows.map((r) => (r.id === id ? { ...r, yieldPct: v === "" ? undefined : parseFloat(v) || 0 } : r)));
   const thisYear = log.filter((e) => e.date.startsWith(`${year}-`)).sort((a, b) => b.date.localeCompare(a.date));
-  const monthNow = new Date().getMonth() + 1;
+  const monthNow = today.getMonth() + 1;
   const pace = expected.total > 0 ? summary.total / ((expected.total * monthNow) / 12) : null; // 지금까지 받았어야 할 금액 대비
 
   return (

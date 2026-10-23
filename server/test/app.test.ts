@@ -164,3 +164,31 @@ describe("백업·복원·내보내기·가져오기", () => {
     expect(backups.some((b) => b.name.endsWith("-before-import.json"))).toBe(true);
   });
 });
+
+describe("외부 요청 차단", () => {
+  it("다른 사이트(Origin)에서 온 요청은 403", async () => {
+    const res = await fetch(`${base}/api/data`, { headers: { Origin: "https://evil.example" } });
+    expect(res.status).toBe(403);
+    const put = await fetch(`${base}/api/rows`, json([], { Origin: "https://evil.example" }));
+    expect(put.status).toBe(403);
+  });
+
+  it("이 PC에서 연 화면(localhost Origin)은 통과", async () => {
+    const res = await fetch(`${base}/api/data`, { headers: { Origin: "http://localhost:5173" } });
+    expect(res.status).toBe(200);
+  });
+
+  it("Host가 외부 도메인이면 403 (DNS 리바인딩)", async () => {
+    const { request } = await import("node:http");
+    const { port } = server.address() as AddressInfo;
+    const status = await new Promise<number>((resolve, reject) => {
+      request({ host: "127.0.0.1", port, path: "/api/data", headers: { Host: "evil.example" } }, (res) => {
+        res.resume();
+        resolve(res.statusCode ?? 0);
+      })
+        .on("error", reject)
+        .end();
+    });
+    expect(status).toBe(403);
+  });
+});

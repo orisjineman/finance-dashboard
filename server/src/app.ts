@@ -1,5 +1,4 @@
 import express from "express";
-import cors from "cors";
 import multer from "multer";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -26,13 +25,32 @@ const SECTIONS = {
 } as const satisfies Record<keyof DashboardData, "array" | "object">;
 type Section = keyof typeof SECTIONS;
 
+// 이 PC의 브라우저에서 온 요청만 받는다. Host 검사는 DNS 리바인딩(외부 도메인을 127.0.0.1로 돌려 접근)을,
+// Origin 검사는 다른 사이트가 폼 전송 등으로 몰래 보내는 요청을 막는다. (Origin이 없으면 curl 같은 같은 PC의 도구)
+const LOCAL_HOST = /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/;
+
+function isLocalOrigin(origin: string): boolean {
+  try {
+    return LOCAL_HOST.test(new URL(origin).host);
+  } catch {
+    return false; // "null" 등 해석할 수 없는 Origin
+  }
+}
+
 function validShape(kind: "array" | "object", body: unknown): boolean {
   return kind === "array" ? Array.isArray(body) : typeof body === "object" && body !== null && !Array.isArray(body);
 }
 
 export function createApp() {
   const app = express();
-  app.use(cors({ exposedHeaders: ["X-Version"] }));
+  app.use((req, res, next) => {
+    const origin = req.header("origin");
+    if (!LOCAL_HOST.test(req.header("host") ?? "") || (origin && !isLocalOrigin(origin))) {
+      res.status(403).json({ error: "이 PC에서 연 화면에서만 쓸 수 있어." });
+      return;
+    }
+    next();
+  });
   app.use(express.json({ limit: "5mb" }));
 
   const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
